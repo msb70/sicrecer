@@ -49,11 +49,28 @@ export interface Convenio {
   organizacion_id: string
 }
 
+// ─── REQUISITO ────────────────────────────────────────────────
+export interface Requisito {
+  id: string
+  nombre: string
+  descripcion: string
+  obligatorio: boolean
+}
+
+// ─── ACTIVIDAD ECONÓMICA ──────────────────────────────────────
+export interface ActividadEconomica {
+  id: string
+  nombre: string
+  descripcion: string
+  sector: string
+}
+
 // ─── PRODUCTO ─────────────────────────────────────────────────
 export interface ProductoCredito {
   id: string
   convenio_id: string
   nombre: string
+  descripcion?: string
   tasa_nominal_anual: number
   metodo_interes: 'flat' | 'declining_balance'
   periodo_gracia_dias: number
@@ -62,6 +79,8 @@ export interface ProductoCredito {
   monto_min: number
   monto_max: number
   frecuencia: 'semanal' | 'quincenal' | 'mensual'
+  requisito_ids?: string[]
+  actividad_economica_ids?: string[]
 }
 
 // ─── CLIENTE / PROSPECTO ──────────────────────────────────────
@@ -102,6 +121,7 @@ export type EstadoSolicitud =
   | 'revision_comite'
   | 'aprobada'
   | 'rechazada'
+  | 'firma'
   | 'desembolsada'
 
 export interface Solicitud {
@@ -117,6 +137,20 @@ export interface Solicitud {
   banda_riesgo?: 'A' | 'B' | 'C' | 'D' | 'E'
   fecha_solicitud: string
   facilitador_id: string
+}
+
+// ─── COBRANZA ─────────────────────────────────────────────────
+export interface Cobranza {
+  id: string
+  cliente_id: string
+  cliente_nombre: string
+  credito_id: string
+  fecha: string
+  banco: string
+  numero_deposito: string
+  monto: number
+  cuotas_aplicadas: number[]   // índices (1-based) de cuotas que cubre
+  creado_por: string           // facilitador_id
 }
 
 // ─── CREDITO ──────────────────────────────────────────────────

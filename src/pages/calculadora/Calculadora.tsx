@@ -173,7 +173,7 @@ export default function Calculadora() {
 
               {/* Plazo */}
               <NumInput
-                label={`Plazo (en cuotas ${FRECUENCIA_LABEL[producto.frecuencia].toLowerCase()}s)`}
+                label={`Plazo (cuotas ${producto.frecuencia === 'mensual' ? 'mensuales' : producto.frecuencia === 'quincenal' ? 'quincenales' : 'semanales'})`}
                 value={plazo}
                 onChange={setPlazo}
                 min={producto.plazo_min}

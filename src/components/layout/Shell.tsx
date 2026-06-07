@@ -4,7 +4,8 @@ import { clsx } from 'clsx'
 import {
   LayoutDashboard, Users, FileText, CheckSquare, CreditCard,
   MapPin, BarChart2, Settings, LogOut, Menu, X, ChevronDown,
-  Calendar, Building2, Package, UserCheck, Bot, Calculator
+  Calendar, Building2, Package, UserCheck, Bot, Calculator,
+  ClipboardList, Briefcase, Banknote
 } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import type { Rol } from '../../types'
@@ -24,6 +25,8 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Convenios',       to: '/convenios',     icon: <Building2 size={18} />,       roles: ['administrador', 'coordinador'] },
   { label: 'Productos',       to: '/productos',     icon: <Package size={18} />,         roles: ['administrador', 'coordinador'] },
   { label: 'Zonificación',    to: '/zonas',         icon: <MapPin size={18} />,          roles: ['administrador', 'coordinador'] },
+  { label: 'Requisitos',       to: '/requisitos',    icon: <ClipboardList size={18} />,   roles: ['administrador', 'coordinador'] },
+  { label: 'Act. Económicas', to: '/actividades-economicas', icon: <Briefcase size={18} />, roles: ['administrador', 'coordinador'] },
   { label: 'Usuarios',        to: '/usuarios',      icon: <UserCheck size={18} />,       roles: ['administrador'] },
   { label: 'Prospectos',      to: '/prospectos',    icon: <Users size={18} />,           roles: ['facilitador', 'coordinador'] },
   { label: 'Clientes',        to: '/clientes',      icon: <Users size={18} />,           roles: ['facilitador', 'coordinador', 'administrador'] },
@@ -31,6 +34,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Comité',          to: '/comite',        icon: <CheckSquare size={18} />,     roles: ['comite', 'administrador'] },
   { label: 'Cartera',         to: '/cartera',       icon: <CreditCard size={18} />,      roles: ['facilitador', 'coordinador', 'administrador'] },
   { label: 'Calculadora',     to: '/calculadora',   icon: <Calculator size={18} />,      roles: ['facilitador', 'coordinador', 'administrador'] },
+  { label: 'Cobranza',        to: '/cobranza',      icon: <Banknote size={18} />,        roles: ['facilitador', 'coordinador', 'administrador'] },
   { label: 'Agenda',          to: '/agenda',        icon: <Calendar size={18} />,        roles: ['facilitador'] },
   { label: 'Reportes',        to: '/reportes',      icon: <BarChart2 size={18} />,       roles: ['administrador', 'coordinador', 'auditor'] },
   { label: 'Asistente IA',    to: '/asistente',     icon: <Bot size={18} />,             roles: ['facilitador', 'coordinador'] },

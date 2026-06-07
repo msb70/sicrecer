@@ -27,6 +27,12 @@ import Configuracion     from '../pages/configuracion/Configuracion'
 // Calculadora
 import Calculadora       from '../pages/calculadora/Calculadora'
 
+// Nuevos módulos
+import ListaRequisitos           from '../pages/requisitos/ListaRequisitos'
+import ListaActividadesEconomicas from '../pages/actividades/ListaActividadesEconomicas'
+import ListaCobranzas            from '../pages/cobranza/ListaCobranzas'
+import FormCobranza              from '../pages/cobranza/FormCobranza'
+
 // Sprint 2 — Back-office
 import ListaConvenios    from '../pages/convenios/ListaConvenios'
 import DetalleConvenio   from '../pages/convenios/DetalleConvenio'
@@ -118,6 +124,16 @@ const router = createBrowserRouter([
 
   // Calculadora
   { path: '/calculadora',   element: <PrivateRoute><Calculadora /></PrivateRoute> },
+
+  // Requisitos
+  { path: '/requisitos',    element: <PrivateRoute><ListaRequisitos /></PrivateRoute> },
+
+  // Actividades económicas
+  { path: '/actividades-economicas', element: <PrivateRoute><ListaActividadesEconomicas /></PrivateRoute> },
+
+  // Cobranza
+  { path: '/cobranza',        element: <PrivateRoute><ListaCobranzas /></PrivateRoute> },
+  { path: '/cobranza/nueva',  element: <PrivateRoute><FormCobranza /></PrivateRoute> },
 
   { path: '*', element: <Navigate to="/login" replace /> },
 ])

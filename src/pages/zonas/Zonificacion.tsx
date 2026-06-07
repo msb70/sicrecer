@@ -1,13 +1,12 @@
 import { useState } from 'react'
 import { MapContainer, TileLayer, Circle, Tooltip as MapTooltip } from 'react-leaflet'
-import 'leaflet/dist/leaflet.css'
 import { AlertTriangle, UserCheck, Users, MapPin } from 'lucide-react'
 import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Button, Badge, Card, CardHeader, CardBody, Alert } from '../../components/ui'
 import { USUARIOS, CLIENTES } from '../../mocks'
 
 const ZONAS_MOCK = [
-  { id: 'z1', nombre: 'Zona Norte',  municipios: ['Barranquilla', 'Soledad', 'Malambo'],          facilitador_id: 'u3', color: '#10b981', lat: 10.9639,  lng: -74.7964 },
+  { id: 'z1', nombre: 'Zona Norte',  municipios: ['Barranquilla', 'Soledad', 'Malambo'],          facilitador_id: 'u-03', color: '#10b981', lat: 10.9639,  lng: -74.7964 },
   { id: 'z2', nombre: 'Zona Centro', municipios: ['Bogotá-Kennedy', 'Bogotá-Bosa', 'Soacha'],     facilitador_id: null, color: '#6366f1', lat: 4.6097,   lng: -74.0817 },
   { id: 'z3', nombre: 'Zona Sur',    municipios: ['Cali-Aguablanca', 'Palmira', 'Yumbo'],          facilitador_id: null, color: '#f59e0b', lat: 3.4516,   lng: -76.5320 },
   { id: 'z4', nombre: 'UVC Caracas', municipios: ['Petare', 'Catia', 'El Valle'],                  facilitador_id: null, color: '#ef4444', lat: 10.4806,  lng: -66.9036 },

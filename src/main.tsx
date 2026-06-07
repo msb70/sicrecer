@@ -1,5 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import 'leaflet/dist/leaflet.css'
 import './index.css'
 import { AppProvider } from './context/AppContext'
 import { AppRouter } from './router'

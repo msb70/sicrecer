@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Save, Info } from 'lucide-react'
 import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Button, Input, Select, Card, CardHeader, CardBody, Alert } from '../../components/ui'
-import { PRODUCTOS, CONVENIOS, formatCOP } from '../../mocks'
+import { PRODUCTOS, CONVENIOS, REQUISITOS, ACTIVIDADES_ECONOMICAS, formatCOP } from '../../mocks'
 
 // Simulación del cálculo de cuota para preview en tiempo real
 function calcularCuotaFlat(monto: number, tasa: number, plazo: number): number {
@@ -19,25 +19,46 @@ function calcularCuotaFrench(monto: number, tasa: number, plazo: number): number
 
 export default function FormProducto() {
   const navigate = useNavigate()
-  const { id } = useParams()
+  const { id }   = useParams()
   const producto = id ? PRODUCTOS.find(p => p.id === id) : null
   const esEdicion = Boolean(producto)
 
   const [form, setForm] = useState({
-    convenio_id:        producto?.convenio_id        ?? (CONVENIOS[0]?.id ?? ''),
-    nombre:             producto?.nombre             ?? '',
-    tasa_nominal_anual: String(producto?.tasa_nominal_anual ?? ''),
-    metodo_interes:     producto?.metodo_interes     ?? 'declining_balance',
-    plazo_min:          String(producto?.plazo_min   ?? ''),
-    plazo_max:          String(producto?.plazo_max   ?? ''),
-    monto_min:          String(producto?.monto_min   ?? ''),
-    monto_max:          String(producto?.monto_max   ?? ''),
-    frecuencia:         producto?.frecuencia         ?? 'mensual',
+    convenio_id:         producto?.convenio_id        ?? (CONVENIOS[0]?.id ?? ''),
+    nombre:              producto?.nombre             ?? '',
+    descripcion:         producto?.descripcion        ?? '',
+    tasa_nominal_anual:  String(producto?.tasa_nominal_anual ?? ''),
+    metodo_interes:      producto?.metodo_interes     ?? 'declining_balance' as 'declining_balance' | 'flat',
+    plazo_min:           String(producto?.plazo_min   ?? ''),
+    plazo_max:           String(producto?.plazo_max   ?? ''),
+    monto_min:           String(producto?.monto_min   ?? ''),
+    monto_max:           String(producto?.monto_max   ?? ''),
+    frecuencia:          producto?.frecuencia         ?? 'mensual' as 'semanal' | 'quincenal' | 'mensual',
     periodo_gracia_dias: String(producto?.periodo_gracia_dias ?? '0'),
+    requisito_ids:       producto?.requisito_ids      ?? [] as string[],
+    actividad_economica_ids: producto?.actividad_economica_ids ?? [] as string[],
   })
   const [guardado, setGuardado] = useState(false)
 
   const campo = (k: string, v: string) => setForm(prev => ({ ...prev, [k]: v }))
+
+  const toggleRequisito = (id: string) => {
+    setForm(prev => ({
+      ...prev,
+      requisito_ids: prev.requisito_ids.includes(id)
+        ? prev.requisito_ids.filter(r => r !== id)
+        : [...prev.requisito_ids, id],
+    }))
+  }
+
+  const toggleActividad = (id: string) => {
+    setForm(prev => ({
+      ...prev,
+      actividad_economica_ids: prev.actividad_economica_ids.includes(id)
+        ? prev.actividad_economica_ids.filter(a => a !== id)
+        : [...prev.actividad_economica_ids, id],
+    }))
+  }
 
   // Preview de cuota con valores de ejemplo (monto_min, plazo_max)
   const montoEjemplo = Number(form.monto_min) || 1000000
@@ -84,6 +105,18 @@ export default function FormProducto() {
                   onChange={e => campo('nombre', e.target.value)}
                   required
                 />
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    Descripción
+                  </label>
+                  <textarea
+                    rows={3}
+                    placeholder="Describe brevemente el producto, su público objetivo y condiciones generales…"
+                    value={form.descripcion}
+                    onChange={e => campo('descripcion', e.target.value)}
+                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent resize-none"
+                  />
+                </div>
                 <Select
                   label="Frecuencia de pago"
                   value={form.frecuencia}
@@ -144,9 +177,72 @@ export default function FormProducto() {
                 <div className="grid sm:grid-cols-2 gap-4">
                   <Input label="Monto mínimo (COP)"  type="number" value={form.monto_min} onChange={e => campo('monto_min', e.target.value)} placeholder="500000"/>
                   <Input label="Monto máximo (COP)"  type="number" value={form.monto_max} onChange={e => campo('monto_max', e.target.value)} placeholder="5000000"/>
-                  <Input label="Plazo mínimo (meses)" type="number" value={form.plazo_min} onChange={e => campo('plazo_min', e.target.value)} placeholder="3"/>
-                  <Input label="Plazo máximo (meses)" type="number" value={form.plazo_max} onChange={e => campo('plazo_max', e.target.value)} placeholder="24"/>
+                  <Input label="Plazo mínimo (cuotas)" type="number" value={form.plazo_min} onChange={e => campo('plazo_min', e.target.value)} placeholder="3"/>
+                  <Input label="Plazo máximo (cuotas)" type="number" value={form.plazo_max} onChange={e => campo('plazo_max', e.target.value)} placeholder="24"/>
                 </div>
+              </CardBody>
+            </Card>
+
+            {/* Requisitos */}
+            <Card>
+              <CardHeader><h2 className="text-sm font-semibold text-gray-800">Requisitos del producto</h2></CardHeader>
+              <CardBody>
+                <p className="text-xs text-gray-500 mb-3">Selecciona los documentos que el cliente debe presentar para este producto.</p>
+                <div className="grid sm:grid-cols-2 gap-2">
+                  {REQUISITOS.map(r => (
+                    <label key={r.id} className={`flex items-start gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-colors ${
+                      form.requisito_ids.includes(r.id)
+                        ? 'bg-brand-50 border-brand-300'
+                        : 'bg-white border-gray-200 hover:border-gray-300'
+                    }`}>
+                      <input
+                        type="checkbox"
+                        checked={form.requisito_ids.includes(r.id)}
+                        onChange={() => toggleRequisito(r.id)}
+                        className="mt-0.5 w-4 h-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 shrink-0"
+                      />
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{r.nombre}</p>
+                        {r.obligatorio && <span className="text-xs text-green-600">Obligatorio</span>}
+                        {r.descripcion && <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{r.descripcion}</p>}
+                      </div>
+                    </label>
+                  ))}
+                </div>
+                {form.requisito_ids.length > 0 && (
+                  <p className="mt-2 text-xs text-brand-600 font-medium">{form.requisito_ids.length} requisito(s) seleccionado(s)</p>
+                )}
+              </CardBody>
+            </Card>
+
+            {/* Actividades económicas */}
+            <Card>
+              <CardHeader><h2 className="text-sm font-semibold text-gray-800">Actividades económicas elegibles</h2></CardHeader>
+              <CardBody>
+                <p className="text-xs text-gray-500 mb-3">Define para qué rubros productivos aplica este producto.</p>
+                <div className="grid sm:grid-cols-2 gap-2">
+                  {ACTIVIDADES_ECONOMICAS.map(a => (
+                    <label key={a.id} className={`flex items-start gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-colors ${
+                      form.actividad_economica_ids.includes(a.id)
+                        ? 'bg-brand-50 border-brand-300'
+                        : 'bg-white border-gray-200 hover:border-gray-300'
+                    }`}>
+                      <input
+                        type="checkbox"
+                        checked={form.actividad_economica_ids.includes(a.id)}
+                        onChange={() => toggleActividad(a.id)}
+                        className="mt-0.5 w-4 h-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 shrink-0"
+                      />
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{a.nombre}</p>
+                        <p className="text-xs text-gray-400">{a.sector}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+                {form.actividad_economica_ids.length > 0 && (
+                  <p className="mt-2 text-xs text-brand-600 font-medium">{form.actividad_economica_ids.length} actividad(es) seleccionada(s)</p>
+                )}
               </CardBody>
             </Card>
 
@@ -174,7 +270,7 @@ export default function FormProducto() {
                 <div className="space-y-3 text-sm">
                   {[
                     ['Monto',  formatCOP(montoEjemplo)],
-                    ['Plazo',  `${plazoEjemplo} meses`],
+                    ['Plazo',  `${plazoEjemplo} cuotas`],
                     ['Tasa',   `${tasaEjemplo}%/año`],
                     ['Método', form.metodo_interes === 'flat' ? 'Flat' : 'Saldo decreciente'],
                   ].map(([k,v]) => (

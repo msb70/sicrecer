@@ -11,6 +11,7 @@ const ESTADO_CONFIG = {
   revision_comite: { label: 'En comité',   color: 'yellow' as const, icon: <AlertTriangle size={16} /> },
   aprobada:        { label: 'Aprobada',    color: 'green'  as const, icon: <CheckCircle2 size={16} /> },
   rechazada:       { label: 'Rechazada',   color: 'red'    as const, icon: <XCircle size={16} /> },
+  firma:           { label: 'Firma',       color: 'blue'   as const, icon: <Clock size={16} /> },
   desembolsada:    { label: 'Desembolsada',color: 'gray'   as const, icon: <CheckCircle2 size={16} /> },
 }
 

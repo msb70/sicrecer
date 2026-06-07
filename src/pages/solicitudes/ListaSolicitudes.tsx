@@ -14,6 +14,7 @@ const ESTADO_CONFIG: Record<EstadoSolicitud, { label: string; color: 'blue'|'yel
   revision_comite: { label: 'En comité',        color: 'yellow' },
   aprobada:        { label: 'Aprobada',         color: 'green'  },
   rechazada:       { label: 'Rechazada',        color: 'red'    },
+  firma:           { label: 'Firma',            color: 'blue'   },
   desembolsada:    { label: 'Desembolsada',     color: 'purple' },
 }
 

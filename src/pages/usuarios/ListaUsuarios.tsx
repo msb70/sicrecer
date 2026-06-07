@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Plus, Edit, Shield } from 'lucide-react'
 import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Button, Badge, Card, StatCard } from '../../components/ui'
-import { USUARIOS } from '../../mocks'
+import { USUARIOS, ORGANIZACIONES } from '../../mocks'
 import { ROL_LABELS } from '../../types'
 import type { Rol } from '../../types'
 import { clsx } from 'clsx'
@@ -78,7 +78,7 @@ export default function ListaUsuarios() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100">
-                  {['Usuario', 'Email', 'Rol', 'Zona', 'Acciones'].map(h => (
+                  {['Usuario', 'Email', 'Organización', 'Rol', 'Zona', 'Acciones'].map(h => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
                   ))}
                 </tr>
@@ -98,6 +98,7 @@ export default function ListaUsuarios() {
                       </div>
                     </td>
                     <td className="px-4 py-3 text-gray-500">{user.email}</td>
+                    <td className="px-4 py-3 text-gray-500 text-xs">{ORGANIZACIONES.find(o => o.id === user.organizacion_id)?.nombre ?? '—'}</td>
                     <td className="px-4 py-3"><Badge color={ROL_COLOR[user.rol]}>{ROL_LABELS[user.rol]}</Badge></td>
                     <td className="px-4 py-3 text-gray-500">{user.zona ?? '—'}</td>
                     <td className="px-4 py-3">

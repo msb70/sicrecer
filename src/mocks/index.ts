@@ -1,6 +1,7 @@
 import type {
   Organizacion, Usuario, Convenio, ProductoCredito,
-  Prospecto, Cliente, Solicitud, Credito
+  Prospecto, Cliente, Solicitud, Credito,
+  Requisito, ActividadEconomica, Cobranza
 } from '../types'
 
 // ─── ORGANIZACIONES ───────────────────────────────────────────
@@ -61,25 +62,56 @@ export const CONVENIOS: Convenio[] = [
   },
 ]
 
+// ─── REQUISITOS ───────────────────────────────────────────────
+export const REQUISITOS: Requisito[] = [
+  { id: 'req-01', nombre: 'Cédula de ciudadanía', descripcion: 'Documento de identidad vigente (frente y reverso)', obligatorio: true },
+  { id: 'req-02', nombre: 'Carta de trabajo', descripcion: 'Carta laboral con salario, cargo y tiempo en empresa. Vigencia máx. 30 días', obligatorio: false },
+  { id: 'req-03', nombre: 'Estados de cuenta', descripcion: 'Últimos 3 meses de extractos bancarios', obligatorio: false },
+  { id: 'req-04', nombre: 'Foto de perfil', descripcion: 'Foto reciente del solicitante, fondo blanco', obligatorio: true },
+  { id: 'req-05', nombre: 'Comprobante de ingresos', descripcion: 'Declaración de renta o soporte de ingresos informales', obligatorio: false },
+  { id: 'req-06', nombre: 'Declaración de patrimonio', descripcion: 'Listado de activos y pasivos del solicitante', obligatorio: false },
+]
+
+// ─── ACTIVIDADES ECONÓMICAS ────────────────────────────────────
+export const ACTIVIDADES_ECONOMICAS: ActividadEconomica[] = [
+  { id: 'act-01', nombre: 'Venta de abarrotes / tienda', descripcion: 'Comercio minorista de alimentos y productos de primera necesidad', sector: 'Comercio' },
+  { id: 'act-02', nombre: 'Taller de carpintería', descripcion: 'Fabricación y reparación de muebles y artículos de madera', sector: 'Industria' },
+  { id: 'act-03', nombre: 'Confección de ropa', descripcion: 'Diseño y producción de prendas de vestir a escala artesanal', sector: 'Industria' },
+  { id: 'act-04', nombre: 'Venta de frutas y verduras', descripcion: 'Comercio minorista de productos agrícolas frescos', sector: 'Comercio' },
+  { id: 'act-05', nombre: 'Restaurante / comida', descripcion: 'Preparación y venta de alimentos listos para consumir', sector: 'Servicios' },
+  { id: 'act-06', nombre: 'Peluquería / estética', descripcion: 'Servicios de belleza y cuidado personal', sector: 'Servicios' },
+  { id: 'act-07', nombre: 'Transporte informal', descripcion: 'Servicio de movilidad por cuenta propia (mototaxi, colectivo)', sector: 'Transporte' },
+  { id: 'act-08', nombre: 'Construcción / albañilería', descripcion: 'Obras civiles menores y reparaciones locativas', sector: 'Construcción' },
+]
+
 // ─── PRODUCTOS ────────────────────────────────────────────────
 export const PRODUCTOS: ProductoCredito[] = [
   {
     id: 'prod-01', convenio_id: 'conv-01', nombre: 'Microcrédito Rural Básico',
+    descripcion: 'Crédito individual dirigido a microempresarios rurales. Ideal para capital de trabajo y mejora del negocio.',
     tasa_nominal_anual: 18, metodo_interes: 'declining_balance',
     periodo_gracia_dias: 0, plazo_min: 3, plazo_max: 12,
     monto_min: 500_000, monto_max: 5_000_000, frecuencia: 'mensual',
+    requisito_ids: ['req-01', 'req-04', 'req-05'],
+    actividad_economica_ids: ['act-01', 'act-02', 'act-03', 'act-04'],
   },
   {
     id: 'prod-02', convenio_id: 'conv-01', nombre: 'Crédito Grupal Solidario',
+    descripcion: 'Crédito para grupos de 4 a 8 personas con garantía solidaria. Fomenta el ahorro y la responsabilidad colectiva.',
     tasa_nominal_anual: 15, metodo_interes: 'flat',
     periodo_gracia_dias: 7, plazo_min: 4, plazo_max: 8,
     monto_min: 300_000, monto_max: 2_000_000, frecuencia: 'quincenal',
+    requisito_ids: ['req-01', 'req-04'],
+    actividad_economica_ids: ['act-05', 'act-06', 'act-07'],
   },
   {
     id: 'prod-03', convenio_id: 'conv-02', nombre: 'Capital Semilla Urbano',
+    descripcion: 'Crédito para emprendedores urbanos en etapa de arranque. Requiere plan de negocio básico.',
     tasa_nominal_anual: 20, metodo_interes: 'declining_balance',
     periodo_gracia_dias: 15, plazo_min: 6, plazo_max: 24,
     monto_min: 1_000_000, monto_max: 10_000_000, frecuencia: 'mensual',
+    requisito_ids: ['req-01', 'req-02', 'req-03', 'req-04', 'req-06'],
+    actividad_economica_ids: ['act-01', 'act-02', 'act-03', 'act-04', 'act-05', 'act-06', 'act-07', 'act-08'],
   },
 ]
 
@@ -187,6 +219,28 @@ export const CREDITOS: Credito[] = [
     monto_desembolsado: 1_500_000, saldo_capital: 900_000,
     cuotas_total: 8, cuotas_pagadas: 2,
     proxima_cuota: '2026-05-20', dias_mora: 17, estado: 'en_mora',
+  },
+]
+
+// ─── COBRANZAS (mutable para la demo) ─────────────────────────
+export const COBRANZAS: Cobranza[] = [
+  {
+    id: 'cob-01', cliente_id: 'cli-01', cliente_nombre: 'Rosa Martínez',
+    credito_id: 'cred-01', fecha: '2026-03-15', banco: 'Bancolombia',
+    numero_deposito: '4521-2026-001', monto: 229_000,
+    cuotas_aplicadas: [1], creado_por: 'u-03',
+  },
+  {
+    id: 'cob-02', cliente_id: 'cli-01', cliente_nombre: 'Rosa Martínez',
+    credito_id: 'cred-01', fecha: '2026-04-15', banco: 'Bancolombia',
+    numero_deposito: '4521-2026-002', monto: 229_000,
+    cuotas_aplicadas: [2], creado_por: 'u-03',
+  },
+  {
+    id: 'cob-03', cliente_id: 'cli-01', cliente_nombre: 'Rosa Martínez',
+    credito_id: 'cred-01', fecha: '2026-05-15', banco: 'Bancolombia',
+    numero_deposito: '4521-2026-003', monto: 229_000,
+    cuotas_aplicadas: [3], creado_por: 'u-03',
   },
 ]
 

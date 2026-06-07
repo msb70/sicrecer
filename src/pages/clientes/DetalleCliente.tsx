@@ -293,7 +293,7 @@ export default function DetalleCliente() {
                           <p className="text-xs text-gray-500">{s.producto_nombre} · {new Date(s.fecha_solicitud).toLocaleDateString('es-CO')}</p>
                         </div>
                         <div className="text-right">
-                          <Badge color={{ aprobada:'green', rechazada:'red', enviada:'blue', revision_comite:'yellow', desembolsada:'gray', borrador:'gray', scoring:'blue' }[s.estado] as any}>
+                          <Badge color={{ aprobada:'green', rechazada:'red', enviada:'blue', revision_comite:'yellow', desembolsada:'gray', borrador:'gray', scoring:'blue', firma:'blue' }[s.estado] as any}>
                             {s.estado.replace('_', ' ')}
                           </Badge>
                           {s.score && <p className="text-xs text-gray-400 mt-1">Score: {s.score}</p>}
