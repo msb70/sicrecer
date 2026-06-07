@@ -24,6 +24,9 @@ import Reportes          from '../pages/reportes/Reportes'
 import AsistenteIA       from '../pages/asistente/AsistenteIA'
 import Configuracion     from '../pages/configuracion/Configuracion'
 
+// Calculadora
+import Calculadora       from '../pages/calculadora/Calculadora'
+
 // Sprint 2 — Back-office
 import ListaConvenios    from '../pages/convenios/ListaConvenios'
 import DetalleConvenio   from '../pages/convenios/DetalleConvenio'
@@ -112,6 +115,9 @@ const router = createBrowserRouter([
   // Sprint 8 — Asistente IA y Configuración
   { path: '/asistente',     element: <PrivateRoute><AsistenteIA /></PrivateRoute> },
   { path: '/configuracion', element: <PrivateRoute><Configuracion /></PrivateRoute> },
+
+  // Calculadora
+  { path: '/calculadora',   element: <PrivateRoute><Calculadora /></PrivateRoute> },
 
   { path: '*', element: <Navigate to="/login" replace /> },
 ])

@@ -1,15 +1,16 @@
 import { useState } from 'react'
-import { MapPin, AlertTriangle, UserCheck, Users } from 'lucide-react'
+import { MapContainer, TileLayer, Circle, Tooltip as MapTooltip } from 'react-leaflet'
+import 'leaflet/dist/leaflet.css'
+import { AlertTriangle, UserCheck, Users, MapPin } from 'lucide-react'
 import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Button, Badge, Card, CardHeader, CardBody, Alert } from '../../components/ui'
 import { USUARIOS, CLIENTES } from '../../mocks'
 
-// Mock de zonas para la demo
 const ZONAS_MOCK = [
-  { id: 'z1', nombre: 'Zona Norte',  municipios: ['Barranquilla', 'Soledad', 'Malambo'],            facilitador_id: 'u3', color: '#10b981' },
-  { id: 'z2', nombre: 'Zona Centro', municipios: ['Bogotá-Kennedy', 'Bogotá-Bosa', 'Soacha'],       facilitador_id: null, color: '#6366f1' },
-  { id: 'z3', nombre: 'Zona Sur',    municipios: ['Cali-Aguablanca', 'Palmira', 'Yumbo'],           facilitador_id: null, color: '#f59e0b' },
-  { id: 'z4', nombre: 'UVC Caracas', municipios: ['Petare', 'Catia', 'El Valle'],                   facilitador_id: null, color: '#ef4444' },
+  { id: 'z1', nombre: 'Zona Norte',  municipios: ['Barranquilla', 'Soledad', 'Malambo'],          facilitador_id: 'u3', color: '#10b981', lat: 10.9639,  lng: -74.7964 },
+  { id: 'z2', nombre: 'Zona Centro', municipios: ['Bogotá-Kennedy', 'Bogotá-Bosa', 'Soacha'],     facilitador_id: null, color: '#6366f1', lat: 4.6097,   lng: -74.0817 },
+  { id: 'z3', nombre: 'Zona Sur',    municipios: ['Cali-Aguablanca', 'Palmira', 'Yumbo'],          facilitador_id: null, color: '#f59e0b', lat: 3.4516,   lng: -76.5320 },
+  { id: 'z4', nombre: 'UVC Caracas', municipios: ['Petare', 'Catia', 'El Valle'],                  facilitador_id: null, color: '#ef4444', lat: 10.4806,  lng: -66.9036 },
 ]
 
 export default function Zonificacion() {
@@ -39,40 +40,50 @@ export default function Zonificacion() {
           subtitle="Gestión de zonas geográficas y asignación de facilitadores"
         />
 
-        <Alert type="info" className="mb-5">
-          <MapPin size={15} className="inline mr-1"/>
-          El mapa interactivo estará disponible con la integración Leaflet/Mapbox. Por ahora gestiona las zonas en modo lista.
-        </Alert>
-
-        {/* Mapa placeholder */}
-        <Card className="mb-6">
-          <div className="relative h-64 bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl flex items-center justify-center overflow-hidden">
-            {/* Simulación visual de mapa */}
-            <div className="absolute inset-0 opacity-20">
-              {ZONAS_MOCK.map((z, i) => (
-                <div
-                  key={z.id}
-                  className="absolute rounded-full opacity-40"
-                  style={{
-                    background: z.color,
-                    width: `${120 + i * 30}px`,
-                    height: `${90 + i * 20}px`,
-                    left: `${10 + i * 20}%`,
-                    top:  `${10 + i * 15}%`,
-                    filter: 'blur(20px)',
+        {/* Mapa interactivo */}
+        <Card className="mb-6 overflow-hidden">
+          <div style={{ height: 380 }}>
+            <MapContainer
+              center={[6.5, -73.5]}
+              zoom={5}
+              style={{ height: '100%', width: '100%' }}
+              scrollWheelZoom={false}
+            >
+              <TileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
+              {ZONAS_MOCK.map(zona => (
+                <Circle
+                  key={zona.id}
+                  center={[zona.lat, zona.lng]}
+                  radius={80000}
+                  pathOptions={{
+                    color: zona.color,
+                    fillColor: zona.color,
+                    fillOpacity: zonaSeleccionada === zona.id ? 0.5 : 0.25,
+                    weight: zonaSeleccionada === zona.id ? 3 : 1.5,
                   }}
-                />
+                  eventHandlers={{ click: () => setZonaSeleccionada(prev => prev === zona.id ? null : zona.id) }}
+                >
+                  <MapTooltip sticky>
+                    <strong>{zona.nombre}</strong><br />
+                    {zona.municipios.join(' · ')}
+                  </MapTooltip>
+                </Circle>
               ))}
-            </div>
-            <div className="text-center z-10">
-              <MapPin size={40} className="mx-auto text-gray-400 mb-2"/>
-              <p className="text-gray-500 font-medium">Mapa interactivo</p>
-              <p className="text-xs text-gray-400">Leaflet · Próxima implementación</p>
-            </div>
+            </MapContainer>
+          </div>
+          <div className="px-4 py-2 bg-gray-50 border-t border-gray-100 flex flex-wrap gap-3">
+            {ZONAS_MOCK.map(z => (
+              <span key={z.id} className="flex items-center gap-1.5 text-xs text-gray-600">
+                <span className="w-3 h-3 rounded-full inline-block" style={{ background: z.color }} />
+                {z.nombre}
+              </span>
+            ))}
           </div>
         </Card>
 
-        {/* Alertas de traslape (simuladas) */}
         <Alert type="warning" className="mb-5">
           <AlertTriangle size={15} className="inline mr-1"/>
           <strong>Traslape detectado:</strong> Zona Norte y Zona Centro comparten el municipio "Soacha". Verifica los límites.
@@ -143,7 +154,6 @@ export default function Zonificacion() {
                     </Button>
                   )}
 
-                  {/* Panel asignación */}
                   {facilitadorAsignando === zona.id && (
                     <div
                       className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200 space-y-2"

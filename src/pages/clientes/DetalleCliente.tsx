@@ -1,18 +1,173 @@
+import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, FileText, Phone, MapPin, Calendar, User, Briefcase, CreditCard } from 'lucide-react'
+import { ArrowLeft, FileText, Phone, MapPin, Calendar, User, Briefcase, CreditCard, ChevronDown, ChevronUp, CheckCircle2, Clock, AlertCircle } from 'lucide-react'
 import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Button, Badge, Card, CardHeader, CardBody, Alert, StatCard } from '../../components/ui'
 import { CLIENTES, CREDITOS, SOLICITUDES, formatCOP } from '../../mocks'
+import type { Credito } from '../../types'
 
-const ESTADO_COLOR = { activo: 'blue', al_dia: 'green', moroso: 'red', inactivo: 'gray' } as const
 const ESTADO_LABEL = { activo: 'Activo', al_dia: 'Al día', moroso: 'En mora', inactivo: 'Inactivo' }
 
+// ─── Genera tabla de cuotas a partir de datos del crédito ─────
+interface Cuota {
+  numero: number
+  fecha: string
+  monto: number
+  capital: number
+  interes: number
+  estado: 'pagada' | 'proxima' | 'pendiente' | 'mora'
+}
+
+function generarCuotas(credito: Credito): Cuota[] {
+  const { monto_desembolsado, cuotas_total, cuotas_pagadas, proxima_cuota, dias_mora } = credito
+  // Tasa mensual aproximada del 1.5% (18% anual) para la demo
+  const tasaMensual = 0.015
+  const cuotaFija = monto_desembolsado * (tasaMensual * Math.pow(1 + tasaMensual, cuotas_total)) /
+    (Math.pow(1 + tasaMensual, cuotas_total) - 1)
+
+  const fechaProxima = new Date(proxima_cuota)
+
+  return Array.from({ length: cuotas_total }, (_, i) => {
+    const num = i + 1
+    // Calcular fecha: proxima_cuota corresponde a cuotas_pagadas + 1
+    const offsetMeses = num - (cuotas_pagadas + 1)
+    const fecha = new Date(fechaProxima)
+    fecha.setMonth(fecha.getMonth() + offsetMeses)
+
+    const saldoAnterior = monto_desembolsado * Math.pow(1 + tasaMensual, i) -
+      cuotaFija * (Math.pow(1 + tasaMensual, i) - 1) / tasaMensual
+    const interes = Math.max(0, saldoAnterior * tasaMensual)
+    const capital = cuotaFija - interes
+
+    let estado: Cuota['estado']
+    if (num <= cuotas_pagadas)        estado = 'pagada'
+    else if (num === cuotas_pagadas + 1) estado = dias_mora > 0 ? 'mora' : 'proxima'
+    else                               estado = 'pendiente'
+
+    return {
+      numero: num,
+      fecha: fecha.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }),
+      monto: Math.round(cuotaFija),
+      capital: Math.round(capital),
+      interes: Math.round(interes),
+      estado,
+    }
+  })
+}
+
+function CuotasPanel({ credito }: { credito: Credito }) {
+  const [abierto, setAbierto] = useState(false)
+  const cuotas = generarCuotas(credito)
+
+  const estadoIcon = {
+    pagada:   <CheckCircle2 size={14} className="text-green-500" />,
+    proxima:  <Clock size={14} className="text-blue-500" />,
+    mora:     <AlertCircle size={14} className="text-red-500" />,
+    pendiente:<Clock size={14} className="text-gray-300" />,
+  }
+  const estadoBadge = {
+    pagada:   <Badge color="green">Pagada</Badge>,
+    proxima:  <Badge color="blue">Próxima</Badge>,
+    mora:     <Badge color="red">En mora</Badge>,
+    pendiente:<Badge color="gray">Pendiente</Badge>,
+  }
+
+  const progreso = Math.round((credito.cuotas_pagadas / credito.cuotas_total) * 100)
+
+  return (
+    <Card>
+      <CardHeader>
+        <button
+          className="w-full flex items-center justify-between"
+          onClick={() => setAbierto(o => !o)}
+        >
+          <div>
+            <h2 className="text-sm font-semibold text-gray-800 text-left">
+              Plan de pagos — {credito.producto_nombre}
+            </h2>
+            <p className="text-xs text-gray-400 mt-0.5 text-left">
+              {credito.cuotas_pagadas}/{credito.cuotas_total} cuotas · {progreso}% completado
+            </p>
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
+            {/* Barra de progreso */}
+            <div className="hidden sm:block w-32 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+              <div className="h-full bg-green-500 rounded-full" style={{ width: `${progreso}%` }} />
+            </div>
+            {abierto ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
+          </div>
+        </button>
+      </CardHeader>
+
+      {abierto && (
+        <CardBody className="p-0">
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-gray-50 border-y border-gray-100">
+                  <th className="px-4 py-2 text-left font-medium text-gray-500">#</th>
+                  <th className="px-4 py-2 text-left font-medium text-gray-500">Fecha</th>
+                  <th className="px-4 py-2 text-right font-medium text-gray-500">Cuota</th>
+                  <th className="px-4 py-2 text-right font-medium text-gray-500">Capital</th>
+                  <th className="px-4 py-2 text-right font-medium text-gray-500">Interés</th>
+                  <th className="px-4 py-2 text-center font-medium text-gray-500">Estado</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {cuotas.map(c => (
+                  <tr
+                    key={c.numero}
+                    className={
+                      c.estado === 'proxima' ? 'bg-blue-50' :
+                      c.estado === 'mora'    ? 'bg-red-50' :
+                      c.estado === 'pagada'  ? 'opacity-60' : ''
+                    }
+                  >
+                    <td className="px-4 py-2.5 text-gray-500">
+                      <div className="flex items-center gap-1.5">
+                        {estadoIcon[c.estado]}
+                        {c.numero}
+                      </div>
+                    </td>
+                    <td className="px-4 py-2.5 text-gray-700">{c.fecha}</td>
+                    <td className="px-4 py-2.5 text-right font-medium text-gray-900">{formatCOP(c.monto)}</td>
+                    <td className="px-4 py-2.5 text-right text-gray-600">{formatCOP(c.capital)}</td>
+                    <td className="px-4 py-2.5 text-right text-gray-600">{formatCOP(c.interes)}</td>
+                    <td className="px-4 py-2.5 text-center">{estadoBadge[c.estado]}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="bg-gray-50 border-t border-gray-200 font-semibold">
+                  <td colSpan={2} className="px-4 py-2.5 text-xs text-gray-700">Total</td>
+                  <td className="px-4 py-2.5 text-right text-xs text-gray-900">
+                    {formatCOP(cuotas.reduce((s, c) => s + c.monto, 0))}
+                  </td>
+                  <td className="px-4 py-2.5 text-right text-xs text-gray-600">
+                    {formatCOP(credito.monto_desembolsado)}
+                  </td>
+                  <td className="px-4 py-2.5 text-right text-xs text-gray-600">
+                    {formatCOP(cuotas.reduce((s, c) => s + c.interes, 0))}
+                  </td>
+                  <td />
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </CardBody>
+      )}
+    </Card>
+  )
+}
+
+// ─── DETALLE CLIENTE ─────────────────────────────────────────
 export default function DetalleCliente() {
   const navigate = useNavigate()
   const { id } = useParams()
   const cliente = CLIENTES.find(c => c.id === id)
   const creditos = CREDITOS.filter(c => c.cliente_id === id)
   const solicitudes = SOLICITUDES.filter(s => s.cliente_id === id)
+  const creditosActivos = creditos.filter(c => c.estado !== 'cancelado' && c.estado !== 'castigado')
 
   if (!cliente) {
     return (
@@ -51,9 +206,9 @@ export default function DetalleCliente() {
 
         {/* KPIs */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 my-5">
-          <StatCard label="Total prestado" value={formatCOP(cliente.total_prestado)} color="blue" />
-          <StatCard label="Créditos activos" value={String(cliente.creditos_activos)} color={cliente.creditos_activos > 0 ? 'blue' : 'gray'} />
-          <StatCard label="Estado" value={ESTADO_LABEL[cliente.estado]} color={cliente.estado === 'moroso' ? 'red' : 'green'} />
+          <StatCard label="Total prestado"    value={formatCOP(cliente.total_prestado)}         color="blue" />
+          <StatCard label="Créditos activos"  value={String(cliente.creditos_activos)}          color={cliente.creditos_activos > 0 ? 'blue' : 'gray'} />
+          <StatCard label="Estado"            value={ESTADO_LABEL[cliente.estado]}              color={cliente.estado === 'moroso' ? 'red' : 'green'} />
         </div>
 
         <div className="grid lg:grid-cols-3 gap-5">
@@ -83,7 +238,14 @@ export default function DetalleCliente() {
               </CardBody>
             </Card>
 
-            {/* Historial de créditos */}
+            {/* Plan de pagos por crédito activo */}
+            {creditosActivos.length > 0 && (
+              <div className="space-y-3">
+                {creditosActivos.map(c => <CuotasPanel key={c.id} credito={c} />)}
+              </div>
+            )}
+
+            {/* Historial de créditos (resumen) */}
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">

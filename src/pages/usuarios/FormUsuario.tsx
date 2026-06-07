@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Save, Eye, EyeOff } from 'lucide-react'
 import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Button, Input, Select, Card, CardHeader, CardBody, Alert } from '../../components/ui'
-import { USUARIOS } from '../../mocks'
+import { USUARIOS, ORGANIZACIONES } from '../../mocks'
 import { ROL_LABELS } from '../../types'
 import type { Rol } from '../../types'
 
@@ -16,12 +16,13 @@ export default function FormUsuario() {
   const esEdicion = Boolean(usuario)
 
   const [form, setForm] = useState({
-    nombre:          usuario?.nombre ?? '',
-    email:           usuario?.email  ?? '',
-    rol:             usuario?.rol    ?? 'facilitador' as Rol,
-    zona:            usuario?.zona   ?? '',
-    contrasena:      '',
-    confirmar:       '',
+    nombre:           usuario?.nombre          ?? '',
+    email:            usuario?.email           ?? '',
+    rol:              usuario?.rol             ?? 'facilitador' as Rol,
+    zona:             usuario?.zona            ?? '',
+    organizacion_id:  usuario?.organizacion_id ?? '',
+    contrasena:       '',
+    confirmar:        '',
   })
   const [showPass, setShowPass] = useState(false)
   const [guardado, setGuardado] = useState(false)
@@ -68,6 +69,17 @@ export default function FormUsuario() {
                 value={form.email}
                 onChange={e => campo('email', e.target.value)}
                 required
+              />
+
+              {/* Organización */}
+              <Select
+                label="Organización"
+                value={form.organizacion_id}
+                onChange={e => campo('organizacion_id', e.target.value)}
+                options={[
+                  { value: '', label: 'Selecciona organización…' },
+                  ...ORGANIZACIONES.map(o => ({ value: o.id, label: `${o.nombre} (${o.pais})` })),
+                ]}
               />
 
               <Select
@@ -131,7 +143,7 @@ export default function FormUsuario() {
                 <Button variant="ghost" onClick={() => navigate('/usuarios')}>Cancelar</Button>
                 <Button
                   onClick={guardar}
-                  disabled={!form.nombre || !form.email || !passMatch}
+                  disabled={!form.nombre || !form.email || !passMatch || !form.organizacion_id}
                 >
                   <Save size={16}/>{esEdicion ? 'Guardar cambios' : 'Crear usuario'}
                 </Button>

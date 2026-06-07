@@ -4,7 +4,7 @@ import { clsx } from 'clsx'
 import {
   LayoutDashboard, Users, FileText, CheckSquare, CreditCard,
   MapPin, BarChart2, Settings, LogOut, Menu, X, ChevronDown,
-  Calendar, Building2, Package, UserCheck, Bot
+  Calendar, Building2, Package, UserCheck, Bot, Calculator
 } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import type { Rol } from '../../types'
@@ -30,6 +30,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Solicitudes',     to: '/solicitudes',   icon: <FileText size={18} />,        roles: ['facilitador', 'coordinador', 'administrador'] },
   { label: 'Comité',          to: '/comite',        icon: <CheckSquare size={18} />,     roles: ['comite', 'administrador'] },
   { label: 'Cartera',         to: '/cartera',       icon: <CreditCard size={18} />,      roles: ['facilitador', 'coordinador', 'administrador'] },
+  { label: 'Calculadora',     to: '/calculadora',   icon: <Calculator size={18} />,      roles: ['facilitador', 'coordinador', 'administrador'] },
   { label: 'Agenda',          to: '/agenda',        icon: <Calendar size={18} />,        roles: ['facilitador'] },
   { label: 'Reportes',        to: '/reportes',      icon: <BarChart2 size={18} />,       roles: ['administrador', 'coordinador', 'auditor'] },
   { label: 'Asistente IA',    to: '/asistente',     icon: <Bot size={18} />,             roles: ['facilitador', 'coordinador'] },
