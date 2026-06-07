@@ -12,14 +12,18 @@ export default function FormProspecto() {
   const prospecto = isEditing ? PROSPECTOS.find(p => p.id === id) : null
 
   const [form, setForm] = useState({
-    nombre:    prospecto?.nombre    ?? '',
-    documento: prospecto?.documento ?? '',
-    telefono:  prospecto?.telefono  ?? '',
-    zona:      prospecto?.zona      ?? 'Zona Norte',
-    estado:    prospecto?.estado    ?? 'nuevo',
-    lat:       '4.7110',
-    lng:       '-74.0721',
-    nota:      '',
+    nombre:          prospecto?.nombre          ?? '',
+    documento:       prospecto?.documento       ?? '',
+    telefono:        prospecto?.telefono        ?? '',
+    email:           prospecto?.email           ?? '',
+    sexo:            prospecto?.sexo            ?? '',
+    zona:            prospecto?.zona            ?? 'Zona Norte',
+    estado:          prospecto?.estado          ?? 'nuevo',
+    canal_preferido: prospecto?.canal_preferido ?? '',
+    canal_captacion: prospecto?.canal_captacion ?? '',
+    lat:             '4.7110',
+    lng:             '-74.0721',
+    nota:            '',
   })
   const [loading, setLoading] = useState(false)
   const [exito, setExito] = useState(false)
@@ -72,13 +76,32 @@ export default function FormProspecto() {
                   placeholder="Cédula / RIF / Pasaporte"
                   required
                 />
-                <Input
-                  label="Teléfono"
-                  value={form.telefono}
-                  onChange={e => set('telefono', e.target.value)}
-                  placeholder="Ej. 3001234567"
-                  type="tel"
-                />
+                <div className="grid grid-cols-2 gap-3">
+                  <Input
+                    label="Teléfono"
+                    value={form.telefono}
+                    onChange={e => set('telefono', e.target.value)}
+                    placeholder="Ej. 3001234567"
+                    type="tel"
+                  />
+                  <Input
+                    label="Email"
+                    value={form.email}
+                    onChange={e => set('email', e.target.value)}
+                    placeholder="correo@ejemplo.com"
+                    type="email"
+                  />
+                </div>
+                <Select
+                  label="Sexo"
+                  value={form.sexo}
+                  onChange={e => set('sexo', e.target.value)}
+                >
+                  <option value="">— Sin especificar —</option>
+                  <option value="F">Femenino</option>
+                  <option value="M">Masculino</option>
+                  <option value="otro">Otro</option>
+                </Select>
                 <Select
                   label="Estado"
                   value={form.estado}
@@ -92,44 +115,73 @@ export default function FormProspecto() {
               </CardBody>
             </Card>
 
-            {/* Ubicación */}
-            <Card>
-              <CardHeader>
-                <h2 className="text-sm font-semibold text-gray-800">Ubicación</h2>
-              </CardHeader>
-              <CardBody className="space-y-4">
-                <Select
-                  label="Zona asignada"
-                  value={form.zona}
-                  onChange={e => set('zona', e.target.value)}
-                >
-                  <option>Zona Norte</option>
-                  <option>Zona Sur</option>
-                  <option>Zona Centro</option>
-                  <option>Zona Oriente</option>
-                </Select>
+            {/* Canal y ubicación */}
+            <div className="space-y-5">
+              {/* Canal CRM */}
+              <Card>
+                <CardHeader>
+                  <h2 className="text-sm font-semibold text-gray-800">Canal de contacto</h2>
+                </CardHeader>
+                <CardBody className="space-y-4">
+                  <Select
+                    label="Canal preferido de contacto"
+                    value={form.canal_preferido}
+                    onChange={e => set('canal_preferido', e.target.value)}
+                  >
+                    <option value="">— Sin especificar —</option>
+                    <option value="whatsapp">WhatsApp</option>
+                    <option value="llamada">Llamada telefónica</option>
+                    <option value="email">Email</option>
+                    <option value="visita">Visita presencial</option>
+                  </Select>
+                  <Select
+                    label="Canal de captación"
+                    value={form.canal_captacion}
+                    onChange={e => set('canal_captacion', e.target.value)}
+                  >
+                    <option value="">— Sin especificar —</option>
+                    <option value="referido">Referido por cliente</option>
+                    <option value="redes_sociales">Redes sociales</option>
+                    <option value="evento">Evento / feria</option>
+                    <option value="visita_facilitador">Visita del facilitador</option>
+                    <option value="otro">Otro</option>
+                  </Select>
+                </CardBody>
+              </Card>
 
-                {/* Coordenadas GPS mock */}
-                <div className="grid grid-cols-2 gap-3">
-                  <Input label="Latitud (GPS)" value={form.lat} onChange={e => set('lat', e.target.value)} />
-                  <Input label="Longitud (GPS)" value={form.lng} onChange={e => set('lng', e.target.value)} />
-                </div>
-
-                {/* Mapa placeholder */}
-                <div className="w-full h-40 bg-gray-100 rounded-lg border border-gray-200 flex flex-col items-center justify-center gap-2 text-gray-400">
-                  <MapPin size={24} />
-                  <p className="text-xs">Mapa (Leaflet se integrará aquí)</p>
-                  <p className="text-xs font-mono">{form.lat}, {form.lng}</p>
-                </div>
-
-                <Input
-                  label="Nota de visita"
-                  value={form.nota}
-                  onChange={e => set('nota', e.target.value)}
-                  placeholder="Observaciones del primer contacto…"
-                />
-              </CardBody>
-            </Card>
+              {/* Ubicación */}
+              <Card>
+                <CardHeader>
+                  <h2 className="text-sm font-semibold text-gray-800">Ubicación</h2>
+                </CardHeader>
+                <CardBody className="space-y-4">
+                  <Select
+                    label="Zona asignada"
+                    value={form.zona}
+                    onChange={e => set('zona', e.target.value)}
+                  >
+                    <option>Zona Norte</option>
+                    <option>Zona Sur</option>
+                    <option>Zona Centro</option>
+                    <option>Zona Oriente</option>
+                  </Select>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input label="Latitud (GPS)" value={form.lat} onChange={e => set('lat', e.target.value)} />
+                    <Input label="Longitud (GPS)" value={form.lng} onChange={e => set('lng', e.target.value)} />
+                  </div>
+                  <div className="w-full h-32 bg-gray-100 rounded-lg border border-gray-200 flex flex-col items-center justify-center gap-1.5 text-gray-400">
+                    <MapPin size={20} />
+                    <p className="text-xs font-mono">{form.lat}, {form.lng}</p>
+                  </div>
+                  <Input
+                    label="Nota de visita"
+                    value={form.nota}
+                    onChange={e => set('nota', e.target.value)}
+                    placeholder="Observaciones del primer contacto…"
+                  />
+                </CardBody>
+              </Card>
+            </div>
           </div>
 
           <div className="flex justify-end gap-3">

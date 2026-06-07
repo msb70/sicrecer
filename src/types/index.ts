@@ -65,6 +65,26 @@ export interface ActividadEconomica {
   sector: string
 }
 
+// ─── BANCO ────────────────────────────────────────────────────
+export interface Banco {
+  id: string
+  nombre: string
+  activo: boolean
+}
+
+// ─── ACTIVIDAD CRM ────────────────────────────────────────────
+export type TipoActividadCRM = 'llamada' | 'visita' | 'whatsapp' | 'nota'
+
+export interface ActividadCRM {
+  id: string
+  prospecto_id: string
+  tipo: TipoActividadCRM
+  fecha: string
+  descripcion: string
+  resultado?: string
+  facilitador_id: string
+}
+
 // ─── PRODUCTO ─────────────────────────────────────────────────
 export interface ProductoCredito {
   id: string
@@ -92,10 +112,14 @@ export interface Prospecto {
   nombre: string
   documento: string
   telefono: string
+  email?: string
+  sexo?: 'M' | 'F' | 'otro'
   zona: string
   facilitador_id: string
   estado: EstadoProspecto
   fecha_registro: string
+  canal_preferido?: 'whatsapp' | 'llamada' | 'email' | 'visita'
+  canal_captacion?: 'referido' | 'redes_sociales' | 'evento' | 'visita_facilitador' | 'otro'
 }
 
 export interface Cliente {
@@ -161,6 +185,8 @@ export interface Credito {
   cliente_id: string
   cliente_nombre: string
   producto_nombre: string
+  convenio_id?: string
+  fecha_desembolso?: string
   monto_desembolsado: number
   saldo_capital: number
   cuotas_total: number

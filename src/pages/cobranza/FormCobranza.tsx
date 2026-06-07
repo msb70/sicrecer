@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, CheckCircle2, AlertCircle } from 'lucide-react'
 import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Button, Card, CardHeader, CardBody, Input, Alert } from '../../components/ui'
-import { CLIENTES, CREDITOS, COBRANZAS, PRODUCTOS, formatCOP } from '../../mocks'
+import { CLIENTES, CREDITOS, COBRANZAS, PRODUCTOS, BANCOS, formatCOP } from '../../mocks'
 import type { Cobranza } from '../../types'
 
 // Cuota estimada basada en monto desembolsado ÷ cuotas totales (aprox.)
@@ -148,13 +148,20 @@ export default function FormCobranza() {
                     onChange={e => setFecha(e.target.value)}
                     required
                   />
-                  <Input
-                    label="Banco"
-                    placeholder="Ej: Bancolombia"
-                    value={banco}
-                    onChange={e => setBanco(e.target.value)}
-                    required
-                  />
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Banco <span className="text-red-500">*</span></label>
+                    <select
+                      value={banco}
+                      onChange={e => setBanco(e.target.value)}
+                      required
+                      className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
+                    >
+                      <option value="">— Selecciona banco —</option>
+                      {BANCOS.filter(b => b.activo).map(b => (
+                        <option key={b.id} value={b.nombre}>{b.nombre}</option>
+                      ))}
+                    </select>
+                  </div>
                   <Input
                     label="Número de depósito / referencia"
                     placeholder="Ej: 4521-2026-007"

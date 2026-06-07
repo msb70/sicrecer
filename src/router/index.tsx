@@ -32,6 +32,8 @@ import ListaRequisitos           from '../pages/requisitos/ListaRequisitos'
 import ListaActividadesEconomicas from '../pages/actividades/ListaActividadesEconomicas'
 import ListaCobranzas            from '../pages/cobranza/ListaCobranzas'
 import FormCobranza              from '../pages/cobranza/FormCobranza'
+import ListaBancos               from '../pages/bancos/ListaBancos'
+import CierreMensual             from '../pages/cierre/CierreMensual'
 
 // Sprint 2 — Back-office
 import ListaConvenios    from '../pages/convenios/ListaConvenios'
@@ -134,6 +136,12 @@ const router = createBrowserRouter([
   // Cobranza
   { path: '/cobranza',        element: <PrivateRoute><ListaCobranzas /></PrivateRoute> },
   { path: '/cobranza/nueva',  element: <PrivateRoute><FormCobranza /></PrivateRoute> },
+
+  // Bancos
+  { path: '/bancos',          element: <PrivateRoute><ListaBancos /></PrivateRoute> },
+
+  // Cierre mensual
+  { path: '/cierre-mensual',  element: <PrivateRoute><CierreMensual /></PrivateRoute> },
 
   { path: '*', element: <Navigate to="/login" replace /> },
 ])

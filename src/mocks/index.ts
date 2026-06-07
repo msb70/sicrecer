@@ -1,7 +1,7 @@
 import type {
   Organizacion, Usuario, Convenio, ProductoCredito,
   Prospecto, Cliente, Solicitud, Credito,
-  Requisito, ActividadEconomica, Cobranza
+  Requisito, ActividadEconomica, Cobranza, Banco, ActividadCRM
 } from '../types'
 
 // ─── ORGANIZACIONES ───────────────────────────────────────────
@@ -62,6 +62,18 @@ export const CONVENIOS: Convenio[] = [
   },
 ]
 
+// ─── BANCOS ───────────────────────────────────────────────────
+export const BANCOS: Banco[] = [
+  { id: 'ban-01', nombre: 'Bancolombia', activo: true },
+  { id: 'ban-02', nombre: 'Banco de Bogotá', activo: true },
+  { id: 'ban-03', nombre: 'Davivienda', activo: true },
+  { id: 'ban-04', nombre: 'BBVA Colombia', activo: true },
+  { id: 'ban-05', nombre: 'Nequi', activo: true },
+  { id: 'ban-06', nombre: 'Daviplata', activo: true },
+  { id: 'ban-07', nombre: 'Banco Popular', activo: true },
+  { id: 'ban-08', nombre: 'Efectivo / Caja', activo: true },
+]
+
 // ─── REQUISITOS ───────────────────────────────────────────────
 export const REQUISITOS: Requisito[] = [
   { id: 'req-01', nombre: 'Cédula de ciudadanía', descripcion: 'Documento de identidad vigente (frente y reverso)', obligatorio: true },
@@ -119,18 +131,45 @@ export const PRODUCTOS: ProductoCredito[] = [
 export const PROSPECTOS: Prospecto[] = [
   {
     id: 'pros-01', nombre: 'María García', documento: '1098765432',
-    telefono: '3001234567', zona: 'Zona Norte', facilitador_id: 'u-03',
+    telefono: '3001234567', email: 'maria.garcia@gmail.com',
+    sexo: 'F', zona: 'Zona Norte', facilitador_id: 'u-03',
     estado: 'nuevo', fecha_registro: '2026-06-01',
+    canal_preferido: 'whatsapp', canal_captacion: 'referido',
   },
   {
     id: 'pros-02', nombre: 'José Herrera', documento: '1055432198',
-    telefono: '3109876543', zona: 'Zona Norte', facilitador_id: 'u-03',
+    telefono: '3109876543', email: 'jherrera@hotmail.com',
+    sexo: 'M', zona: 'Zona Norte', facilitador_id: 'u-03',
     estado: 'contactado', fecha_registro: '2026-05-28',
+    canal_preferido: 'llamada', canal_captacion: 'visita_facilitador',
   },
   {
     id: 'pros-03', nombre: 'Sandra López', documento: '1023456789',
-    telefono: '3157654321', zona: 'Zona Norte', facilitador_id: 'u-03',
+    telefono: '3157654321',
+    sexo: 'F', zona: 'Zona Norte', facilitador_id: 'u-03',
     estado: 'convertido', fecha_registro: '2026-05-20',
+    canal_preferido: 'email', canal_captacion: 'redes_sociales',
+  },
+]
+
+// ─── ACTIVIDADES CRM ──────────────────────────────────────────
+export const ACTIVIDADES_CRM: ActividadCRM[] = [
+  {
+    id: 'acrm-01', prospecto_id: 'pros-01', tipo: 'llamada',
+    fecha: '2026-06-02', facilitador_id: 'u-03',
+    descripcion: 'Llamada de bienvenida. Interesada en microcrédito para su tienda de abarrotes.',
+    resultado: 'Programar visita la próxima semana',
+  },
+  {
+    id: 'acrm-02', prospecto_id: 'pros-02', tipo: 'visita',
+    fecha: '2026-05-30', facilitador_id: 'u-03',
+    descripcion: 'Visita al taller. Negocio de carpintería con 3 años de operación, buenas condiciones.',
+    resultado: 'Solicitó que enviara estados de cuenta',
+  },
+  {
+    id: 'acrm-03', prospecto_id: 'pros-02', tipo: 'whatsapp',
+    fecha: '2026-06-01', facilitador_id: 'u-03',
+    descripcion: 'Envió fotos del taller y confirmó que mañana manda los documentos.',
   },
 ]
 
@@ -202,6 +241,7 @@ export const CREDITOS: Credito[] = [
   {
     id: 'cred-01', cliente_id: 'cli-01', cliente_nombre: 'Rosa Martínez',
     producto_nombre: 'Microcrédito Rural Básico',
+    convenio_id: 'conv-01', fecha_desembolso: '2026-03-01',
     monto_desembolsado: 2_500_000, saldo_capital: 1_875_000,
     cuotas_total: 12, cuotas_pagadas: 3,
     proxima_cuota: '2026-06-15', dias_mora: 0, estado: 'al_dia',
@@ -209,6 +249,7 @@ export const CREDITOS: Credito[] = [
   {
     id: 'cred-02', cliente_id: 'cli-02', cliente_nombre: 'Tomás Vargas',
     producto_nombre: 'Capital Semilla Urbano',
+    convenio_id: 'conv-02', fecha_desembolso: '2026-02-15',
     monto_desembolsado: 4_000_000, saldo_capital: 3_200_000,
     cuotas_total: 18, cuotas_pagadas: 4,
     proxima_cuota: '2026-06-20', dias_mora: 0, estado: 'activo',
@@ -216,6 +257,7 @@ export const CREDITOS: Credito[] = [
   {
     id: 'cred-03', cliente_id: 'cli-03', cliente_nombre: 'Carmen Ruiz',
     producto_nombre: 'Crédito Grupal Solidario',
+    convenio_id: 'conv-01', fecha_desembolso: '2026-03-20',
     monto_desembolsado: 1_500_000, saldo_capital: 900_000,
     cuotas_total: 8, cuotas_pagadas: 2,
     proxima_cuota: '2026-05-20', dias_mora: 17, estado: 'en_mora',
