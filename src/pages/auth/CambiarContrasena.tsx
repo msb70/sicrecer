@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Eye, EyeOff, CheckCircle2, X } from 'lucide-react'
 import { Button, Alert } from '../../components/ui'
 import { clsx } from 'clsx'
+import { BrandLogo } from '../../components/BrandLogo'
 
 interface Requisito {
   label: string
@@ -69,9 +70,7 @@ export default function CambiarContrasena() {
       <div className="w-full max-w-sm">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-brand-600 mb-4 shadow-lg">
-            <span className="text-white text-xl font-bold">SC</span>
-          </div>
+          <BrandLogo framed className="mb-4" imageClassName="w-[230px] max-w-full" />
           <h1 className="text-2xl font-bold text-gray-900">Cambiar contraseña</h1>
           <p className="mt-1 text-sm text-gray-500">Es tu primer acceso. Establece una contraseña segura.</p>
         </div>

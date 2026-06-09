@@ -9,6 +9,7 @@ import {
   Landmark, BookOpen, ChevronRight
 } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
+import { BrandLogo } from '../BrandLogo'
 import type { Rol } from '../../types'
 import { ROL_LABELS } from '../../types'
 
@@ -204,9 +205,9 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
   return (
     <div className="flex flex-col h-full bg-gray-900 text-white w-64">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-4 border-b border-gray-800">
-        <div>
-          <p className="text-sm font-bold text-white">SiCrecer</p>
+      <div className="flex items-start justify-between gap-3 px-4 py-4 border-b border-gray-800">
+        <div className="min-w-0">
+          <BrandLogo imageClassName="w-[146px]" />
           <p className="text-xs text-gray-400 truncate max-w-[160px]">{organizacion.nombre}</p>
         </div>
         {onClose && (
@@ -356,7 +357,7 @@ export function Shell({ children }: { children: ReactNode }) {
           <button onClick={() => setSidebarOpen(true)} className="text-gray-600 hover:text-gray-900">
             <Menu size={22} />
           </button>
-          <span className="text-sm font-semibold text-gray-900">SiCrecer</span>
+          <BrandLogo framed className="rounded-lg px-2.5 py-1" imageClassName="w-[96px]" />
         </header>
 
         {/* Contenido */}
