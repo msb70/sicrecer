@@ -57,7 +57,18 @@ import NuevaSolicitud    from '../pages/solicitudes/NuevaSolicitud'
 import DetalleSolicitud  from '../pages/solicitudes/DetalleSolicitud'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
-  const { autenticado } = useApp()
+  const { autenticado, cargandoSesion } = useApp()
+
+  // Mientras se restaura la sesión (p. ej. tras el redirect de Google),
+  // no redirigir a /login todavía.
+  if (cargandoSesion) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-sm text-gray-500">
+        Cargando sesión…
+      </div>
+    )
+  }
+
   return autenticado ? <>{children}</> : <Navigate to="/login" replace />
 }
 

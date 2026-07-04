@@ -1,0 +1,367 @@
+// ─── DATOS DEMO (fallback sin conexión a Neon) ────────────────
+// Estos son los datos mock originales. Se usan únicamente en el
+// modo demo (login sin Google). Con sesión real, los datos vienen
+// de la base de datos Neon vía Data API (ver ./index.ts).
+
+import type {
+  Organizacion, Usuario, Convenio, ProductoCredito,
+  Prospecto, Cliente, Solicitud, Credito,
+  Requisito, ActividadEconomica, Cobranza, Banco, ActividadCRM,
+} from '../types'
+import type { Pago, Visita } from './extra'
+
+export const ORGANIZACIONES_DEMO: Organizacion[] = [
+  { id: 'org-co-01', nombre: 'Fundación Crecer Colombia', pais: 'CO' },
+  { id: 'org-ve-01', nombre: 'MicroFinanzas Venezuela', pais: 'VE' },
+]
+
+export const USUARIOS_DEMO: Usuario[] = [
+  {
+    id: 'u-01', nombre: 'Ana Torres', email: 'ana@crecer.co',
+    rol: 'administrador', organizacion_id: 'org-co-01',
+  },
+  {
+    id: 'u-02', nombre: 'Carlos Mendez', email: 'carlos@crecer.co',
+    rol: 'coordinador', zona: 'Zona Norte', organizacion_id: 'org-co-01',
+  },
+  {
+    id: 'u-03', nombre: 'Luisa Ramírez', email: 'luisa@crecer.co',
+    rol: 'facilitador', zona: 'Zona Norte', organizacion_id: 'org-co-01',
+  },
+  {
+    id: 'u-04', nombre: 'Pedro Gómez', email: 'pedro@crecer.co',
+    rol: 'comite', organizacion_id: 'org-co-01',
+  },
+  {
+    id: 'u-05', nombre: 'Mario Rojas', email: 'mario@crecer.co',
+    rol: 'auditor', organizacion_id: 'org-co-01',
+  },
+]
+
+export const CONVENIOS_DEMO: Convenio[] = [
+  {
+    id: 'conv-01', cooperante: 'Banco Mundial',
+    monto_total: 200_000_000, saldo_disponible: 142_500_000,
+    moneda: 'COP', fecha_inicio: '2025-01-01', fecha_fin: '2026-12-31',
+    estado: 'activo', pais: 'CO', organizacion_id: 'org-co-01',
+  },
+  {
+    id: 'conv-02', cooperante: 'USAID Colombia',
+    monto_total: 80_000_000, saldo_disponible: 71_200_000,
+    moneda: 'COP', fecha_inicio: '2025-03-01', fecha_fin: '2026-06-30',
+    estado: 'activo', pais: 'CO', organizacion_id: 'org-co-01',
+  },
+  {
+    id: 'conv-03', cooperante: 'CAF Venezuela',
+    monto_total: 500_000, saldo_disponible: 48_000,
+    moneda: 'UVC', fecha_inicio: '2025-06-01', fecha_fin: '2026-05-31',
+    estado: 'activo', pais: 'VE', organizacion_id: 'org-ve-01',
+  },
+  {
+    id: 'conv-04', cooperante: 'PNUD',
+    monto_total: 50_000_000, saldo_disponible: 0,
+    moneda: 'COP', fecha_inicio: '2024-01-01', fecha_fin: '2025-01-01',
+    estado: 'cerrado', pais: 'CO', organizacion_id: 'org-co-01',
+  },
+]
+
+export const BANCOS_DEMO: Banco[] = [
+  { id: 'ban-01', nombre: 'Bancolombia', activo: true },
+  { id: 'ban-02', nombre: 'Banco de Bogotá', activo: true },
+  { id: 'ban-03', nombre: 'Davivienda', activo: true },
+  { id: 'ban-04', nombre: 'BBVA Colombia', activo: true },
+  { id: 'ban-05', nombre: 'Nequi', activo: true },
+  { id: 'ban-06', nombre: 'Daviplata', activo: true },
+  { id: 'ban-07', nombre: 'Banco Popular', activo: true },
+  { id: 'ban-08', nombre: 'Efectivo / Caja', activo: true },
+]
+
+export const REQUISITOS_DEMO: Requisito[] = [
+  { id: 'req-01', nombre: 'Cédula de ciudadanía', descripcion: 'Documento de identidad vigente (frente y reverso)', obligatorio: true },
+  { id: 'req-02', nombre: 'Carta de trabajo', descripcion: 'Carta laboral con salario, cargo y tiempo en empresa. Vigencia máx. 30 días', obligatorio: false },
+  { id: 'req-03', nombre: 'Estados de cuenta', descripcion: 'Últimos 3 meses de extractos bancarios', obligatorio: false },
+  { id: 'req-04', nombre: 'Foto de perfil', descripcion: 'Foto reciente del solicitante, fondo blanco', obligatorio: true },
+  { id: 'req-05', nombre: 'Comprobante de ingresos', descripcion: 'Declaración de renta o soporte de ingresos informales', obligatorio: false },
+  { id: 'req-06', nombre: 'Declaración de patrimonio', descripcion: 'Listado de activos y pasivos del solicitante', obligatorio: false },
+]
+
+export const ACTIVIDADES_ECONOMICAS_DEMO: ActividadEconomica[] = [
+  { id: 'act-01', nombre: 'Venta de abarrotes / tienda', descripcion: 'Comercio minorista de alimentos y productos de primera necesidad', sector: 'Comercio' },
+  { id: 'act-02', nombre: 'Taller de carpintería', descripcion: 'Fabricación y reparación de muebles y artículos de madera', sector: 'Industria' },
+  { id: 'act-03', nombre: 'Confección de ropa', descripcion: 'Diseño y producción de prendas de vestir a escala artesanal', sector: 'Industria' },
+  { id: 'act-04', nombre: 'Venta de frutas y verduras', descripcion: 'Comercio minorista de productos agrícolas frescos', sector: 'Comercio' },
+  { id: 'act-05', nombre: 'Restaurante / comida', descripcion: 'Preparación y venta de alimentos listos para consumir', sector: 'Servicios' },
+  { id: 'act-06', nombre: 'Peluquería / estética', descripcion: 'Servicios de belleza y cuidado personal', sector: 'Servicios' },
+  { id: 'act-07', nombre: 'Transporte informal', descripcion: 'Servicio de movilidad por cuenta propia (mototaxi, colectivo)', sector: 'Transporte' },
+  { id: 'act-08', nombre: 'Construcción / albañilería', descripcion: 'Obras civiles menores y reparaciones locativas', sector: 'Construcción' },
+]
+
+export const PRODUCTOS_DEMO: ProductoCredito[] = [
+  {
+    id: 'prod-01', convenio_id: 'conv-01', nombre: 'Microcrédito Rural Básico',
+    descripcion: 'Crédito individual dirigido a microempresarios rurales. Ideal para capital de trabajo y mejora del negocio.',
+    tasa_nominal_anual: 18, metodo_interes: 'declining_balance',
+    periodo_gracia_dias: 0, plazo_min: 3, plazo_max: 12,
+    monto_min: 500_000, monto_max: 5_000_000, frecuencia: 'mensual',
+    requisito_ids: ['req-01', 'req-04', 'req-05'],
+    actividad_economica_ids: ['act-01', 'act-02', 'act-03', 'act-04'],
+  },
+  {
+    id: 'prod-02', convenio_id: 'conv-01', nombre: 'Crédito Grupal Solidario',
+    descripcion: 'Crédito para grupos de 4 a 8 personas con garantía solidaria. Fomenta el ahorro y la responsabilidad colectiva.',
+    tasa_nominal_anual: 15, metodo_interes: 'flat',
+    periodo_gracia_dias: 7, plazo_min: 4, plazo_max: 8,
+    monto_min: 300_000, monto_max: 2_000_000, frecuencia: 'quincenal',
+    requisito_ids: ['req-01', 'req-04'],
+    actividad_economica_ids: ['act-05', 'act-06', 'act-07'],
+  },
+  {
+    id: 'prod-03', convenio_id: 'conv-02', nombre: 'Capital Semilla Urbano',
+    descripcion: 'Crédito para emprendedores urbanos en etapa de arranque. Requiere plan de negocio básico.',
+    tasa_nominal_anual: 20, metodo_interes: 'declining_balance',
+    periodo_gracia_dias: 15, plazo_min: 6, plazo_max: 24,
+    monto_min: 1_000_000, monto_max: 10_000_000, frecuencia: 'mensual',
+    requisito_ids: ['req-01', 'req-02', 'req-03', 'req-04', 'req-06'],
+    actividad_economica_ids: ['act-01', 'act-02', 'act-03', 'act-04', 'act-05', 'act-06', 'act-07', 'act-08'],
+  },
+]
+
+export const PROSPECTOS_DEMO: Prospecto[] = [
+  {
+    id: 'pros-01', nombre: 'María García', documento: '1098765432',
+    telefono: '3001234567', email: 'maria.garcia@gmail.com',
+    sexo: 'F', zona: 'Zona Norte', facilitador_id: 'u-03',
+    estado: 'nuevo', fecha_registro: '2026-06-01',
+    canal_preferido: 'whatsapp', canal_captacion: 'referido',
+  },
+  {
+    id: 'pros-02', nombre: 'José Herrera', documento: '1055432198',
+    telefono: '3109876543', email: 'jherrera@hotmail.com',
+    sexo: 'M', zona: 'Zona Norte', facilitador_id: 'u-03',
+    estado: 'contactado', fecha_registro: '2026-05-28',
+    canal_preferido: 'llamada', canal_captacion: 'visita_facilitador',
+  },
+  {
+    id: 'pros-03', nombre: 'Sandra López', documento: '1023456789',
+    telefono: '3157654321',
+    sexo: 'F', zona: 'Zona Norte', facilitador_id: 'u-03',
+    estado: 'convertido', fecha_registro: '2026-05-20',
+    canal_preferido: 'email', canal_captacion: 'redes_sociales',
+  },
+]
+
+export const ACTIVIDADES_CRM_DEMO: ActividadCRM[] = [
+  {
+    id: 'acrm-01', prospecto_id: 'pros-01', tipo: 'llamada',
+    fecha: '2026-06-02', facilitador_id: 'u-03',
+    descripcion: 'Llamada de bienvenida. Interesada en microcrédito para su tienda de abarrotes.',
+    resultado: 'Programar visita la próxima semana',
+  },
+  {
+    id: 'acrm-02', prospecto_id: 'pros-02', tipo: 'visita',
+    fecha: '2026-05-30', facilitador_id: 'u-03',
+    descripcion: 'Visita al taller. Negocio de carpintería con 3 años de operación, buenas condiciones.',
+    resultado: 'Solicitó que enviara estados de cuenta',
+  },
+  {
+    id: 'acrm-03', prospecto_id: 'pros-02', tipo: 'whatsapp',
+    fecha: '2026-06-01', facilitador_id: 'u-03',
+    descripcion: 'Envió fotos del taller y confirmó que mañana manda los documentos.',
+  },
+]
+
+export const CLIENTES_DEMO: Cliente[] = [
+  {
+    id: 'cli-01', nombre: 'Rosa Martínez', documento: '1045678901',
+    fecha_nacimiento: '1985-04-12', genero: 'F',
+    actividad_economica: 'Venta de abarrotes', zona: 'Zona Norte',
+    telefono: '3204567890', estado: 'activo',
+    creditos_activos: 1, total_prestado: 2_500_000, facilitador_id: 'u-03',
+  },
+  {
+    id: 'cli-02', nombre: 'Tomás Vargas', documento: '1034567890',
+    fecha_nacimiento: '1978-08-22', genero: 'M',
+    actividad_economica: 'Taller de carpintería', zona: 'Zona Norte',
+    telefono: '3012345678', estado: 'al_dia',
+    creditos_activos: 1, total_prestado: 4_000_000, facilitador_id: 'u-03',
+  },
+  {
+    id: 'cli-03', nombre: 'Carmen Ruiz', documento: '1067890123',
+    fecha_nacimiento: '1990-11-05', genero: 'F',
+    actividad_economica: 'Confección de ropa', zona: 'Zona Norte',
+    telefono: '3145678901', estado: 'moroso',
+    creditos_activos: 1, total_prestado: 1_500_000, facilitador_id: 'u-03',
+  },
+  {
+    id: 'cli-04', nombre: 'Alberto Núñez', documento: '1089012345',
+    fecha_nacimiento: '1982-02-18', genero: 'M',
+    actividad_economica: 'Venta de frutas y verduras', zona: 'Zona Norte',
+    telefono: '3178901234', estado: 'activo',
+    creditos_activos: 0, total_prestado: 3_000_000, facilitador_id: 'u-03',
+  },
+]
+
+export const SOLICITUDES_DEMO: Solicitud[] = [
+  {
+    id: 'sol-01', cliente_id: 'cli-01', cliente_nombre: 'Rosa Martínez',
+    producto_id: 'prod-01', producto_nombre: 'Microcrédito Rural Básico',
+    monto_solicitado: 2_500_000, plazo: 12,
+    estado: 'aprobada', score: 720, banda_riesgo: 'B',
+    fecha_solicitud: '2026-05-15', facilitador_id: 'u-03',
+  },
+  {
+    id: 'sol-02', cliente_id: 'cli-02', cliente_nombre: 'Tomás Vargas',
+    producto_id: 'prod-03', producto_nombre: 'Capital Semilla Urbano',
+    monto_solicitado: 4_000_000, plazo: 18,
+    estado: 'revision_comite', score: 610, banda_riesgo: 'C',
+    fecha_solicitud: '2026-06-01', facilitador_id: 'u-03',
+  },
+  {
+    id: 'sol-03', cliente_id: 'cli-03', cliente_nombre: 'Carmen Ruiz',
+    producto_id: 'prod-02', producto_nombre: 'Crédito Grupal Solidario',
+    monto_solicitado: 1_500_000, plazo: 8,
+    estado: 'rechazada', score: 420, banda_riesgo: 'E',
+    fecha_solicitud: '2026-04-10', facilitador_id: 'u-03',
+  },
+  {
+    id: 'sol-04', cliente_id: 'cli-04', cliente_nombre: 'Alberto Núñez',
+    producto_id: 'prod-01', producto_nombre: 'Microcrédito Rural Básico',
+    monto_solicitado: 3_000_000, plazo: 12,
+    estado: 'enviada', fecha_solicitud: '2026-06-05', facilitador_id: 'u-03',
+  },
+]
+
+export const CREDITOS_DEMO: Credito[] = [
+  {
+    id: 'cred-01', cliente_id: 'cli-01', cliente_nombre: 'Rosa Martínez',
+    producto_nombre: 'Microcrédito Rural Básico',
+    convenio_id: 'conv-01', fecha_desembolso: '2026-03-01',
+    monto_desembolsado: 2_500_000, saldo_capital: 1_875_000,
+    cuotas_total: 12, cuotas_pagadas: 3,
+    proxima_cuota: '2026-06-15', dias_mora: 0, estado: 'al_dia',
+  },
+  {
+    id: 'cred-02', cliente_id: 'cli-02', cliente_nombre: 'Tomás Vargas',
+    producto_nombre: 'Capital Semilla Urbano',
+    convenio_id: 'conv-02', fecha_desembolso: '2026-02-15',
+    monto_desembolsado: 4_000_000, saldo_capital: 3_200_000,
+    cuotas_total: 18, cuotas_pagadas: 4,
+    proxima_cuota: '2026-06-20', dias_mora: 0, estado: 'activo',
+  },
+  {
+    id: 'cred-03', cliente_id: 'cli-03', cliente_nombre: 'Carmen Ruiz',
+    producto_nombre: 'Crédito Grupal Solidario',
+    convenio_id: 'conv-01', fecha_desembolso: '2026-03-20',
+    monto_desembolsado: 1_500_000, saldo_capital: 900_000,
+    cuotas_total: 8, cuotas_pagadas: 2,
+    proxima_cuota: '2026-05-20', dias_mora: 17, estado: 'en_mora',
+  },
+]
+
+export const COBRANZAS_DEMO: Cobranza[] = [
+  {
+    id: 'cob-01', cliente_id: 'cli-01', cliente_nombre: 'Rosa Martínez',
+    credito_id: 'cred-01', fecha: '2026-03-15', banco: 'Bancolombia',
+    numero_deposito: '4521-2026-001', monto: 229_000,
+    cuotas_aplicadas: [1], creado_por: 'u-03',
+  },
+  {
+    id: 'cob-02', cliente_id: 'cli-01', cliente_nombre: 'Rosa Martínez',
+    credito_id: 'cred-01', fecha: '2026-04-15', banco: 'Bancolombia',
+    numero_deposito: '4521-2026-002', monto: 229_000,
+    cuotas_aplicadas: [2], creado_por: 'u-03',
+  },
+  {
+    id: 'cob-03', cliente_id: 'cli-01', cliente_nombre: 'Rosa Martínez',
+    credito_id: 'cred-01', fecha: '2026-05-15', banco: 'Bancolombia',
+    numero_deposito: '4521-2026-003', monto: 229_000,
+    cuotas_aplicadas: [3], creado_por: 'u-03',
+  },
+]
+
+export const PAGOS_DEMO: Pago[] = [
+  {
+    id: 'pag-001', credito_id: 'cred-001', cuota_num: 1,
+    fecha: '2025-02-15', monto_capital: 77450, monto_interes: 22550, monto_total: 100000,
+    metodo: 'efectivo', referencia: 'EFE-001', registrado_por: 'Ana López',
+  },
+  {
+    id: 'pag-002', credito_id: 'cred-001', cuota_num: 2,
+    fecha: '2025-03-15', monto_capital: 79047, monto_interes: 20953, monto_total: 100000,
+    metodo: 'transferencia', referencia: 'TRF-8821', registrado_por: 'Ana López',
+  },
+  {
+    id: 'pag-003', credito_id: 'cred-001', cuota_num: 3,
+    fecha: '2025-04-15', monto_capital: 80678, monto_interes: 19322, monto_total: 100000,
+    metodo: 'efectivo', referencia: 'EFE-003', registrado_por: 'Ana López',
+  },
+  {
+    id: 'pag-004', credito_id: 'cred-002', cuota_num: 1,
+    fecha: '2025-03-20', monto_capital: 153333, monto_interes: 46667, monto_total: 200000,
+    metodo: 'pse', referencia: 'PSE-4412', registrado_por: 'Pedro Ramírez',
+  },
+]
+
+export const VISITAS_DEMO: Visita[] = [
+  {
+    id: 'vis-001', cliente_id: 'cli-003', cliente_nombre: 'Carmen Reyes',
+    tipo: 'cobranza', fecha: '2026-06-06', hora: '09:00', zona: 'Zona Norte',
+    estado: 'pendiente', motivo: 'Cuota vencida hace 17 días — cobro de mora',
+  },
+  {
+    id: 'vis-002', cliente_id: 'cli-001', cliente_nombre: 'Rosa Martínez',
+    tipo: 'seguimiento', fecha: '2026-06-06', hora: '10:30', zona: 'Zona Norte',
+    estado: 'pendiente', motivo: 'Visita mensual de seguimiento — cuota 4 próxima',
+  },
+  {
+    id: 'vis-003', cliente_nombre: 'María Pérez (prospecto)',
+    tipo: 'prospecto', fecha: '2026-06-06', hora: '14:00', zona: 'Zona Centro',
+    estado: 'pendiente', motivo: 'Evaluación inicial para solicitud de crédito',
+  },
+  {
+    id: 'vis-004', cliente_id: 'cli-002', cliente_nombre: 'Tomás García',
+    tipo: 'seguimiento', fecha: '2026-06-06', hora: '16:00', zona: 'Zona Norte',
+    estado: 'realizada', motivo: 'Verificación de negocio', nota: 'Negocio operando con normalidad. Planea solicitar ampliación en agosto.',
+  },
+  {
+    id: 'vis-005', cliente_nombre: 'Grupo Las Emprendedoras',
+    tipo: 'grupo', fecha: '2026-06-07', hora: '08:00', zona: 'Zona Norte',
+    estado: 'pendiente', motivo: 'Reunión quincenal del grupo solidario',
+  },
+  {
+    id: 'vis-006', cliente_id: 'cli-004', cliente_nombre: 'Alberto Suárez',
+    tipo: 'seguimiento', fecha: '2026-06-07', hora: '11:00', zona: 'Zona Sur',
+    estado: 'pendiente', motivo: 'Verificación de crédito activo',
+  },
+]
+
+export const KPI_REPORTES_DEMO = {
+  cartera_total:     1_850_000,
+  par_30:            5.8,
+  par_90:            1.2,
+  desembolsos_mes:   420_000,
+  num_creditos:      3,
+  num_clientes:      4,
+  tasa_recuperacion: 94.2,
+  creditos_activos:  2,
+  creditos_mora:     1,
+  creditos_cancelados: 0,
+  tendencia_desembolsos: [
+    { mes: 'Ene', monto: 280_000 },
+    { mes: 'Feb', monto: 350_000 },
+    { mes: 'Mar', monto: 420_000 },
+    { mes: 'Abr', monto: 310_000 },
+    { mes: 'May', monto: 490_000 },
+    { mes: 'Jun', monto: 420_000 },
+  ],
+  distribucion_cartera: [
+    { estado: 'Al día',      monto: 1_200_000, color: '#10b981' },
+    { estado: 'Activo',      monto:   540_000, color: '#6366f1' },
+    { estado: 'En mora',     monto:   110_000, color: '#ef4444' },
+  ],
+  par_zona: [
+    { zona: 'Zona Norte',  par30: 4.1, cartera: 980_000  },
+    { zona: 'Zona Centro', par30: 8.2, cartera: 540_000  },
+    { zona: 'Zona Sur',    par30: 2.5, cartera: 330_000  },
+  ],
+}
