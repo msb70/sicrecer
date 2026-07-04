@@ -11,13 +11,11 @@ const FRECUENCIA_LABEL: Record<ProductoCredito['frecuencia'], string> = {
   mensual:   'Mensual',
 }
 
-const FRECUENCIA_PERIODOS_ANUALES: Record<ProductoCredito['frecuencia'], number> = {
-  semanal:   52,
-  quincenal: 24,
-  mensual:   12,
-}
-
 // ─── Cálculo de cuota ─────────────────────────────────────────
+// Motor financiero único (src/lib/finanzas.ts) — misma lógica que
+// la función SQL generar_cronograma en la base de datos.
+import { calcularCuota as cuotaMotor, generarPlan } from '../../lib/finanzas'
+
 function calcularCuota(
   monto: number,
   plazo: number,
@@ -25,18 +23,7 @@ function calcularCuota(
   metodo: ProductoCredito['metodo_interes'],
   frecuencia: ProductoCredito['frecuencia']
 ): number {
-  const n = plazo
-  const periodosAnuales = FRECUENCIA_PERIODOS_ANUALES[frecuencia]
-  const r = tasaAnual / 100 / periodosAnuales
-
-  if (metodo === 'flat') {
-    const totalInteres = monto * (tasaAnual / 100) * (plazo / periodosAnuales)
-    return (monto + totalInteres) / n
-  } else {
-    // Cuota francesa / saldo decreciente
-    if (r === 0) return monto / n
-    return monto * (r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1)
-  }
+  return cuotaMotor({ monto, tasaNominalAnual: tasaAnual, plazo, metodo, frecuencia })
 }
 
 // ─── Tabla de amortización resumida ──────────────────────────
@@ -49,21 +36,8 @@ function tablaAmortizacion(
   metodo: ProductoCredito['metodo_interes'],
   frecuencia: ProductoCredito['frecuencia']
 ): FilaAmort[] {
-  const periodosAnuales = FRECUENCIA_PERIODOS_ANUALES[frecuencia]
-  const r = tasaAnual / 100 / periodosAnuales
-  const cuota = calcularCuota(monto, plazo, tasaAnual, metodo, frecuencia)
-  const filas: FilaAmort[] = []
-  let saldo = monto
-
-  for (let i = 1; i <= plazo; i++) {
-    const interes = metodo === 'flat'
-      ? (monto * (tasaAnual / 100) * (plazo / periodosAnuales)) / plazo
-      : saldo * r
-    const capital = cuota - interes
-    saldo = Math.max(0, saldo - capital)
-    filas.push({ num: i, capital: Math.round(capital), interes: Math.round(interes), cuota: Math.round(cuota), saldo: Math.round(saldo) })
-  }
-  return filas
+  return generarPlan({ monto, tasaNominalAnual: tasaAnual, plazo, metodo, frecuencia })
+    .map(f => ({ num: f.num, capital: f.capital, interes: f.interes, cuota: f.cuota, saldo: f.saldo }))
 }
 
 // ─── INPUT NUM ────────────────────────────────────────────────

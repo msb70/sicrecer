@@ -1,5 +1,6 @@
-import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom'
+import { createBrowserRouter, RouterProvider, Navigate, useLocation } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
+import { puedeAcceder } from '../lib/permisos'
 
 // Auth
 import Login             from '../pages/auth/Login'
@@ -57,7 +58,8 @@ import NuevaSolicitud    from '../pages/solicitudes/NuevaSolicitud'
 import DetalleSolicitud  from '../pages/solicitudes/DetalleSolicitud'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
-  const { autenticado, cargandoSesion } = useApp()
+  const { autenticado, cargandoSesion, rol } = useApp()
+  const { pathname } = useLocation()
 
   // Mientras se restaura la sesión (p. ej. tras el redirect de Google),
   // no redirigir a /login todavía.
@@ -69,7 +71,13 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
     )
   }
 
-  return autenticado ? <>{children}</> : <Navigate to="/login" replace />
+  if (!autenticado) return <Navigate to="/login" replace />
+
+  // Guarda por rol: si la ruta no está permitida para el rol actual,
+  // volver al dashboard. (La barrera real de datos es RLS en la BD.)
+  if (!puedeAcceder(rol, pathname)) return <Navigate to="/dashboard" replace />
+
+  return <>{children}</>
 }
 
 const router = createBrowserRouter([

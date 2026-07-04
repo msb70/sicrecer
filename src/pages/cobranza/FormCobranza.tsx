@@ -3,11 +3,15 @@ import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, CheckCircle2, AlertCircle } from 'lucide-react'
 import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Button, Card, CardHeader, CardBody, Input, Alert } from '../../components/ui'
-import { CLIENTES, CREDITOS, COBRANZAS, PRODUCTOS, BANCOS, formatCOP } from '../../mocks'
+import { CLIENTES, CREDITOS, COBRANZAS, BANCOS, formatCOP, cargarDatosDesdeNeon } from '../../mocks'
+import { useApp } from '../../context/AppContext'
+import { neon } from '../../lib/neon'
 import type { Cobranza } from '../../types'
 
 // Cuota estimada basada en monto desembolsado ÷ cuotas totales (aprox.)
-// Para demo; en producción se recalcularía con tasa real del producto
+// Solo para previsualización en pantalla: la asignación real la hace
+// la función transaccional `aplicar_pago` en la base de datos
+// (mora → interés → capital contra el cronograma real).
 function cuotaEstimada(monto_desembolsado: number, cuotas_total: number): number {
   return monto_desembolsado / cuotas_total
 }
@@ -16,6 +20,7 @@ const cobranzasStore: Cobranza[] = [...COBRANZAS]
 
 export default function FormCobranza() {
   const navigate = useNavigate()
+  const { modo, usuario } = useApp()
 
   const [clienteId,   setClienteId]   = useState('')
   const [creditoId,   setCreditoId]   = useState('')
@@ -24,6 +29,11 @@ export default function FormCobranza() {
   const [numDeposito, setNumDeposito] = useState('')
   const [monto,       setMonto]       = useState('')
   const [guardado,    setGuardado]    = useState(false)
+  const [enviando,    setEnviando]    = useState(false)
+  const [errorPago,   setErrorPago]   = useState('')
+  // Clave de idempotencia estable por formulario: un doble clic o un
+  // reintento de red no duplica el pago.
+  const [claveIdem] = useState(() => `ui-${crypto.randomUUID()}`)
 
   const clientesConCredito = useMemo(() =>
     CLIENTES.filter(c => CREDITOS.some(cr => cr.cliente_id === c.id)),
@@ -47,8 +57,39 @@ export default function FormCobranza() {
 
   const listo = clienteId && creditoId && fecha && banco && numDeposito && montoNum > 0
 
-  const guardar = () => {
-    if (!listo || !credito) return
+  const guardar = async () => {
+    if (!listo || !credito || enviando) return
+    setErrorPago('')
+
+    // Sesión real: transacción en la base de datos vía aplicar_pago
+    // (idempotente; asigna contra el cronograma real y actualiza el crédito).
+    if (modo === 'google') {
+      setEnviando(true)
+      const { data, error } = await neon.rpc('aplicar_pago', {
+        p_credito_id: creditoId,
+        p_monto: montoNum,
+        p_banco: banco,
+        p_numero_deposito: numDeposito,
+        p_fecha: fecha,
+        p_clave_idempotencia: claveIdem,
+      })
+      if (error) {
+        setErrorPago(error.message ?? 'No se pudo registrar el pago')
+        setEnviando(false)
+        return
+      }
+      await cargarDatosDesdeNeon()  // refrescar créditos/cobranzas en memoria
+      setEnviando(false)
+      setGuardado(true)
+      const excedente = (data as { excedente?: number })?.excedente ?? 0
+      if (excedente > 0) {
+        setErrorPago(`Pago aplicado con excedente de ${formatCOP(excedente)} (crédito completado).`)
+      }
+      setTimeout(() => navigate('/cobranza'), 1400)
+      return
+    }
+
+    // Modo demo: solo memoria local, sin persistencia.
     const nueva: Cobranza = {
       id: `cob-${Date.now()}`,
       cliente_id: clienteId,
@@ -57,7 +98,7 @@ export default function FormCobranza() {
       fecha, banco, numero_deposito: numDeposito,
       monto: montoNum,
       cuotas_aplicadas: cuotasAplicar,
-      creado_por: 'u-03',
+      creado_por: usuario.id,
     }
     cobranzasStore.push(nueva)
     setGuardado(true)
@@ -73,7 +114,8 @@ export default function FormCobranza() {
           actions={<Button variant="ghost" onClick={() => navigate('/cobranza')}><ArrowLeft size={16}/>Volver</Button>}
         />
 
-        {guardado && <Alert type="success" className="mb-4"><CheckCircle2 size={14} className="inline mr-1"/>Cobranza registrada. Redirigiendo…</Alert>}
+        {guardado && <Alert type="success" className="mb-4"><CheckCircle2 size={14} className="inline mr-1"/>{modo === 'google' ? 'Pago aplicado en la base de datos. Redirigiendo…' : 'Cobranza registrada (demo, sin persistencia). Redirigiendo…'}</Alert>}
+        {errorPago && !guardado && <Alert type="error" className="mb-4"><AlertCircle size={14} className="inline mr-1"/>{errorPago}</Alert>}
 
         <div className="grid lg:grid-cols-3 gap-5">
           <div className="lg:col-span-2 space-y-5">
@@ -184,8 +226,8 @@ export default function FormCobranza() {
 
             <div className="flex justify-end gap-3">
               <Button variant="ghost" onClick={() => navigate('/cobranza')}>Cancelar</Button>
-              <Button onClick={guardar} disabled={!listo}>
-                <CheckCircle2 size={16}/>Registrar cobranza
+              <Button onClick={guardar} disabled={!listo || enviando}>
+                <CheckCircle2 size={16}/>{enviando ? 'Aplicando pago…' : 'Registrar cobranza'}
               </Button>
             </div>
           </div>

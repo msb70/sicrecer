@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Navigate } from 'react-router-dom'
 import { CheckCircle2, Globe } from 'lucide-react'
 import { Button } from '../../components/ui'
 import { useApp } from '../../context/AppContext'
@@ -19,6 +19,11 @@ export default function SeleccionOrg() {
 
   const [orgSeleccionada, setOrgSeleccionada] = useState<string>(ORGANIZACIONES[0].id)
   const [rolSeleccionado, setRolSeleccionado] = useState<Rol>('administrador')
+
+  // Pantalla exclusiva del modo demo
+  if (import.meta.env.VITE_DEMO_MODE !== 'true') {
+    return <Navigate to="/login" replace />
+  }
 
   const handleIngresar = () => {
     login(orgSeleccionada, rolSeleccionado)

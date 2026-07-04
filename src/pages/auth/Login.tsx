@@ -16,6 +16,9 @@ function GoogleIcon() {
   )
 }
 
+// Modo demo visible solo si VITE_DEMO_MODE=true (nunca en producción)
+const DEMO_HABILITADO = import.meta.env.VITE_DEMO_MODE === 'true'
+
 export default function Login() {
   const navigate = useNavigate()
   const { organizacion, loginGoogle, errorAuth } = useApp()
@@ -93,6 +96,7 @@ export default function Login() {
             {loadingGoogle ? 'Redirigiendo…' : 'Continuar con Google'}
           </button>
 
+          {DEMO_HABILITADO && (<>
           <div className="my-5 flex items-center gap-3">
             <div className="flex-1 h-px bg-gray-200" />
             <span className="text-xs text-gray-400">o modo demo</span>
@@ -141,6 +145,7 @@ export default function Login() {
             <p className="text-xs text-gray-500">Cualquier email + contraseña → accede con datos de ejemplo</p>
             <p className="text-xs text-gray-500">Contraseña <code className="bg-gray-200 px-1 rounded">primer-acceso</code> → flujo de cambio</p>
           </div>
+          </>)}
         </div>
 
         <p className="mt-6 text-center text-xs text-gray-400">

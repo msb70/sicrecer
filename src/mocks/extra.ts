@@ -3,6 +3,7 @@
 // sesión; los valores iniciales son los datos demo.
 
 import { PAGOS_DEMO, VISITAS_DEMO, KPI_REPORTES_DEMO } from './fallback'
+import { generarPlan } from '../lib/finanzas'
 
 // Historial de pagos realizados
 export interface Pago {
@@ -20,38 +21,30 @@ export interface Pago {
 
 export const PAGOS: Pago[] = [...PAGOS_DEMO]
 
-// Genera cronograma de amortización (saldo decreciente)
+// Genera cronograma de amortización (saldo decreciente, mensual).
+// Delegado al motor financiero único de src/lib/finanzas.ts.
 export function generarCronograma(
   monto: number,
   tasaAnual: number,
   plazoMeses: number,
   fechaDesembolso: string
 ): CuotaCronograma[] {
-  const i = tasaAnual / 100 / 12
-  const cuotaFija = i === 0
-    ? monto / plazoMeses
-    : (monto * i * Math.pow(1 + i, plazoMeses)) / (Math.pow(1 + i, plazoMeses) - 1)
-
-  let saldo = monto
-  const cronograma: CuotaCronograma[] = []
-  const fecha = new Date(fechaDesembolso)
-
-  for (let n = 1; n <= plazoMeses; n++) {
-    fecha.setMonth(fecha.getMonth() + 1)
-    const interes  = saldo * i
-    const capital  = cuotaFija - interes
-    saldo -= capital
-    cronograma.push({
-      num:       n,
-      fecha:     fecha.toISOString().slice(0, 10),
-      cuota:     Math.round(cuotaFija),
-      capital:   Math.round(capital),
-      interes:   Math.round(interes),
-      saldo:     Math.max(0, Math.round(saldo)),
-      pagada:    n <= 3,   // las primeras 3 cuotas están pagadas en el mock
-    })
-  }
-  return cronograma
+  return generarPlan({
+    monto,
+    tasaNominalAnual: tasaAnual,
+    plazo: plazoMeses,
+    metodo: 'declining_balance',
+    frecuencia: 'mensual',
+    fechaDesembolso,
+  }).map(f => ({
+    num:     f.num,
+    fecha:   f.fecha ?? '',
+    cuota:   f.cuota,
+    capital: f.capital,
+    interes: f.interes,
+    saldo:   f.saldo,
+    pagada:  f.num <= 3,   // las primeras 3 cuotas están pagadas en el mock
+  }))
 }
 
 export interface CuotaCronograma {

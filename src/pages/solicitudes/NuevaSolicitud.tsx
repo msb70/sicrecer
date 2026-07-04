@@ -7,33 +7,13 @@ import { CLIENTES, PRODUCTOS, formatCOP } from '../../mocks'
 import { clsx } from 'clsx'
 
 // ─── CÁLCULO DE CUOTAS ────────────────────────────────────────
-function calcularCuota(monto: number, tasaAnual: number, plazo: number, metodo: string): number {
-  const tasaMensual = tasaAnual / 100 / 12
-  if (metodo === 'flat') {
-    const interes = monto * tasaMensual * plazo
-    return Math.round((monto + interes) / plazo)
-  }
-  // Declining balance (francés)
-  if (tasaMensual === 0) return Math.round(monto / plazo)
-  const cuota = monto * (tasaMensual * Math.pow(1 + tasaMensual, plazo)) / (Math.pow(1 + tasaMensual, plazo) - 1)
-  return Math.round(cuota)
-}
+// Motor financiero único (src/lib/finanzas.ts) — misma lógica que
+// la función SQL generar_cronograma en la base de datos.
+import { generarPlan, type MetodoInteres, type Frecuencia } from '../../lib/finanzas'
 
-function generarAmortizacion(monto: number, tasaAnual: number, plazo: number, metodo: string) {
-  const tasaMensual = tasaAnual / 100 / 12
-  const cuota = calcularCuota(monto, tasaAnual, plazo, metodo)
-  const filas = []
-  let saldo = monto
-
-  for (let i = 1; i <= plazo; i++) {
-    const interes = metodo === 'flat'
-      ? Math.round(monto * tasaMensual)
-      : Math.round(saldo * tasaMensual)
-    const capital = cuota - interes
-    saldo = Math.max(0, saldo - capital)
-    filas.push({ n: i, cuota, capital, interes, saldo })
-  }
-  return filas
+function generarAmortizacion(monto: number, tasaAnual: number, plazo: number, metodo: MetodoInteres, frecuencia: Frecuencia) {
+  return generarPlan({ monto, tasaNominalAnual: tasaAnual, plazo, metodo, frecuencia })
+    .map(f => ({ n: f.num, cuota: f.cuota, capital: f.capital, interes: f.interes, saldo: f.saldo }))
 }
 
 // ─── PASOS ────────────────────────────────────────────────────
@@ -69,7 +49,7 @@ export default function NuevaSolicitud() {
 
   const amortizacion = useMemo(() => {
     if (!montoValido || !plazoValido || monto <= 0) return []
-    return generarAmortizacion(monto, producto.tasa_nominal_anual, plazo, producto.metodo_interes)
+    return generarAmortizacion(monto, producto.tasa_nominal_anual, plazo, producto.metodo_interes, producto.frecuencia)
   }, [monto, plazo, producto, montoValido, plazoValido])
 
   const cuota       = amortizacion[0]?.cuota ?? 0

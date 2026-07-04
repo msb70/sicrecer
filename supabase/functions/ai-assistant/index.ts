@@ -15,11 +15,25 @@ import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // ─── CORS ────────────────────────────────────────────────────
-const CORS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+// Allowlist de orígenes. Configurar en Supabase → Edge Functions → Secrets:
+//   ALLOWED_ORIGINS = https://app.midominio.com,https://otra.midominio.com
+// Sin la variable, solo se permite localhost (desarrollo).
+const ALLOWED_ORIGINS = (Deno.env.get("ALLOWED_ORIGINS") ?? "")
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
+
+function corsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get("Origin") ?? "";
+  const isLocalhost = /^https?:\/\/localhost(:\d+)?$/.test(origin);
+  const allowed = ALLOWED_ORIGINS.includes(origin) || isLocalhost;
+  return {
+    "Access-Control-Allow-Origin": allowed ? origin : "null",
+    Vary: "Origin",
+    "Access-Control-Allow-Headers":
+      "authorization, x-client-info, apikey, content-type",
+  };
+}
 
 // ─── SYSTEM PROMPT ───────────────────────────────────────────
 const SYSTEM_PROMPT = `
@@ -38,6 +52,13 @@ REGLAS ESTRICTAS:
 
 // ─── HANDLER ─────────────────────────────────────────────────
 serve(async (req: Request) => {
+  const CORS = corsHeaders(req);
+  const errorResponse = (message: string, status: number): Response =>
+    new Response(JSON.stringify({ error: message }), {
+      status,
+      headers: { ...CORS, "Content-Type": "application/json" },
+    });
+
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: CORS });
   }
@@ -236,13 +257,6 @@ serve(async (req: Request) => {
 });
 
 // ─── HELPERS ─────────────────────────────────────────────────
-
-function errorResponse(message: string, status: number): Response {
-  return new Response(JSON.stringify({ error: message }), {
-    status,
-    headers: { ...CORS, "Content-Type": "application/json" },
-  });
-}
 
 function buildContexto(data: {
   facilitador: string;

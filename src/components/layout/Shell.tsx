@@ -156,7 +156,7 @@ const ROL_COLORS: Record<Rol, string> = {
 
 // ─── SIDEBAR ─────────────────────────────────────────────────
 function Sidebar({ onClose }: { onClose?: () => void }) {
-  const { rol, setRol, usuario, organizacion, logout } = useApp()
+  const { rol, setRol, usuario, organizacion, logout, modo } = useApp()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -217,21 +217,27 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
         )}
       </div>
 
-      {/* ROL SWITCHER */}
+      {/* ROL: selector solo en modo demo; en sesión real el rol viene de la whitelist */}
       <div className="px-3 py-3 border-b border-gray-800">
-        <p className="text-xs text-gray-500 mb-1.5 uppercase tracking-wider">Simular rol</p>
-        <div className="relative">
-          <select
-            value={rol}
-            onChange={e => setRol(e.target.value as Rol)}
-            className="w-full text-xs bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 appearance-none cursor-pointer focus:outline-none focus:border-brand-500"
-          >
-            {(Object.keys(ROL_LABELS) as Rol[]).map(r => (
-              <option key={r} value={r}>{ROL_LABELS[r]}</option>
-            ))}
-          </select>
-          <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-        </div>
+        {modo === 'demo' ? (
+          <>
+            <p className="text-xs text-gray-500 mb-1.5 uppercase tracking-wider">Simular rol (demo)</p>
+            <div className="relative">
+              <select
+                value={rol}
+                onChange={e => setRol(e.target.value as Rol)}
+                className="w-full text-xs bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 appearance-none cursor-pointer focus:outline-none focus:border-brand-500"
+              >
+                {(Object.keys(ROL_LABELS) as Rol[]).map(r => (
+                  <option key={r} value={r}>{ROL_LABELS[r]}</option>
+                ))}
+              </select>
+              <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            </div>
+          </>
+        ) : (
+          <p className="text-xs text-gray-500 uppercase tracking-wider">Tu rol</p>
+        )}
         <span className={clsx('mt-2 inline-flex px-2 py-0.5 rounded-full text-xs font-medium', ROL_COLORS[rol])}>
           {ROL_LABELS[rol]}
         </span>

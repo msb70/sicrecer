@@ -36,6 +36,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [rol, setRolState] = useState<Rol>('administrador')
 
   const setRol = (r: Rol) => {
+    // En sesión real el rol viene de la whitelist; no se puede simular.
+    if (modo === 'google') return
     setRolState(r)
     const u = USUARIOS.find(u => u.rol === r) ?? USUARIOS[0]
     setUsuario(u)
@@ -92,7 +94,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [])
 
   // Modo demo: sin credenciales, datos locales de ejemplo.
+  // Deshabilitado en producción salvo que VITE_DEMO_MODE=true.
   const login = (orgId: string, r: Rol) => {
+    if (import.meta.env.VITE_DEMO_MODE !== 'true') {
+      setErrorAuth('El modo demo está deshabilitado en este entorno. Usa "Continuar con Google".')
+      return
+    }
     restaurarDatosDemo()
     const org = ORGANIZACIONES.find(o => o.id === orgId) ?? ORGANIZACIONES[0]
     setOrganizacion(org)
