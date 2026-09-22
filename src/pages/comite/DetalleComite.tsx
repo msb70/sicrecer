@@ -1,112 +1,100 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import {
-  ArrowLeft, CheckCircle2, XCircle, Clock, HelpCircle,
-  TrendingUp, User, AlertTriangle, MessageSquare, Vote
-} from 'lucide-react'
+import { ArrowLeft, CheckCircle2, XCircle, Clock, User, MessageSquare, Vote, Globe } from 'lucide-react'
 import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
-import { Button, Badge, Card, CardHeader, CardBody, Alert } from '../../components/ui'
-import { SOLICITUDES, CLIENTES, PRODUCTOS, formatCOP } from '../../mocks'
+import { Button, Badge, Card, CardHeader, CardBody, Alert, Input } from '../../components/ui'
+import {
+  SOLICITUDES, CLIENTES, PRODUCTOS, SOLICITANTES, COMITES, COMITE_MIEMBROS, COMITE_VOTOS, USUARIOS,
+  ACTIVIDADES_ECONOMICAS, REQUISITOS, formatCOP, recargarTablas,
+} from '../../mocks'
 import { useApp } from '../../context/AppContext'
+import { neon } from '../../lib/neon'
+import { obtenerFoto } from '../../lib/portal'
+import { generarPlan, resumenPlan } from '../../lib/finanzas'
+import { PAIS_LABELS, type Pais } from '../../types'
 import { clsx } from 'clsx'
 
-// Mock de votos existentes
-const VOTOS_INICIALES: Record<string, VotoMiembro[]> = {
-  'sol-002': [
-    { miembro: 'Ana Restrepo',    rol: 'Coordinadora',    decision: 'aprobado',  comentario: 'El cliente tiene historial interno positivo y buen comportamiento de pago en el grupo solidario.' },
-    { miembro: 'Carlos Méndez',   rol: 'Administrador',   decision: 'pendiente', comentario: '' },
-    { miembro: 'Elena Gutiérrez', rol: 'Comité externo',  decision: 'pendiente', comentario: '' },
-  ],
-}
-
-// Scoring breakdown mock
-const SCORE_VARS = [
-  { variable: 'Antigüedad del negocio',  puntos: 95,  max: 150, descripcion: '< 1 año de operación' },
-  { variable: 'Ratio cuota/ingreso DTI', puntos: 140, max: 200, descripcion: 'DTI estimado: 28%' },
-  { variable: 'Historial interno',       puntos: 180, max: 200, descripcion: '2 créditos previos sin mora' },
-  { variable: 'Actividad económica',     puntos: 100, max: 150, descripcion: 'Comercio minorista – riesgo medio' },
-  { variable: 'Datos demográficos',      puntos: 90,  max: 150, descripcion: 'Zona rural periurbana' },
-  { variable: 'Liquidez estimada',       puntos: 115, max: 150, descripcion: 'Margen neto estimado 35%' },
-]
-
-// Alertas de análisis que el sistema genera automáticamente
-const ALERTAS_SISTEMA = [
-  { tipo: 'warning', texto: 'El DTI supera el 25% con este monto. Considera reducir a $800.000.' },
-  { tipo: 'info',    texto: 'Cliente activo en grupo solidario "Las Emprendedoras" — ningún integrante en mora.' },
-]
-
-type Decision = 'aprobado' | 'rechazado' | 'info_adicional' | 'pendiente'
-interface VotoMiembro {
-  miembro: string
-  rol: string
-  decision: Decision
-  comentario: string
-}
+type Decision = 'aprobado' | 'rechazado'
 
 export default function DetalleComite() {
   const navigate = useNavigate()
   const { id } = useParams()
-  const { usuario } = useApp()
+  const { usuario, rol } = useApp()
+  const [, setTick] = useState(0)
 
-  const solicitud = SOLICITUDES.find(s => s.id === id)
-  const cliente   = CLIENTES.find(c => c.id === solicitud?.cliente_id)
-  const producto  = PRODUCTOS.find(p => p.id === solicitud?.producto_id)
+  const solicitud  = SOLICITUDES.find(s => s.id === id)
+  const cliente    = CLIENTES.find(c => c.id === solicitud?.cliente_id)
+  const producto   = PRODUCTOS.find(p => p.id === solicitud?.producto_id)
+  const solicitante = SOLICITANTES.find(x => x.id === solicitud?.solicitante_id)
+  const comite     = COMITES.find(c => c.id === solicitud?.comite_id)
+  const miembros   = COMITE_MIEMBROS.filter(m => m.comite_id === solicitud?.comite_id)
+  const votos      = COMITE_VOTOS.filter(v => v.solicitud_id === solicitud?.id)
+  const miVoto     = votos.find(v => v.usuario_id === usuario.id)
+  const soyMiembro = miembros.some(m => m.usuario_id === usuario.id) || rol === 'administrador'
 
-  const [votos, setVotos] = useState<VotoMiembro[]>(
-    VOTOS_INICIALES[id ?? ''] ?? [
-      { miembro: usuario?.nombre ?? 'Tú',  rol: 'Comité', decision: 'pendiente', comentario: '' },
-      { miembro: 'Ana Restrepo',           rol: 'Coordinadora', decision: 'pendiente', comentario: '' },
-      { miembro: 'Carlos Méndez',          rol: 'Administrador', decision: 'pendiente', comentario: '' },
-    ]
-  )
-
-  const [miDecision, setMiDecision] = useState<Decision>('pendiente')
-  const [comentario, setComentario] = useState('')
-  const [enviado, setEnviado] = useState(false)
+  const [decision, setDecision] = useState<Decision | null>(miVoto?.decision ?? null)
+  const [comentario, setComentario] = useState(miVoto?.comentario ?? '')
+  const [monto, setMonto] = useState(String(miVoto?.monto_propuesto ?? solicitud?.monto_solicitado ?? ''))
+  const [plazo, setPlazo] = useState(String(miVoto?.plazo_propuesto ?? solicitud?.plazo ?? ''))
+  const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState('')
+  const [ok, setOk] = useState('')
+  const [fotos, setFotos] = useState<{ documento?: string | null; selfie?: string | null }>({})
+
+  useEffect(() => {
+    if (!solicitante) return
+    Promise.all([obtenerFoto(solicitante.id, 'documento'), obtenerFoto(solicitante.id, 'selfie')])
+      .then(([documento, selfie]) => setFotos({ documento, selfie })).catch(() => {})
+  }, [solicitante?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const montoN = Number(monto) || 0
+  const plazoN = Number(plazo) || 0
+  const plan = useMemo(() => {
+    if (!producto || montoN <= 0 || plazoN <= 0) return []
+    return generarPlan({ monto: montoN, tasaNominalAnual: producto.tasa_nominal_anual, plazo: plazoN, metodo: producto.metodo_interes, frecuencia: producto.frecuencia })
+  }, [producto, montoN, plazoN])
+  const resumen = useMemo(() => resumenPlan(plan), [plan])
 
   if (!solicitud) {
     return (
-      <Shell>
-        <PageContainer>
-          <Alert type="error">Solicitud no encontrada.</Alert>
-          <Button variant="ghost" className="mt-4" onClick={() => navigate('/comite')}><ArrowLeft size={16}/>Volver</Button>
-        </PageContainer>
-      </Shell>
+      <Shell><PageContainer>
+        <Alert type="error">Solicitud no encontrada.</Alert>
+        <Button variant="ghost" className="mt-4" onClick={() => navigate('/comite')}><ArrowLeft size={16} />Volver</Button>
+      </PageContainer></Shell>
     )
   }
 
-  const scoreTotal = SCORE_VARS.reduce((s, v) => s + v.puntos, 0)
-  const scoreMax   = SCORE_VARS.reduce((s, v) => s + v.max, 0)
-  const votosResueltos = votos.filter(v => v.decision !== 'pendiente').length
-  const quorumOk = votosResueltos >= 2
+  const enComite = solicitud.estado === 'revision_comite'
+  const total = miembros.length
+  const necesarios = Math.floor(total / 2) + 1
+  const aprobados = votos.filter(v => v.decision === 'aprobado').length
+  const rechazados = votos.filter(v => v.decision === 'rechazado').length
 
-  const emitirVoto = () => {
-    if (miDecision === 'pendiente') {
-      setError('Selecciona una decisión.')
-      return
+  const emitirVoto = async () => {
+    setError(''); setOk('')
+    if (!decision) { setError('Selecciona una decisión.'); return }
+    if (decision === 'rechazado' && !comentario.trim()) { setError('Indica el motivo del rechazo: el solicitante lo verá.'); return }
+    if (decision === 'aprobado' && producto && (montoN < producto.monto_min || montoN > producto.monto_max || plazoN < producto.plazo_min || plazoN > producto.plazo_max)) {
+      setError('Monto o plazo fuera del rango del producto.'); return
     }
-    if (!comentario.trim()) {
-      setError('El comentario es obligatorio para todas las decisiones.')
-      return
+    setEnviando(true)
+    try {
+      const { data, error } = await neon.rpc('votar_solicitud', {
+        p_solicitud_id: solicitud.id, p_decision: decision, p_comentario: comentario.trim() || null,
+        p_monto: decision === 'aprobado' ? montoN : null, p_plazo: decision === 'aprobado' ? plazoN : null,
+      })
+      if (error) throw new Error(error.message)
+      const r = data as { resultado: string; aprobados: number; rechazados: number; miembros: number }
+      await recargarTablas('solicitudes', 'comite_votos', 'clientes', 'solicitantes')
+      setTick(t => t + 1)
+      setOk(r.resultado === 'pendiente'
+        ? `Voto registrado (${r.aprobados} a favor, ${r.rechazados} en contra de ${r.miembros}). Falta mayoría.`
+        : r.resultado === 'aprobada' ? 'Solicitud APROBADA por mayoría. El solicitante fue notificado.' : 'Solicitud RECHAZADA por mayoría. El solicitante fue notificado.')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo registrar el voto')
+    } finally {
+      setEnviando(false)
     }
-    setError('')
-    // Actualiza el primer voto pendiente como "el mío"
-    setVotos(prev => {
-      const idx = prev.findIndex(v => v.decision === 'pendiente')
-      if (idx === -1) return prev
-      const copia = [...prev]
-      copia[idx] = { ...copia[idx], decision: miDecision, comentario }
-      return copia
-    })
-    setEnviado(true)
-  }
-
-  const DECISION_CONFIG: Record<Decision, { label: string; color: string; icon: React.ReactNode; bg: string }> = {
-    aprobado:      { label: 'Aprobar',            color: 'text-green-700', icon: <CheckCircle2 size={16}/>, bg: 'border-green-300 bg-green-50' },
-    rechazado:     { label: 'Rechazar',           color: 'text-red-700',   icon: <XCircle size={16}/>,      bg: 'border-red-300 bg-red-50' },
-    info_adicional:{ label: 'Solicitar más info', color: 'text-yellow-700',icon: <HelpCircle size={16}/>,   bg: 'border-yellow-300 bg-yellow-50' },
-    pendiente:     { label: 'Pendiente',          color: 'text-gray-500',  icon: <Clock size={16}/>,        bg: 'border-gray-200 bg-gray-50' },
   }
 
   return (
@@ -114,255 +102,175 @@ export default function DetalleComite() {
       <PageContainer>
         <PageHeader
           title={`Comité: ${solicitud.cliente_nombre}`}
-          subtitle={`${solicitud.producto_nombre} · ${formatCOP(solicitud.monto_solicitado)} · ${solicitud.plazo} meses`}
-          actions={
-            <Button variant="ghost" onClick={() => navigate('/comite')}><ArrowLeft size={16}/>Volver</Button>
-          }
+          subtitle={`${solicitud.producto_nombre} · ${formatCOP(solicitud.monto_solicitado)} · ${solicitud.plazo} cuotas · ${comite?.nombre ?? ''}`}
+          actions={<Button variant="ghost" onClick={() => navigate('/comite')}><ArrowLeft size={16} />Volver</Button>}
         />
 
-        {/* Alertas automáticas del sistema */}
-        <div className="space-y-2 mb-5">
-          {ALERTAS_SISTEMA.map((a, i) => (
-            <Alert key={i} type={a.tipo as 'warning' | 'info'}>
-              <AlertTriangle size={13} className="inline mr-1.5"/>
-              {a.texto}
-            </Alert>
-          ))}
-        </div>
+        {ok && <Alert type="success" className="mb-4">{ok}</Alert>}
+        {error && <Alert type="error" className="mb-4">{error}</Alert>}
+
+        {!enComite && (
+          <div className={clsx('flex items-center gap-3 px-5 py-4 rounded-xl border mb-6',
+            solicitud.estado === 'aprobada' ? 'bg-green-50 border-green-200 text-green-800' : solicitud.estado === 'rechazada' ? 'bg-red-50 border-red-200 text-red-800' : 'bg-gray-50 border-gray-200 text-gray-700')}>
+            {solicitud.estado === 'aprobada' ? <CheckCircle2 size={18} /> : <XCircle size={18} />}
+            <div>
+              <p className="font-semibold">{solicitud.estado === 'aprobada' ? 'Aprobada' : solicitud.estado === 'rechazada' ? 'Rechazada' : solicitud.estado}</p>
+              <p className="text-sm opacity-80">
+                {solicitud.estado === 'aprobada' && `${formatCOP(Number(solicitud.monto_aprobado))} en ${solicitud.plazo_aprobado} cuotas · ${solicitud.fecha_decision ? new Date(solicitud.fecha_decision).toLocaleString('es-CO') : ''}`}
+                {solicitud.estado === 'rechazada' && `Motivo: ${solicitud.motivo_rechazo ?? '—'}`}
+              </p>
+            </div>
+          </div>
+        )}
 
         <div className="grid lg:grid-cols-3 gap-5">
-          {/* Columna principal */}
           <div className="lg:col-span-2 space-y-5">
-
-            {/* Scoring */}
+            {/* Condiciones */}
             <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <TrendingUp size={16} className="text-brand-500"/>
-                    <h2 className="text-sm font-semibold text-gray-800">Resultado de scoring</h2>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="text-right">
-                      <span className="text-2xl font-bold text-gray-900">{solicitud.score ?? scoreTotal}</span>
-                      <span className="text-xs text-gray-400 ml-1">/{scoreMax}</span>
-                    </div>
-                    {solicitud.banda_riesgo && (
-                      <Badge color={
-                        solicitud.banda_riesgo === 'A' ? 'green' :
-                        solicitud.banda_riesgo === 'B' ? 'blue' :
-                        solicitud.banda_riesgo === 'C' ? 'yellow' : 'red'
-                      }>
-                        Banda {solicitud.banda_riesgo}
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              </CardHeader>
-              <CardBody>
-                <div className="space-y-4">
-                  {SCORE_VARS.map(item => {
-                    const pct = (item.puntos / item.max) * 100
-                    return (
-                      <div key={item.variable}>
-                        <div className="flex justify-between items-start mb-1">
-                          <div>
-                            <p className="text-sm font-medium text-gray-700">{item.variable}</p>
-                            <p className="text-xs text-gray-400">{item.descripcion}</p>
-                          </div>
-                          <span className="text-sm font-semibold text-gray-900 ml-4 flex-shrink-0">{item.puntos}<span className="text-gray-400 font-normal">/{item.max}</span></span>
-                        </div>
-                        <div className="w-full bg-gray-100 rounded-full h-2">
-                          <div
-                            className={`h-2 rounded-full ${pct >= 75 ? 'bg-green-500' : pct >= 50 ? 'bg-yellow-500' : 'bg-red-400'}`}
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-                <div className="mt-4 px-3 py-2 bg-gray-50 rounded-lg text-xs text-gray-400 flex justify-between">
-                  <span>Scorecard v1.0.0-reglas-expertas</span>
-                  <span>{solicitud.fecha_solicitud}</span>
-                </div>
-              </CardBody>
-            </Card>
-
-            {/* Condiciones del crédito */}
-            <Card>
-              <CardHeader>
-                <h2 className="text-sm font-semibold text-gray-800">Condiciones solicitadas</h2>
-              </CardHeader>
+              <CardHeader><h2 className="text-sm font-semibold text-gray-800">Condiciones solicitadas</h2></CardHeader>
               <CardBody>
                 <div className="grid sm:grid-cols-2 gap-x-8 gap-y-2 text-sm">
                   {[
-                    ['Producto',          solicitud.producto_nombre],
-                    ['Monto solicitado',  formatCOP(solicitud.monto_solicitado)],
-                    ['Plazo',             `${solicitud.plazo} meses`],
-                    ['Tasa nominal',      producto ? `${producto.tasa_nominal_anual}% anual` : '—'],
-                    ['Método interés',    producto?.metodo_interes === 'flat' ? 'Flat' : 'Saldo decreciente'],
-                    ['Frecuencia',        producto?.frecuencia ?? '—'],
+                    ['Producto', solicitud.producto_nombre],
+                    ['Monto', formatCOP(solicitud.monto_solicitado)],
+                    ['Plazo', `${solicitud.plazo} cuotas (${producto?.frecuencia ?? ''})`],
+                    ['Tasa nominal', producto ? `${producto.tasa_nominal_anual}%` : '—'],
+                    ['Método', producto?.metodo_interes === 'flat' ? 'Flat' : 'Saldo decreciente'],
+                    ['Propósito', solicitud.proposito ?? '—'],
+                    ['Fecha', new Date(solicitud.fecha_solicitud).toLocaleDateString('es-CO')],
+                    ['Enviada al comité', solicitud.enviada_comite_en ? new Date(solicitud.enviada_comite_en).toLocaleString('es-CO') : '—'],
                   ].map(([k, v]) => (
-                    <div key={k} className="flex justify-between py-2 border-b border-gray-50">
-                      <span className="text-gray-500">{k}</span>
-                      <span className="font-medium text-gray-900">{v}</span>
-                    </div>
+                    <div key={k} className="flex justify-between py-1.5 border-b border-gray-50"><span className="text-gray-500">{k}</span><span className="font-medium text-gray-900 text-right">{v}</span></div>
                   ))}
                 </div>
               </CardBody>
             </Card>
 
-            {/* Panel de votación */}
-            {!enviado ? (
-              <Card className="border-brand-200">
-                <CardHeader>
-                  <div className="flex items-center gap-2">
-                    <Vote size={16} className="text-brand-500"/>
-                    <h2 className="text-sm font-semibold text-gray-800">Tu voto</h2>
+            {/* Datos del solicitante externo */}
+            {solicitante && (
+              <Card>
+                <CardHeader><div className="flex items-center gap-2"><Globe size={15} className="text-purple-600" /><h2 className="text-sm font-semibold text-gray-800">Solicitante (portal)</h2></div></CardHeader>
+                <CardBody>
+                  <div className="grid sm:grid-cols-2 gap-x-8 gap-y-2 text-sm">
+                    {[
+                      ['Nombre', solicitante.nombre],
+                      ['Documento', `${solicitante.tipo_documento} ${solicitante.documento}`],
+                      ['País', PAIS_LABELS[solicitante.pais as Pais] ?? solicitante.pais],
+                      ['Teléfono', solicitante.telefono ?? '—'],
+                      ['Email', solicitante.email],
+                      ['Nacimiento', solicitante.fecha_nacimiento ?? '—'],
+                      ['Ciudad', solicitante.ciudad ?? '—'],
+                      ['Actividad', ACTIVIDADES_ECONOMICAS.find(a => a.id === solicitante.actividad_economica_id)?.nombre ?? '—'],
+                    ].map(([k, v]) => (
+                      <div key={k} className="flex justify-between py-1.5 border-b border-gray-50"><span className="text-gray-500">{k}</span><span className="font-medium text-gray-900 text-right">{v}</span></div>
+                    ))}
                   </div>
-                </CardHeader>
-                <CardBody className="space-y-4">
-                  <p className="text-xs text-gray-500">Selecciona tu decisión. El comentario es <strong>obligatorio</strong> para todas las opciones.</p>
-
-                  {/* Opciones de voto */}
-                  <div className="grid sm:grid-cols-3 gap-3">
-                    {(['aprobado', 'rechazado', 'info_adicional'] as const).map(d => {
-                      const cfg = DECISION_CONFIG[d]
-                      return (
-                        <label
-                          key={d}
-                          className={clsx(
-                            'flex flex-col items-center gap-2 p-4 rounded-xl border-2 cursor-pointer transition-all',
-                            miDecision === d ? cfg.bg + ' ' + cfg.color.replace('text-', 'border-').replace('-700', '-400') : 'border-gray-200 hover:border-gray-300'
-                          )}
-                        >
-                          <input
-                            type="radio"
-                            name="decision"
-                            value={d}
-                            className="sr-only"
-                            checked={miDecision === d}
-                            onChange={() => setMiDecision(d)}
-                          />
-                          <span className={miDecision === d ? cfg.color : 'text-gray-400'}>{cfg.icon}</span>
-                          <span className={`text-xs font-semibold ${miDecision === d ? cfg.color : 'text-gray-600'}`}>{cfg.label}</span>
-                        </label>
-                      )
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {(producto?.requisito_ids ?? []).map(rid => {
+                      const r = REQUISITOS.find(x => x.id === rid)
+                      const okReq = (solicitud.requisitos_confirmados ?? []).includes(rid)
+                      return <Badge key={rid} color={okReq ? 'green' : r?.obligatorio ? 'red' : 'gray'}>{okReq ? '✓ ' : '✗ '}{r?.nombre ?? rid}</Badge>
                     })}
                   </div>
-
-                  {/* Comentario */}
-                  <div>
-                    <label className="text-sm font-medium text-gray-700 block mb-1.5">
-                      <MessageSquare size={13} className="inline mr-1"/>Comentario <span className="text-red-500">*</span>
-                    </label>
-                    <textarea
-                      rows={3}
-                      value={comentario}
-                      onChange={e => setComentario(e.target.value)}
-                      placeholder="Justifica tu decisión. Este comentario quedará en el expediente de la solicitud."
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg outline-none resize-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200 transition-all"
-                    />
-                  </div>
-
-                  {error && <Alert type="error">{error}</Alert>}
-
-                  <div className="flex justify-end">
-                    <Button
-                      onClick={emitirVoto}
-                      disabled={miDecision === 'pendiente' || !comentario.trim()}
-                      className={clsx(
-                        miDecision === 'aprobado'   && 'bg-green-600 hover:bg-green-700',
-                        miDecision === 'rechazado'  && 'bg-red-600 hover:bg-red-700',
-                      )}
-                    >
-                      {DECISION_CONFIG[miDecision]?.icon ?? <CheckCircle2 size={16}/>}
-                      Emitir voto
-                    </Button>
+                  <div className="mt-4 grid sm:grid-cols-2 gap-3">
+                    <div><p className="text-xs font-medium text-gray-500 mb-1">Documento</p>{fotos.documento ? <img src={fotos.documento} alt="Documento" className="w-full rounded-lg border object-contain max-h-56 bg-gray-50" /> : <p className="text-xs text-gray-400">Sin foto</p>}</div>
+                    <div><p className="text-xs font-medium text-gray-500 mb-1">Selfie</p>{fotos.selfie ? <img src={fotos.selfie} alt="Selfie" className="w-full rounded-lg border object-contain max-h-56 bg-gray-50" /> : <p className="text-xs text-gray-400">Sin foto</p>}</div>
                   </div>
                 </CardBody>
               </Card>
-            ) : (
-              <Alert type="success">
-                <CheckCircle2 size={14} className="inline mr-1.5"/>
-                Voto emitido correctamente. La decisión queda registrada en el expediente.
-              </Alert>
             )}
-          </div>
 
-          {/* Panel lateral */}
-          <div className="space-y-4">
-            {/* Cliente */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <User size={15} className="text-gray-400"/>
-                  <h2 className="text-sm font-semibold text-gray-800">Cliente</h2>
-                </div>
-              </CardHeader>
-              <CardBody>
-                {cliente ? (
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-sm font-bold">
-                        {cliente.nombre.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">{cliente.nombre}</p>
-                        <p className="text-xs text-gray-400">{cliente.actividad_economica}</p>
-                      </div>
-                    </div>
-                    <div className="space-y-1.5 text-xs text-gray-500 pt-2 border-t border-gray-100">
-                      <p>Documento: {cliente.documento}</p>
-                      <p>Zona: {cliente.zona}</p>
-                      <p>Teléfono: {cliente.telefono}</p>
-                      <p>Créditos activos: {cliente.creditos_activos}</p>
-                      <p>Total historial: {formatCOP(cliente.total_prestado)}</p>
-                    </div>
-                    <Button size="sm" variant="secondary" className="w-full" onClick={() => navigate(`/clientes/${cliente.id}`)}>
-                      Ver ficha completa
-                    </Button>
-                  </div>
-                ) : <p className="text-sm text-gray-400">No encontrado.</p>}
-              </CardBody>
-            </Card>
+            {/* Cliente interno */}
+            {!solicitante && cliente && (
+              <Card>
+                <CardHeader><div className="flex items-center gap-2"><User size={15} className="text-brand-600" /><h2 className="text-sm font-semibold text-gray-800">Cliente</h2></div></CardHeader>
+                <CardBody className="text-sm text-gray-700 space-y-1">
+                  <p className="font-medium text-gray-900">{cliente.nombre}</p>
+                  <p>{cliente.actividad_economica} · {cliente.zona}</p>
+                  <p>Créditos activos: {cliente.creditos_activos} · Total histórico: {formatCOP(cliente.total_prestado)}</p>
+                </CardBody>
+              </Card>
+            )}
 
-            {/* Estado de votos */}
+            {/* Votos */}
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <h2 className="text-sm font-semibold text-gray-800">Estado del quórum</h2>
-                  <Badge color={quorumOk ? 'green' : 'yellow'}>{quorumOk ? 'Completo' : 'Pendiente'}</Badge>
+                  <div className="flex items-center gap-2"><Vote size={15} className="text-brand-600" /><h2 className="text-sm font-semibold text-gray-800">Votación del comité</h2></div>
+                  <span className="text-xs text-gray-500">{aprobados} a favor · {rechazados} en contra · mayoría {necesarios}/{total}</span>
                 </div>
               </CardHeader>
-              <CardBody className="space-y-3">
-                {votos.map((v, i) => {
-                  const cfg = DECISION_CONFIG[v.decision]
+              <CardBody className="space-y-2">
+                {miembros.map(m => {
+                  const u = USUARIOS.find(x => x.id === m.usuario_id)
+                  const v = votos.find(x => x.usuario_id === m.usuario_id)
                   return (
-                    <div key={i} className={clsx('p-3 rounded-lg border', cfg.bg)}>
-                      <div className="flex items-center justify-between mb-1">
-                        <div>
-                          <p className="text-xs font-semibold text-gray-800">{v.miembro}</p>
-                          <p className="text-xs text-gray-400">{v.rol}</p>
-                        </div>
-                        <span className={clsx('flex items-center gap-1 text-xs font-medium', cfg.color)}>
-                          {cfg.icon}{cfg.label}
-                        </span>
+                    <div key={m.usuario_id} className={clsx('flex items-start gap-3 p-3 rounded-lg border',
+                      v?.decision === 'aprobado' ? 'border-green-200 bg-green-50' : v?.decision === 'rechazado' ? 'border-red-200 bg-red-50' : 'border-gray-200 bg-gray-50')}>
+                      <div className="mt-0.5">{v?.decision === 'aprobado' ? <CheckCircle2 size={16} className="text-green-600" /> : v?.decision === 'rechazado' ? <XCircle size={16} className="text-red-600" /> : <Clock size={16} className="text-gray-400" />}</div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-gray-900">{u?.nombre ?? m.usuario_id} {m.usuario_id === usuario.id && <span className="text-xs text-gray-500">(tú)</span>}</p>
+                        {v ? (
+                          <p className="text-xs text-gray-600 mt-0.5">
+                            {v.decision === 'aprobado' ? `Aprueba ${v.monto_propuesto ? formatCOP(Number(v.monto_propuesto)) : ''} ${v.plazo_propuesto ? `en ${v.plazo_propuesto} cuotas` : ''}` : 'Rechaza'}
+                            {v.comentario && <span className="flex items-start gap-1 mt-1 text-gray-500"><MessageSquare size={11} className="mt-0.5" />{v.comentario}</span>}
+                          </p>
+                        ) : <p className="text-xs text-gray-400">Pendiente</p>}
                       </div>
-                      {v.comentario && (
-                        <p className="text-xs text-gray-600 italic mt-1.5">"{v.comentario}"</p>
-                      )}
                     </div>
                   )
                 })}
+              </CardBody>
+            </Card>
+          </div>
 
-                {quorumOk && (
-                  <div className="pt-2 border-t border-gray-100">
-                    <p className="text-xs text-green-700 font-medium flex items-center gap-1">
-                      <CheckCircle2 size={12}/>Quórum alcanzado — se puede emitir resolución.
-                    </p>
-                  </div>
+          {/* Mi voto */}
+          <div className="space-y-4">
+            <Card className="sticky top-6">
+              <CardHeader><h2 className="text-sm font-semibold text-gray-800">{miVoto ? 'Cambiar mi voto' : 'Mi voto'}</h2></CardHeader>
+              <CardBody className="space-y-3">
+                {!enComite && <p className="text-sm text-gray-500">La solicitud ya está resuelta.</p>}
+                {enComite && !soyMiembro && <p className="text-sm text-gray-500">No eres miembro de este comité.</p>}
+                {enComite && soyMiembro && (
+                  <>
+                    <div className="grid grid-cols-2 gap-2">
+                      {(['aprobado', 'rechazado'] as Decision[]).map(d => (
+                        <button key={d} onClick={() => setDecision(d)}
+                          className={clsx('flex items-center justify-center gap-2 p-3 rounded-lg border-2 text-sm font-medium transition-colors',
+                            decision === d
+                              ? d === 'aprobado' ? 'border-green-500 bg-green-50 text-green-700' : 'border-red-500 bg-red-50 text-red-700'
+                              : 'border-gray-200 text-gray-600 hover:border-gray-300')}>
+                          {d === 'aprobado' ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
+                          {d === 'aprobado' ? 'Aprobar' : 'Rechazar'}
+                        </button>
+                      ))}
+                    </div>
+
+                    {decision === 'aprobado' && producto && (
+                      <div className="space-y-2 p-3 rounded-lg bg-gray-50 border border-gray-100">
+                        <p className="text-xs text-gray-500">Condiciones a aprobar (puedes ajustarlas)</p>
+                        <Input label="Monto" type="number" value={monto} onChange={e => setMonto(e.target.value)} min={producto.monto_min} max={producto.monto_max} />
+                        <Input label="Plazo (cuotas)" type="number" value={plazo} onChange={e => setPlazo(e.target.value)} min={producto.plazo_min} max={producto.plazo_max} />
+                        {plan[0] && (
+                          <p className="text-xs text-gray-600">Cuota {producto.frecuencia}: <b>{formatCOP(plan[0].cuota)}</b> · Total {formatCOP(resumen.totalPagar)}</p>
+                        )}
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">
+                        {decision === 'rechazado' ? 'Motivo del rechazo (lo verá el solicitante)' : 'Comentario (opcional)'}
+                      </label>
+                      <textarea rows={3} value={comentario} onChange={e => setComentario(e.target.value)}
+                        className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200 focus:border-brand-500 resize-none"
+                        placeholder={decision === 'rechazado' ? 'Ej. Ingresos insuficientes para la cuota solicitada' : 'Observaciones para el resto del comité'} />
+                    </div>
+
+                    <Button className={clsx('w-full', decision === 'rechazado' && 'bg-red-600 hover:bg-red-700 focus:ring-red-500')} loading={enviando} onClick={emitirVoto} disabled={!decision}>
+                      <Vote size={16} /> {miVoto ? 'Actualizar voto' : 'Emitir voto'}
+                    </Button>
+                    <p className="text-[11px] text-gray-400">Con {necesarios} votos en el mismo sentido la solicitud queda resuelta y se notifica al solicitante por email.</p>
+                  </>
                 )}
               </CardBody>
             </Card>
@@ -372,4 +280,3 @@ export default function DetalleComite() {
     </Shell>
   )
 }
-

@@ -101,7 +101,13 @@ export interface ProductoCredito {
   frecuencia: 'semanal' | 'quincenal' | 'mensual'
   requisito_ids?: string[]
   actividad_economica_ids?: string[]
+  paises?: Pais[]            // países donde se ofrece (uno o más)
+  publico?: boolean          // visible en el portal de solicitantes
+  activo?: boolean
 }
+
+export type Pais = 'CO' | 'VE'
+export const PAIS_LABELS: Record<Pais, string> = { CO: 'Colombia', VE: 'Venezuela' }
 
 // ─── CLIENTE / PROSPECTO ──────────────────────────────────────
 export type EstadoProspecto = 'nuevo' | 'contactado' | 'convertido' | 'descartado'
@@ -160,7 +166,68 @@ export interface Solicitud {
   score?: number
   banda_riesgo?: 'A' | 'B' | 'C' | 'D' | 'E'
   fecha_solicitud: string
-  facilitador_id: string
+  facilitador_id: string | null
+  // Flujo externo (portal) y decisión del comité
+  solicitante_id?: string | null
+  origen?: 'interno' | 'externo'
+  pais?: string | null
+  proposito?: string | null
+  requisitos_confirmados?: string[]
+  comite_id?: string | null
+  motivo_rechazo?: string | null
+  monto_aprobado?: number | null
+  plazo_aprobado?: number | null
+  fecha_decision?: string | null
+  decidido_por?: string | null
+  enviada_comite_en?: string | null
+  enviada_comite_por?: string | null
+}
+
+// ─── SOLICITANTE (usuario externo del portal) ─────────────────
+export interface Solicitante {
+  id: string
+  email: string
+  nombre: string
+  tipo_documento: string
+  documento: string
+  fecha_nacimiento?: string | null
+  genero?: 'M' | 'F' | 'otro' | null
+  telefono?: string | null
+  pais: Pais
+  ciudad?: string | null
+  direccion?: string | null
+  actividad_economica_id?: string | null
+  estado: 'registrado' | 'cliente'
+  cliente_id?: string | null
+  creado_en?: string
+}
+
+export type TipoDocumentoFoto = 'documento' | 'selfie'
+
+// ─── COMITÉ ───────────────────────────────────────────────────
+export interface Comite {
+  id: string
+  nombre: string
+  producto_id: string
+  organizacion_id: string
+  activo: boolean
+}
+
+export interface ComiteMiembro {
+  comite_id: string
+  usuario_id: string
+}
+
+export interface ComiteVoto {
+  id: number
+  solicitud_id: string
+  comite_id: string
+  usuario_id: string
+  decision: 'aprobado' | 'rechazado'
+  comentario?: string | null
+  monto_propuesto?: number | null
+  plazo_propuesto?: number | null
+  fecha: string
 }
 
 // ─── COBRANZA ─────────────────────────────────────────────────

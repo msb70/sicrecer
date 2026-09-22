@@ -1,8 +1,13 @@
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, CheckCircle2, XCircle, Clock, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, XCircle, Clock, AlertTriangle, Send, Globe } from 'lucide-react'
 import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Button, Badge, Card, CardHeader, CardBody, Alert } from '../../components/ui'
-import { SOLICITUDES, CLIENTES, PRODUCTOS, formatCOP } from '../../mocks'
+import { SOLICITUDES, CLIENTES, PRODUCTOS, SOLICITANTES, COMITES, REQUISITOS, ACTIVIDADES_ECONOMICAS, formatCOP, recargarTablas } from '../../mocks'
+import { useApp } from '../../context/AppContext'
+import { neon } from '../../lib/neon'
+import { obtenerFoto } from '../../lib/portal'
+import { PAIS_LABELS, type Pais } from '../../types'
 
 const ESTADO_CONFIG = {
   borrador:        { label: 'Borrador',     color: 'gray'   as const, icon: <Clock size={16} /> },
@@ -30,9 +35,45 @@ const SCORE_BREAKDOWN = [
 export default function DetalleSolicitud() {
   const navigate = useNavigate()
   const { id } = useParams()
+  const { rol } = useApp()
+  const [, setTick] = useState(0)
   const solicitud = SOLICITUDES.find(s => s.id === id)
   const cliente  = CLIENTES.find(c => c.id === solicitud?.cliente_id)
   const producto = PRODUCTOS.find(p => p.id === solicitud?.producto_id)
+  const solicitante = SOLICITANTES.find(x => x.id === solicitud?.solicitante_id)
+  const comiteActivo = COMITES.find(c => c.producto_id === solicitud?.producto_id && c.activo)
+  const esExterna = solicitud?.origen === 'externo'
+
+  const [fotos, setFotos] = useState<{ documento?: string | null; selfie?: string | null }>({})
+  const [enviando, setEnviando] = useState(false)
+  const [msg, setMsg] = useState<{ tipo: 'success' | 'error'; texto: string } | null>(null)
+
+  useEffect(() => {
+    if (!solicitante) return
+    Promise.all([obtenerFoto(solicitante.id, 'documento'), obtenerFoto(solicitante.id, 'selfie')])
+      .then(([documento, selfie]) => setFotos({ documento, selfie }))
+      .catch(() => {})
+  }, [solicitante?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const puedeEnviar = ['administrador', 'coordinador', 'facilitador'].includes(rol)
+    && solicitud && ['enviada', 'scoring'].includes(solicitud.estado)
+
+  const enviarAComite = async () => {
+    if (!solicitud) return
+    setEnviando(true); setMsg(null)
+    try {
+      const { data, error } = await neon.rpc('enviar_a_comite', { p_solicitud_id: solicitud.id })
+      if (error) throw new Error(error.message)
+      const r = data as { comite: string; notificados: number }
+      await recargarTablas('solicitudes')
+      setTick(t => t + 1)
+      setMsg({ tipo: 'success', texto: `Enviada al comité "${r.comite}". ${r.notificados} miembro(s) notificado(s) por email.` })
+    } catch (err) {
+      setMsg({ tipo: 'error', texto: err instanceof Error ? err.message : 'No se pudo enviar al comité' })
+    } finally {
+      setEnviando(false)
+    }
+  }
 
   if (!solicitud) {
     return (
@@ -63,6 +104,8 @@ export default function DetalleSolicitud() {
           }
         />
 
+        {msg && <Alert type={msg.tipo} className="mb-4">{msg.texto}</Alert>}
+
         {/* Estado banner */}
         <div className={`flex items-center gap-3 px-5 py-4 rounded-xl border mb-6 ${
           solicitud.estado === 'aprobada'   ? 'bg-green-50 border-green-200 text-green-800' :
@@ -75,9 +118,9 @@ export default function DetalleSolicitud() {
             <p className="font-semibold">{cfg.label}</p>
             <p className="text-sm opacity-80">
               {solicitud.estado === 'aprobada'        && 'Esta solicitud fue aprobada y está lista para desembolso.'}
-              {solicitud.estado === 'rechazada'       && 'La solicitud fue rechazada por el scoring o el comité.'}
-              {solicitud.estado === 'revision_comite' && 'El scoring marcó esta solicitud para revisión manual del comité.'}
-              {solicitud.estado === 'enviada'         && 'La solicitud fue enviada y está pendiente de evaluación.'}
+              {solicitud.estado === 'rechazada'       && `Rechazada${solicitud.decidido_por ? ` por ${solicitud.decidido_por}` : ''}${solicitud.motivo_rechazo ? `: ${solicitud.motivo_rechazo}` : '.'}`}
+              {solicitud.estado === 'revision_comite' && `En evaluación del comité${solicitud.enviada_comite_en ? ` desde ${new Date(solicitud.enviada_comite_en).toLocaleDateString('es-CO')}` : ''}.`}
+              {solicitud.estado === 'enviada'         && (esExterna ? 'Solicitud creada por el solicitante en el portal. Revisa sus datos y envíala al comité.' : 'La solicitud fue enviada y está pendiente de evaluación.')}
             </p>
           </div>
         </div>
@@ -105,6 +148,65 @@ export default function DetalleSolicitud() {
                 </div>
               </CardBody>
             </Card>
+
+            {solicitud.estado === 'aprobada' && solicitud.monto_aprobado != null && (
+              <Card className="border-green-200">
+                <CardHeader><h2 className="text-sm font-semibold text-gray-800">Condiciones aprobadas por {solicitud.decidido_por}</h2></CardHeader>
+                <CardBody>
+                  <div className="grid sm:grid-cols-3 gap-3 text-sm">
+                    <div><p className="text-xs text-gray-500">Monto aprobado</p><p className="font-semibold">{formatCOP(Number(solicitud.monto_aprobado))}</p></div>
+                    <div><p className="text-xs text-gray-500">Plazo</p><p className="font-semibold">{solicitud.plazo_aprobado} cuotas</p></div>
+                    <div><p className="text-xs text-gray-500">Fecha</p><p className="font-semibold">{solicitud.fecha_decision ? new Date(solicitud.fecha_decision).toLocaleDateString('es-CO') : '—'}</p></div>
+                  </div>
+                </CardBody>
+              </Card>
+            )}
+
+            {esExterna && solicitante && (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2"><Globe size={15} className="text-purple-600" /><h2 className="text-sm font-semibold text-gray-800">Datos del solicitante (portal)</h2></div>
+                </CardHeader>
+                <CardBody>
+                  <div className="grid sm:grid-cols-2 gap-x-8 gap-y-2 text-sm">
+                    {[
+                      ['Nombre', solicitante.nombre],
+                      ['Email', solicitante.email],
+                      ['Documento', `${solicitante.tipo_documento} ${solicitante.documento}`],
+                      ['País', PAIS_LABELS[solicitante.pais as Pais] ?? solicitante.pais],
+                      ['Teléfono', solicitante.telefono ?? '—'],
+                      ['Fecha de nacimiento', solicitante.fecha_nacimiento ?? '—'],
+                      ['Ciudad', solicitante.ciudad ?? '—'],
+                      ['Dirección', solicitante.direccion ?? '—'],
+                      ['Actividad económica', ACTIVIDADES_ECONOMICAS.find(a => a.id === solicitante.actividad_economica_id)?.nombre ?? '—'],
+                      ['Propósito', solicitud.proposito ?? '—'],
+                    ].map(([k, v]) => (
+                      <div key={k} className="flex justify-between py-1.5 border-b border-gray-50"><span className="text-gray-500">{k}</span><span className="font-medium text-gray-900 text-right">{v}</span></div>
+                    ))}
+                  </div>
+                  <div className="mt-4">
+                    <p className="text-xs font-medium text-gray-500 mb-2">Requisitos confirmados por el solicitante</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {(producto?.requisito_ids ?? []).map(rid => {
+                        const r = REQUISITOS.find(x => x.id === rid)
+                        const ok = (solicitud.requisitos_confirmados ?? []).includes(rid)
+                        return <Badge key={rid} color={ok ? 'green' : r?.obligatorio ? 'red' : 'gray'}>{ok ? '✓ ' : '✗ '}{r?.nombre ?? rid}</Badge>
+                      })}
+                    </div>
+                  </div>
+                  <div className="mt-4 grid sm:grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 mb-1">Documento de identidad</p>
+                      {fotos.documento ? <img src={fotos.documento} alt="Documento" className="w-full rounded-lg border border-gray-200 object-contain max-h-64 bg-gray-50" /> : <p className="text-xs text-gray-400">Sin foto</p>}
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 mb-1">Foto de verificación</p>
+                      {fotos.selfie ? <img src={fotos.selfie} alt="Selfie" className="w-full rounded-lg border border-gray-200 object-contain max-h-64 bg-gray-50" /> : <p className="text-xs text-gray-400">Sin foto</p>}
+                    </div>
+                  </div>
+                </CardBody>
+              </Card>
+            )}
 
             {/* Scoring */}
             {solicitud.score && (
@@ -181,6 +283,16 @@ export default function DetalleSolicitud() {
             <Card>
               <CardHeader><h2 className="text-sm font-semibold text-gray-800">Acciones</h2></CardHeader>
               <CardBody className="space-y-2">
+                {puedeEnviar && (
+                  <>
+                    <Button className="w-full" size="sm" loading={enviando} onClick={enviarAComite} disabled={!comiteActivo}>
+                      <Send size={14} /> Enviar al comité
+                    </Button>
+                    <p className="text-xs text-gray-500">
+                      {comiteActivo ? `Comité activo: ${comiteActivo.nombre}` : 'No hay comité activo para este producto. Configúralo en Configuración → Comités.'}
+                    </p>
+                  </>
+                )}
                 {solicitud.estado === 'aprobada' && (
                   <Button className="w-full" size="sm">Confirmar desembolso</Button>
                 )}

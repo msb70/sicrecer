@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Eye, EyeOff, AlertCircle } from 'lucide-react'
+import { useNavigate, Link } from 'react-router-dom'
+import { Eye, EyeOff, AlertCircle, UserPlus } from 'lucide-react'
 import { Button, Input, Alert } from '../../components/ui'
 import { useApp } from '../../context/AppContext'
 import { BrandLogo } from '../../components/BrandLogo'
@@ -21,7 +21,7 @@ const DEMO_HABILITADO = import.meta.env.VITE_DEMO_MODE === 'true'
 
 export default function Login() {
   const navigate = useNavigate()
-  const { organizacion, loginGoogle, errorAuth } = useApp()
+  const { organizacion, loginGoogle, errorAuth, loginEmail } = useApp()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -48,16 +48,20 @@ export default function Login() {
     }
 
     setLoading(true)
-    // Simular latencia de red
-    await new Promise(r => setTimeout(r, 800))
-
-    // Modo demo: cualquier email/contraseña accede
-    if (password === 'primer-acceso') {
-      navigate('/cambiar-contrasena')
-    } else {
-      navigate('/seleccionar-org')
+    try {
+      if (DEMO_HABILITADO && password === 'primer-acceso') { navigate('/cambiar-contrasena'); return }
+      if (DEMO_HABILITADO && password === 'demo') { navigate('/seleccionar-org'); return }
+      const r = await loginEmail(email, password)
+      if (r.requiereVerificacion) {
+        navigate(`/verificar?email=${encodeURIComponent(email)}`)
+        return
+      }
+      navigate('/')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo iniciar sesión')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   return (
@@ -96,10 +100,9 @@ export default function Login() {
             {loadingGoogle ? 'Redirigiendo…' : 'Continuar con Google'}
           </button>
 
-          {DEMO_HABILITADO && (<>
           <div className="my-5 flex items-center gap-3">
             <div className="flex-1 h-px bg-gray-200" />
-            <span className="text-xs text-gray-400">o modo demo</span>
+            <span className="text-xs text-gray-400">o con tu correo</span>
             <div className="flex-1 h-px bg-gray-200" />
           </div>
 
@@ -107,7 +110,7 @@ export default function Login() {
             <Input
               label="Correo electrónico"
               type="email"
-              placeholder="usuario@organización.org"
+              placeholder="tu@correo.com"
               value={email}
               onChange={e => setEmail(e.target.value)}
               autoComplete="email"
@@ -135,21 +138,28 @@ export default function Login() {
             </div>
 
             <Button type="submit" loading={loading} className="w-full" size="lg">
-              Ingresar en modo demo
+              Ingresar
             </Button>
           </form>
 
-          {/* Hint para demo */}
-          <div className="mt-6 p-3 bg-gray-50 rounded-lg border border-gray-100">
-            <p className="text-xs text-gray-500 font-medium mb-1">Demo — credenciales de prueba</p>
-            <p className="text-xs text-gray-500">Cualquier email + contraseña → accede con datos de ejemplo</p>
-            <p className="text-xs text-gray-500">Contraseña <code className="bg-gray-200 px-1 rounded">primer-acceso</code> → flujo de cambio</p>
+          <div className="mt-5 pt-4 border-t border-gray-100 text-center">
+            <p className="text-xs text-gray-500 mb-2">¿Quieres solicitar un crédito?</p>
+            <Link to="/registro" className="inline-flex items-center gap-2 text-sm font-medium text-brand-700 hover:text-brand-800">
+              <UserPlus size={16} /> Crear mi cuenta de solicitante
+            </Link>
           </div>
-          </>)}
+
+          {DEMO_HABILITADO && (
+            <div className="mt-6 p-3 bg-gray-50 rounded-lg border border-gray-100">
+              <p className="text-xs text-gray-500 font-medium mb-1">Demo — atajos</p>
+              <p className="text-xs text-gray-500">Contraseña <code className="bg-gray-200 px-1 rounded">demo</code> → datos de ejemplo</p>
+              <p className="text-xs text-gray-500">Contraseña <code className="bg-gray-200 px-1 rounded">primer-acceso</code> → flujo de cambio</p>
+            </div>
+          )}
         </div>
 
         <p className="mt-6 text-center text-xs text-gray-400">
-          SiCrecer v0.2 · Datos en Neon
+          SiCrecer v0.3 · Datos en Neon
         </p>
       </div>
     </div>

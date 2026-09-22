@@ -3,7 +3,9 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Save, Info } from 'lucide-react'
 import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Button, Input, Select, Card, CardHeader, CardBody, Alert } from '../../components/ui'
-import { PRODUCTOS, CONVENIOS, REQUISITOS, ACTIVIDADES_ECONOMICAS, formatCOP } from '../../mocks'
+import { PRODUCTOS, CONVENIOS, REQUISITOS, ACTIVIDADES_ECONOMICAS, formatCOP, recargarTablas } from '../../mocks'
+import { neon } from '../../lib/neon'
+import { PAIS_LABELS, type Pais } from '../../types'
 
 // Simulación del cálculo de cuota para preview en tiempo real
 function calcularCuotaFlat(monto: number, tasa: number, plazo: number): number {
@@ -37,8 +39,17 @@ export default function FormProducto() {
     periodo_gracia_dias: String(producto?.periodo_gracia_dias ?? '0'),
     requisito_ids:       producto?.requisito_ids      ?? [] as string[],
     actividad_economica_ids: producto?.actividad_economica_ids ?? [] as string[],
+    paises:              (producto?.paises ?? (CONVENIOS[0]?.pais ? [CONVENIOS[0].pais] : [])) as Pais[],
+    publico:             producto?.publico ?? false,
+    activo:              producto?.activo ?? true,
   })
   const [guardado, setGuardado] = useState(false)
+  const [guardando, setGuardando] = useState(false)
+  const [error, setError] = useState('')
+
+  const togglePais = (p: Pais) => setForm(prev => ({
+    ...prev, paises: prev.paises.includes(p) ? prev.paises.filter(x => x !== p) : [...prev.paises, p],
+  }))
 
   const campo = (k: string, v: string) => setForm(prev => ({ ...prev, [k]: v }))
 
@@ -68,9 +79,41 @@ export default function FormProducto() {
     ? calcularCuotaFlat(montoEjemplo, tasaEjemplo, plazoEjemplo)
     : calcularCuotaFrench(montoEjemplo, tasaEjemplo, plazoEjemplo)
 
-  const guardar = () => {
-    setGuardado(true)
-    setTimeout(() => navigate('/productos'), 1200)
+  const guardar = async () => {
+    setError('')
+    if (form.paises.length === 0) { setError('Selecciona al menos un país'); return }
+    setGuardando(true)
+    try {
+      const fila = {
+        convenio_id: form.convenio_id,
+        nombre: form.nombre.trim(),
+        descripcion: form.descripcion.trim() || null,
+        tasa_nominal_anual: Number(form.tasa_nominal_anual),
+        metodo_interes: form.metodo_interes,
+        periodo_gracia_dias: Number(form.periodo_gracia_dias) || 0,
+        plazo_min: Number(form.plazo_min), plazo_max: Number(form.plazo_max),
+        monto_min: Number(form.monto_min), monto_max: Number(form.monto_max),
+        frecuencia: form.frecuencia,
+        requisito_ids: form.requisito_ids,
+        actividad_economica_ids: form.actividad_economica_ids,
+        paises: form.paises, publico: form.publico, activo: form.activo,
+      }
+      if (esEdicion && producto) {
+        const { error } = await neon.from('productos_credito').update(fila).eq('id', producto.id)
+        if (error) throw new Error(error.message)
+      } else {
+        const id = 'prod-' + Date.now().toString(36)
+        const { error } = await neon.from('productos_credito').insert({ id, ...fila })
+        if (error) throw new Error(error.message)
+      }
+      await recargarTablas('productos_credito')
+      setGuardado(true)
+      setTimeout(() => navigate('/productos'), 800)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo guardar')
+    } finally {
+      setGuardando(false)
+    }
   }
 
   const conveniosActivos = CONVENIOS.filter(c => c.estado === 'activo')
@@ -85,6 +128,7 @@ export default function FormProducto() {
         />
 
         {guardado && <Alert type="success" className="mb-4">Producto guardado. Redirigiendo…</Alert>}
+        {error && <Alert type="error" className="mb-4">{error}</Alert>}
 
         <div className="grid lg:grid-cols-3 gap-5">
           <div className="lg:col-span-2 space-y-5">
@@ -127,6 +171,35 @@ export default function FormProducto() {
                     { value: 'mensual',   label: 'Mensual' },
                   ]}
                 />
+              </CardBody>
+            </Card>
+
+            {/* Disponibilidad */}
+            <Card>
+              <CardHeader><h2 className="text-sm font-semibold text-gray-800">Disponibilidad</h2></CardHeader>
+              <CardBody className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Países donde se ofrece (uno o más)</label>
+                  <div className="flex gap-3">
+                    {(Object.keys(PAIS_LABELS) as Pais[]).map(p => (
+                      <label key={p} className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer text-sm ${form.paises.includes(p) ? 'bg-brand-50 border-brand-300' : 'border-gray-200'}`}>
+                        <input type="checkbox" className="w-4 h-4" checked={form.paises.includes(p)} onChange={() => togglePais(p)} />
+                        {PAIS_LABELS[p]}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <label className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 cursor-pointer">
+                  <input type="checkbox" className="mt-0.5 w-4 h-4" checked={form.publico} onChange={e => setForm(prev => ({ ...prev, publico: e.target.checked }))} />
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">Visible en el portal de solicitantes</p>
+                    <p className="text-xs text-gray-500">Las personas registradas podrán elegir este producto y crear solicitudes por sí mismas.</p>
+                  </div>
+                </label>
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <input type="checkbox" className="w-4 h-4" checked={form.activo} onChange={e => setForm(prev => ({ ...prev, activo: e.target.checked }))} />
+                  Producto activo
+                </label>
               </CardBody>
             </Card>
 
@@ -248,7 +321,7 @@ export default function FormProducto() {
 
             <div className="flex justify-end gap-3">
               <Button variant="ghost" onClick={() => navigate('/productos')}>Cancelar</Button>
-              <Button onClick={guardar} disabled={!form.nombre || !form.tasa_nominal_anual}>
+              <Button onClick={guardar} loading={guardando} disabled={!form.nombre || !form.tasa_nominal_anual || !form.monto_min || !form.monto_max || !form.plazo_min || !form.plazo_max}>
                 <Save size={16}/>{esEdicion ? 'Guardar cambios' : 'Crear producto'}
               </Button>
             </div>

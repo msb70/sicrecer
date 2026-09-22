@@ -57,8 +57,45 @@ import ListaSolicitudes  from '../pages/solicitudes/ListaSolicitudes'
 import NuevaSolicitud    from '../pages/solicitudes/NuevaSolicitud'
 import DetalleSolicitud  from '../pages/solicitudes/DetalleSolicitud'
 
+// Comités (configuración)
+import ListaComites      from '../pages/comites/ListaComites'
+import FormComite        from '../pages/comites/FormComite'
+
+// Portal de solicitantes
+import Registro                from '../pages/portal/Registro'
+import Verificar               from '../pages/portal/Verificar'
+import Perfil                  from '../pages/portal/Perfil'
+import MisSolicitudes          from '../pages/portal/MisSolicitudes'
+import NuevaSolicitudPortal    from '../pages/portal/NuevaSolicitudPortal'
+import DetalleSolicitudPortal  from '../pages/portal/DetalleSolicitudPortal'
+
+function Cargando() {
+  return (
+    <div className="min-h-screen flex items-center justify-center text-sm text-gray-500">
+      Cargando sesión…
+    </div>
+  )
+}
+
+/** Raíz: decide a dónde va cada tipo de sesión. */
+function Inicio() {
+  const { autenticado, cargandoSesion, tipoSesion } = useApp()
+  if (cargandoSesion) return <Cargando />
+  if (!autenticado) return <Navigate to="/login" replace />
+  return <Navigate to={tipoSesion === 'solicitante' ? '/portal' : '/dashboard'} replace />
+}
+
+/** Rutas del portal: solo solicitantes. El personal interno va al dashboard. */
+function PortalRoute({ children }: { children: React.ReactNode }) {
+  const { autenticado, cargandoSesion, tipoSesion } = useApp()
+  if (cargandoSesion) return <Cargando />
+  if (!autenticado) return <Navigate to="/login" replace />
+  if (tipoSesion === 'interno') return <Navigate to="/dashboard" replace />
+  return <>{children}</>
+}
+
 function PrivateRoute({ children }: { children: React.ReactNode }) {
-  const { autenticado, cargandoSesion, rol } = useApp()
+  const { autenticado, cargandoSesion, rol, tipoSesion } = useApp()
   const { pathname } = useLocation()
 
   // Mientras se restaura la sesión (p. ej. tras el redirect de Google),
@@ -72,6 +109,7 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!autenticado) return <Navigate to="/login" replace />
+  if (tipoSesion === 'solicitante') return <Navigate to="/portal" replace />
 
   // Guarda por rol: si la ruta no está permitida para el rol actual,
   // volver al dashboard. (La barrera real de datos es RLS en la BD.)
@@ -81,8 +119,16 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 }
 
 const router = createBrowserRouter([
-  { path: '/',                   element: <Navigate to="/login" replace /> },
+  { path: '/',                   element: <Inicio /> },
   { path: '/login',              element: <Login /> },
+  { path: '/registro',           element: <Registro /> },
+  { path: '/verificar',          element: <Verificar /> },
+
+  // Portal de solicitantes
+  { path: '/portal',                 element: <PortalRoute><MisSolicitudes /></PortalRoute> },
+  { path: '/portal/perfil',          element: <PortalRoute><Perfil /></PortalRoute> },
+  { path: '/portal/nueva',           element: <PortalRoute><NuevaSolicitudPortal /></PortalRoute> },
+  { path: '/portal/solicitudes/:id', element: <PortalRoute><DetalleSolicitudPortal /></PortalRoute> },
   { path: '/seleccionar-org',    element: <SeleccionOrg /> },
   { path: '/cambiar-contrasena', element: <CambiarContrasena /> },
 
@@ -126,6 +172,11 @@ const router = createBrowserRouter([
   { path: '/solicitudes/nueva',     element: <PrivateRoute><NuevaSolicitud /></PrivateRoute> },
   { path: '/solicitudes/:id',       element: <PrivateRoute><DetalleSolicitud /></PrivateRoute> },
 
+  // Comités (configuración, admin)
+  { path: '/comites',            element: <PrivateRoute><ListaComites /></PrivateRoute> },
+  { path: '/comites/nuevo',      element: <PrivateRoute><FormComite /></PrivateRoute> },
+  { path: '/comites/:id/editar', element: <PrivateRoute><FormComite /></PrivateRoute> },
+
   // Sprint 4 — Comité
   { path: '/comite',        element: <PrivateRoute><ListaComite /></PrivateRoute> },
   { path: '/comite/:id',    element: <PrivateRoute><DetalleComite /></PrivateRoute> },
@@ -162,7 +213,7 @@ const router = createBrowserRouter([
   // Cierre mensual
   { path: '/cierre-mensual',  element: <PrivateRoute><CierreMensual /></PrivateRoute> },
 
-  { path: '*', element: <Navigate to="/login" replace /> },
+  { path: '*', element: <Navigate to="/" replace /> },
 ])
 
 export function AppRouter() {

@@ -117,6 +117,7 @@ const SIDEBAR_ENTRIES: SidebarEntry[] = [
       roles: ['administrador'],
       items: [
         { label: 'Usuarios',      to: '/usuarios',      icon: <UserCheck size={16} />, roles: ['administrador'] },
+        { label: 'Comités',       to: '/comites',       icon: <CheckSquare size={16} />, roles: ['administrador'] },
         { label: 'Configuración', to: '/configuracion', icon: <Settings size={16} />,  roles: ['administrador'] },
       ],
     },

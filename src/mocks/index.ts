@@ -9,6 +9,7 @@ import type {
   Organizacion, Usuario, Convenio, ProductoCredito,
   Prospecto, Cliente, Solicitud, Credito,
   Requisito, ActividadEconomica, Cobranza, Banco, ActividadCRM,
+  Comite, ComiteMiembro, ComiteVoto, Solicitante,
 } from '../types'
 import { neon } from '../lib/neon'
 import * as demo from './fallback'
@@ -29,13 +30,18 @@ export const CLIENTES: Cliente[] = [...demo.CLIENTES_DEMO]
 export const SOLICITUDES: Solicitud[] = [...demo.SOLICITUDES_DEMO]
 export const CREDITOS: Credito[] = [...demo.CREDITOS_DEMO]
 export const COBRANZAS: Cobranza[] = [...demo.COBRANZAS_DEMO]
+// Portal / comités (sin datos demo: solo existen en Neon)
+export const COMITES: Comite[] = []
+export const COMITE_MIEMBROS: ComiteMiembro[] = []
+export const COMITE_VOTOS: ComiteVoto[] = []
+export const SOLICITANTES: Solicitante[] = []
 
 function reemplazar<T>(destino: T[], filas: T[]) {
   destino.splice(0, destino.length, ...filas)
 }
 
-async function tabla<T>(nombre: string): Promise<T[]> {
-  const { data, error } = await neon.from(nombre).select('*').order('id')
+async function tabla<T>(nombre: string, orden = 'id'): Promise<T[]> {
+  const { data, error } = await neon.from(nombre).select('*').order(orden)
   if (error) throw new Error(`Error cargando ${nombre}: ${error.message}`)
   return (data ?? []) as T[]
 }
@@ -46,6 +52,7 @@ export async function cargarDatosDesdeNeon(): Promise<void> {
     organizaciones, usuarios, convenios, bancos, requisitos,
     actividades, productos, prospectos, crm, clientes,
     solicitudes, creditos, cobranzas, pagos, visitas, kpis,
+    comites, comiteMiembros, comiteVotos, solicitantes,
   ] = await Promise.all([
     tabla<Organizacion>('organizaciones'),
     tabla<Usuario>('usuarios'),
@@ -66,6 +73,10 @@ export async function cargarDatosDesdeNeon(): Promise<void> {
       if (r.error) throw new Error(`Error cargando kpi_reportes: ${r.error.message}`)
       return r.data as { datos: typeof KPI_REPORTES }[]
     }),
+    tabla<Comite>('comites'),
+    tabla<ComiteMiembro>('comite_miembros', 'comite_id'),
+    tabla<ComiteVoto>('comite_votos'),
+    tabla<Solicitante>('solicitantes'),
   ])
 
   reemplazar(ORGANIZACIONES, organizaciones)
@@ -83,7 +94,26 @@ export async function cargarDatosDesdeNeon(): Promise<void> {
   reemplazar(COBRANZAS, cobranzas)
   reemplazar(PAGOS, pagos)
   reemplazar(VISITAS, visitas)
+  reemplazar(COMITES, comites)
+  reemplazar(COMITE_MIEMBROS, comiteMiembros)
+  reemplazar(COMITE_VOTOS, comiteVotos)
+  reemplazar(SOLICITANTES, solicitantes)
   if (kpis[0]) Object.assign(KPI_REPORTES, kpis[0].datos)
+}
+
+/** Recarga selectiva tras una escritura (solicitudes, votos, comités…). */
+export async function recargarTablas(...nombres: ('solicitudes' | 'comite_votos' | 'comites' | 'comite_miembros' | 'clientes' | 'solicitantes' | 'productos_credito')[]): Promise<void> {
+  await Promise.all(nombres.map(async n => {
+    switch (n) {
+      case 'solicitudes':      reemplazar(SOLICITUDES, await tabla<Solicitud>('solicitudes')); break
+      case 'comite_votos':     reemplazar(COMITE_VOTOS, await tabla<ComiteVoto>('comite_votos')); break
+      case 'comites':          reemplazar(COMITES, await tabla<Comite>('comites')); break
+      case 'comite_miembros':  reemplazar(COMITE_MIEMBROS, await tabla<ComiteMiembro>('comite_miembros', 'comite_id')); break
+      case 'clientes':         reemplazar(CLIENTES, await tabla<Cliente>('clientes')); break
+      case 'solicitantes':     reemplazar(SOLICITANTES, await tabla<Solicitante>('solicitantes')); break
+      case 'productos_credito': reemplazar(PRODUCTOS, await tabla<ProductoCredito>('productos_credito')); break
+    }
+  }))
 }
 
 /** Restaura los datos demo (modo demo sin conexión a Neon). */
@@ -101,6 +131,7 @@ export function restaurarDatosDemo(): void {
   reemplazar(SOLICITUDES, [...demo.SOLICITUDES_DEMO])
   reemplazar(CREDITOS, [...demo.CREDITOS_DEMO])
   reemplazar(COBRANZAS, [...demo.COBRANZAS_DEMO])
+  reemplazar(COMITES, []); reemplazar(COMITE_MIEMBROS, []); reemplazar(COMITE_VOTOS, []); reemplazar(SOLICITANTES, [])
   cargarExtrasDemo()
 }
 

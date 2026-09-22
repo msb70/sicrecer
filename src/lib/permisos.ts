@@ -27,6 +27,7 @@ export const PERMISOS_RUTA: Record<string, Rol[]> = {
   '/cobranza':                OPERACION,
 
   '/comite':                  ['comite', 'administrador'],
+  '/comites':                 ['administrador'],
   '/cartera':                 ['administrador', 'coordinador', 'facilitador', 'auditor'],
   '/cierre-mensual':          ['administrador', 'coordinador', 'auditor'],
   '/calculadora':             OPERACION,

@@ -27,7 +27,9 @@ export default function ListaSolicitudes() {
   const [busqueda, setBusqueda] = useState('')
   const [filtroEstado, setFiltroEstado] = useState<EstadoSolicitud | 'todos'>('todos')
 
-  const filtrados = SOLICITUDES.filter(s => {
+  const pendientesPortal = SOLICITUDES.filter(s => s.origen === 'externo' && s.estado === 'enviada').length
+
+  const filtrados = [...SOLICITUDES].sort((a, b) => (b.fecha_solicitud ?? '').localeCompare(a.fecha_solicitud ?? '')).filter(s => {
     const matchBusqueda = s.cliente_nombre.toLowerCase().includes(busqueda.toLowerCase())
     const matchEstado = filtroEstado === 'todos' || s.estado === filtroEstado
     return matchBusqueda && matchEstado
@@ -38,7 +40,7 @@ export default function ListaSolicitudes() {
       <PageContainer>
         <PageHeader
           title="Solicitudes de crédito"
-          subtitle={`${SOLICITUDES.length} solicitudes registradas`}
+          subtitle={`${SOLICITUDES.length} solicitudes registradas${pendientesPortal ? ` · ${pendientesPortal} del portal pendientes de revisión` : ''}`}
           actions={
             <Button onClick={() => navigate('/solicitudes/nueva')}>
               <Plus size={16} />Nueva solicitud
@@ -87,7 +89,12 @@ export default function ListaSolicitudes() {
                 <tbody className="divide-y divide-gray-50">
                   {filtrados.map(s => (
                     <tr key={s.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4 font-medium text-gray-900">{s.cliente_nombre}</td>
+                      <td className="px-6 py-4 font-medium text-gray-900">
+                        <div className="flex items-center gap-2">
+                          {s.cliente_nombre}
+                          {s.origen === 'externo' && <Badge color="purple">Portal</Badge>}
+                        </div>
+                      </td>
                       <td className="px-6 py-4 text-gray-600 text-xs max-w-[140px] truncate">{s.producto_nombre}</td>
                       <td className="px-6 py-4 font-semibold text-gray-900">{formatCOP(s.monto_solicitado)}</td>
                       <td className="px-6 py-4 text-gray-600">{s.plazo} meses</td>
