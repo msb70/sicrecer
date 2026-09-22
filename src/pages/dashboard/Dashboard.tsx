@@ -37,7 +37,7 @@ export default function Dashboard() {
     <Shell>
       <PageContainer>
         <PageHeader
-          title={`Bienvenido, ${usuario.nombre.split(' ')[0]}`}
+          title={`Bienvenido, ${(usuario?.nombre ?? '').split(' ')[0]}`}
           subtitle={`Panel principal · ${new Date().toLocaleDateString('es-CO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`}
         />
 

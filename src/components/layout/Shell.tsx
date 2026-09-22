@@ -209,7 +209,7 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
       <div className="flex items-start justify-between gap-3 px-4 py-4 border-b border-gray-800">
         <div className="min-w-0">
           <BrandLogo imageClassName="w-[146px]" />
-          <p className="text-xs text-gray-400 truncate max-w-[160px]">{organizacion.nombre}</p>
+          <p className="text-xs text-gray-400 truncate max-w-[160px]">{organizacion?.nombre ?? ''}</p>
         </div>
         {onClose && (
           <button onClick={onClose} className="text-gray-400 hover:text-white p-1 rounded">
@@ -317,10 +317,10 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
       <div className="px-3 py-3 border-t border-gray-800">
         <div className="flex items-center gap-3 px-2 py-2">
           <div className="w-8 h-8 rounded-full bg-brand-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
-            {usuario.nombre.split(' ').map(n => n[0]).join('').slice(0, 2)}
+            {(usuario?.nombre ?? '?').split(' ').map(n => n[0]).join('').slice(0, 2)}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-white truncate">{usuario.nombre}</p>
+            <p className="text-sm font-medium text-white truncate">{usuario?.nombre ?? ''}</p>
             <p className="text-xs text-gray-400 truncate">{usuario.email}</p>
           </div>
         </div>

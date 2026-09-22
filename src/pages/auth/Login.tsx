@@ -16,12 +16,10 @@ function GoogleIcon() {
   )
 }
 
-// Modo demo visible solo si VITE_DEMO_MODE=true (nunca en producción)
-const DEMO_HABILITADO = import.meta.env.VITE_DEMO_MODE === 'true'
 
 export default function Login() {
   const navigate = useNavigate()
-  const { organizacion, loginGoogle, errorAuth, loginEmail } = useApp()
+  const { loginGoogle, errorAuth, loginEmail } = useApp()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -49,8 +47,6 @@ export default function Login() {
 
     setLoading(true)
     try {
-      if (DEMO_HABILITADO && password === 'primer-acceso') { navigate('/cambiar-contrasena'); return }
-      if (DEMO_HABILITADO && password === 'demo') { navigate('/seleccionar-org'); return }
       const r = await loginEmail(email, password)
       if (r.requiereVerificacion) {
         navigate(`/verificar?email=${encodeURIComponent(email)}`)
@@ -76,9 +72,7 @@ export default function Login() {
         {/* Card */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
           <h2 className="text-lg font-semibold text-gray-900 mb-1">Iniciar sesión</h2>
-          <p className="text-sm text-gray-500 mb-6">
-            {organizacion.nombre}
-          </p>
+          <p className="text-sm text-gray-500 mb-6">Personal de la organización</p>
 
           {(error || errorAuth) && (
             <Alert type="error">
@@ -100,11 +94,12 @@ export default function Login() {
             {loadingGoogle ? 'Redirigiendo…' : 'Continuar con Google'}
           </button>
 
-          <div className="my-5 flex items-center gap-3">
+          <div className="my-6 flex items-center gap-3">
             <div className="flex-1 h-px bg-gray-200" />
-            <span className="text-xs text-gray-400">o con tu correo</span>
+            <span className="text-xs text-gray-400">Solicitantes</span>
             <div className="flex-1 h-px bg-gray-200" />
           </div>
+          <p className="text-xs text-gray-500 mb-3">Si te registraste con correo y contraseña, entra aquí.</p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <Input
@@ -149,13 +144,6 @@ export default function Login() {
             </Link>
           </div>
 
-          {DEMO_HABILITADO && (
-            <div className="mt-6 p-3 bg-gray-50 rounded-lg border border-gray-100">
-              <p className="text-xs text-gray-500 font-medium mb-1">Demo — atajos</p>
-              <p className="text-xs text-gray-500">Contraseña <code className="bg-gray-200 px-1 rounded">demo</code> → datos de ejemplo</p>
-              <p className="text-xs text-gray-500">Contraseña <code className="bg-gray-200 px-1 rounded">primer-acceso</code> → flujo de cambio</p>
-            </div>
-          )}
         </div>
 
         <p className="mt-6 text-center text-xs text-gray-400">

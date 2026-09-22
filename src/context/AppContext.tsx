@@ -83,6 +83,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (u) {
         await cargarDatosDesdeNeon()
         const org = ORGANIZACIONES.find(o => o.id === u.organizacion_id) ?? ORGANIZACIONES[0]
+        if (!org) {
+          console.error('[sesion] organizaciones vacío tras cargar datos', { usuario: u, organizaciones: ORGANIZACIONES.length })
+          throw new Error(`No se pudo cargar la organización ${u.organizacion_id} de tu usuario. Contacta al administrador.`)
+        }
         setUsuario(u)
         setRolState(u.rol)
         setOrganizacion(org)
@@ -169,7 +173,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
 
   // Login real: redirige a Google vía Neon Auth.
-  const loginGoogle = async (callbackPath = '/dashboard') => {
+  const loginGoogle = async (callbackPath = '/') => {
     setErrorAuth('')
     const { error } = await neon.auth.signIn.social({
       provider: 'google',
