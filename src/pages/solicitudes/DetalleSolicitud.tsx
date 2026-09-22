@@ -7,6 +7,7 @@ import { SOLICITUDES, CLIENTES, PRODUCTOS, SOLICITANTES, COMITES, REQUISITOS, AC
 import { useApp } from '../../context/AppContext'
 import { neon } from '../../lib/neon'
 import { obtenerFoto } from '../../lib/portal'
+import { AdjuntosSolicitante } from '../../components/portal/AdjuntosSolicitante'
 import { PAIS_LABELS, type Pais } from '../../types'
 
 const ESTADO_CONFIG = {
@@ -185,14 +186,8 @@ export default function DetalleSolicitud() {
                     ))}
                   </div>
                   <div className="mt-4">
-                    <p className="text-xs font-medium text-gray-500 mb-2">Requisitos confirmados por el solicitante</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {(producto?.requisito_ids ?? []).map(rid => {
-                        const r = REQUISITOS.find(x => x.id === rid)
-                        const ok = (solicitud.requisitos_confirmados ?? []).includes(rid)
-                        return <Badge key={rid} color={ok ? 'green' : r?.obligatorio ? 'red' : 'gray'}>{ok ? '✓ ' : '✗ '}{r?.nombre ?? rid}</Badge>
-                      })}
-                    </div>
+                    <p className="text-xs font-medium text-gray-500 mb-2">Requisitos y adjuntos</p>
+                    <AdjuntosSolicitante solicitanteId={solicitante.id} producto={producto} />
                   </div>
                   <div className="mt-4 grid sm:grid-cols-2 gap-3">
                     <div>

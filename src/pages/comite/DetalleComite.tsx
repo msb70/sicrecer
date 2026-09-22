@@ -5,11 +5,12 @@ import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Button, Badge, Card, CardHeader, CardBody, Alert, Input } from '../../components/ui'
 import {
   SOLICITUDES, CLIENTES, PRODUCTOS, SOLICITANTES, COMITES, COMITE_MIEMBROS, COMITE_VOTOS, USUARIOS,
-  ACTIVIDADES_ECONOMICAS, REQUISITOS, formatCOP, recargarTablas,
+  ACTIVIDADES_ECONOMICAS, formatCOP, recargarTablas,
 } from '../../mocks'
 import { useApp } from '../../context/AppContext'
 import { neon } from '../../lib/neon'
 import { obtenerFoto } from '../../lib/portal'
+import { AdjuntosSolicitante } from '../../components/portal/AdjuntosSolicitante'
 import { generarPlan, resumenPlan } from '../../lib/finanzas'
 import { PAIS_LABELS, type Pais } from '../../types'
 import { clsx } from 'clsx'
@@ -165,12 +166,9 @@ export default function DetalleComite() {
                       <div key={k} className="flex justify-between py-1.5 border-b border-gray-50"><span className="text-gray-500">{k}</span><span className="font-medium text-gray-900 text-right">{v}</span></div>
                     ))}
                   </div>
-                  <div className="mt-3 flex flex-wrap gap-1.5">
-                    {(producto?.requisito_ids ?? []).map(rid => {
-                      const r = REQUISITOS.find(x => x.id === rid)
-                      const okReq = (solicitud.requisitos_confirmados ?? []).includes(rid)
-                      return <Badge key={rid} color={okReq ? 'green' : r?.obligatorio ? 'red' : 'gray'}>{okReq ? '✓ ' : '✗ '}{r?.nombre ?? rid}</Badge>
-                    })}
+                  <div className="mt-3">
+                    <p className="text-xs font-medium text-gray-500 mb-1">Requisitos y adjuntos</p>
+                    <AdjuntosSolicitante solicitanteId={solicitante.id} producto={producto} />
                   </div>
                   <div className="mt-4 grid sm:grid-cols-2 gap-3">
                     <div><p className="text-xs font-medium text-gray-500 mb-1">Documento</p>{fotos.documento ? <img src={fotos.documento} alt="Documento" className="w-full rounded-lg border object-contain max-h-56 bg-gray-50" /> : <p className="text-xs text-gray-400">Sin foto</p>}</div>

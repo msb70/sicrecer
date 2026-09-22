@@ -292,7 +292,12 @@ export default function FormProducto() {
             <Card>
               <CardHeader><h2 className="text-sm font-semibold text-gray-800">Actividades económicas elegibles</h2></CardHeader>
               <CardBody>
-                <p className="text-xs text-gray-500 mb-3">Define para qué rubros productivos aplica este producto.</p>
+                <p className="text-xs text-gray-500 mb-3">Define para qué rubros productivos aplica este producto. Un solicitante cuya actividad no esté en la lista no podrá elegirlo.</p>
+                <label className={`flex items-center gap-2.5 p-2.5 mb-3 rounded-lg border cursor-pointer ${form.actividad_economica_ids.length === 0 ? 'bg-brand-50 border-brand-300' : 'bg-white border-gray-200'}`}>
+                  <input type="checkbox" className="w-4 h-4" checked={form.actividad_economica_ids.length === 0}
+                    onChange={e => setForm(prev => ({ ...prev, actividad_economica_ids: e.target.checked ? [] : ACTIVIDADES_ECONOMICAS.map(a => a.id) }))} />
+                  <span className="text-sm font-medium text-gray-900">Cualquier actividad económica</span>
+                </label>
                 <div className="grid sm:grid-cols-2 gap-2">
                   {ACTIVIDADES_ECONOMICAS.map(a => (
                     <label key={a.id} className={`flex items-start gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-colors ${
@@ -313,9 +318,9 @@ export default function FormProducto() {
                     </label>
                   ))}
                 </div>
-                {form.actividad_economica_ids.length > 0 && (
-                  <p className="mt-2 text-xs text-brand-600 font-medium">{form.actividad_economica_ids.length} actividad(es) seleccionada(s)</p>
-                )}
+                <p className="mt-2 text-xs text-brand-600 font-medium">
+                  {form.actividad_economica_ids.length > 0 ? `${form.actividad_economica_ids.length} actividad(es) seleccionada(s)` : 'Sin restricción: cualquier actividad económica es elegible'}
+                </p>
               </CardBody>
             </Card>
 

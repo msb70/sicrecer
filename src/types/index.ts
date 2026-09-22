@@ -50,11 +50,14 @@ export interface Convenio {
 }
 
 // ─── REQUISITO ────────────────────────────────────────────────
+export type TipoRequisito = 'archivo' | 'documento_identidad' | 'selfie'
 export interface Requisito {
   id: string
   nombre: string
   descripcion: string
   obligatorio: boolean
+  /** archivo = el solicitante adjunta un documento; documento_identidad/selfie = lo cubre el perfil */
+  tipo?: TipoRequisito
 }
 
 // ─── ACTIVIDAD ECONÓMICA ──────────────────────────────────────

@@ -112,6 +112,70 @@ function cargarImagen(origen: File | string): Promise<HTMLImageElement> {
   })
 }
 
+// ─── Adjuntos por requisito ───────────────────────────────────
+export interface AdjuntoInfo { requisito_id: string; nombre_archivo: string; mime: string; creado_en: string }
+export const ADJUNTO_MAX_BYTES = 1_000_000
+export const ADJUNTO_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
+
+export async function listarAdjuntos(solicitanteId: string): Promise<AdjuntoInfo[]> {
+  const { data, error } = await neon.from('solicitante_requisitos').select('requisito_id, nombre_archivo, mime, creado_en').eq('solicitante_id', solicitanteId)
+  lanzar('Error leyendo adjuntos', error)
+  return (data ?? []) as AdjuntoInfo[]
+}
+
+/** Sube (o reemplaza) el adjunto de un requisito. Imágenes se comprimen; PDF se sube tal cual (máx 1 MB). */
+export async function subirAdjunto(solicitanteId: string, requisitoId: string, archivo: File): Promise<AdjuntoInfo> {
+  let dataUrl: string
+  if (archivo.type.startsWith('image/')) {
+    dataUrl = await comprimirImagen(archivo, 1400, 300_000)
+  } else if (archivo.type === 'application/pdf') {
+    if (archivo.size > ADJUNTO_MAX_BYTES) throw new Error('El PDF supera 1 MB. Reduce su tamaño o sube una foto del documento.')
+    dataUrl = await archivoADataUrl(archivo)
+  } else {
+    throw new Error('Formato no admitido. Sube una imagen (JPG/PNG) o un PDF.')
+  }
+  const { mime, hex } = dataUrlAHex(dataUrl)
+  const fila = { solicitante_id: solicitanteId, requisito_id: requisitoId, nombre_archivo: archivo.name.slice(0, 120), mime, bytes: hex }
+  const { error } = await neon.from('solicitante_requisitos').upsert(fila, { onConflict: 'solicitante_id,requisito_id' })
+  lanzar('Error subiendo adjunto', error)
+  return { requisito_id: requisitoId, nombre_archivo: fila.nombre_archivo, mime, creado_en: new Date().toISOString() }
+}
+
+export async function eliminarAdjunto(solicitanteId: string, requisitoId: string): Promise<void> {
+  const { error } = await neon.from('solicitante_requisitos').delete().eq('solicitante_id', solicitanteId).eq('requisito_id', requisitoId)
+  lanzar('Error eliminando adjunto', error)
+}
+
+/** Devuelve el adjunto como data URL (imagen o PDF). */
+export async function obtenerAdjunto(solicitanteId: string, requisitoId: string): Promise<{ dataUrl: string; mime: string; nombre: string } | null> {
+  const { data, error } = await neon.from('solicitante_requisitos').select('mime, bytes, nombre_archivo').eq('solicitante_id', solicitanteId).eq('requisito_id', requisitoId).limit(1)
+  lanzar('Error leyendo adjunto', error)
+  const fila = data?.[0] as { mime: string; bytes: string; nombre_archivo: string } | undefined
+  if (!fila) return null
+  return { dataUrl: byteaADataUrl(fila.bytes, fila.mime), mime: fila.mime, nombre: fila.nombre_archivo }
+}
+
+/** Abre un data URL en una pestaña nueva (vía Blob para evitar bloqueos del navegador). */
+export function abrirDataUrl(dataUrl: string): void {
+  const [cab, b64] = dataUrl.split(',')
+  const mime = /data:([^;]+);/.exec(cab)?.[1] ?? 'application/octet-stream'
+  const bin = atob(b64)
+  const arr = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i)
+  const url = URL.createObjectURL(new Blob([arr], { type: mime }))
+  window.open(url, '_blank', 'noopener')
+  setTimeout(() => URL.revokeObjectURL(url), 60_000)
+}
+
+function archivoADataUrl(f: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader()
+    r.onload = () => resolve(String(r.result))
+    r.onerror = () => reject(new Error('No se pudo leer el archivo'))
+    r.readAsDataURL(f)
+  })
+}
+
 // ─── Catálogos visibles para el solicitante ───────────────────
 export interface CatalogoPortal {
   productos: ProductoCredito[]
@@ -191,12 +255,13 @@ export function evaluarElegibilidad(args: {
   solicitante: Solicitante
   monto: number
   plazo: number
-  requisitosConfirmados: string[]
+  /** ids de requisitos con adjunto subido */
+  adjuntos: string[]
   requisitos: Requisito[]
   tieneDocumento: boolean
   tieneSelfie: boolean
 }): ResultadoElegibilidad {
-  const { producto: p, solicitante: s, monto, plazo, requisitosConfirmados, requisitos, tieneDocumento, tieneSelfie } = args
+  const { producto: p, solicitante: s, monto, plazo, adjuntos, requisitos, tieneDocumento, tieneSelfie } = args
   const faltantes: string[] = []
   if (!(p.paises ?? []).includes(s.pais)) faltantes.push('El producto no está disponible en tu país.')
   if (monto < p.monto_min || monto > p.monto_max) faltantes.push('El monto está fuera del rango del producto.')
@@ -207,11 +272,23 @@ export function evaluarElegibilidad(args: {
   }
   for (const rid of p.requisito_ids ?? []) {
     const r = requisitos.find(x => x.id === rid)
-    if (r?.obligatorio && !requisitosConfirmados.includes(rid)) faltantes.push(`Requisito obligatorio pendiente: ${r.nombre}.`)
+    if (!r) continue
+    const cubierto = requisitoCubiertoPorPerfil(r) || adjuntos.includes(rid)
+    if (r.obligatorio && !cubierto) faltantes.push(`Falta adjuntar: ${r.nombre}.`)
   }
   if (!tieneDocumento) faltantes.push('Falta la foto de tu documento de identidad.')
   if (!tieneSelfie) faltantes.push('Falta tu foto de verificación (selfie).')
   return { ok: faltantes.length === 0, faltantes }
+}
+
+export function requisitoCubiertoPorPerfil(r: Requisito): boolean {
+  return r.tipo === 'documento_identidad' || r.tipo === 'selfie'
+}
+
+/** ¿El solicitante puede optar a este producto por su actividad económica? Lista vacía = cualquier actividad. */
+export function productoElegiblePorActividad(p: ProductoCredito, s: Solicitante): boolean {
+  const acts = p.actividad_economica_ids ?? []
+  return acts.length === 0 || (!!s.actividad_economica_id && acts.includes(s.actividad_economica_id))
 }
 
 // ─── Estado visible para el solicitante ───────────────────────

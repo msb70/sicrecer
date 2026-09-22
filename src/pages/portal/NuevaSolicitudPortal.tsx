@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, CheckCircle2, XCircle, Send, Calculator } from 'lucide-react'
+import { ArrowLeft, ArrowRight, CheckCircle2, XCircle, Send, Calculator, Upload, Paperclip, Trash2, Eye } from 'lucide-react'
 import { clsx } from 'clsx'
 import { PortalShell } from '../../components/portal/PortalShell'
 import { Button, Input, Card, CardHeader, CardBody, Alert, Spinner } from '../../components/ui'
 import { useApp } from '../../context/AppContext'
 import {
   cargarCatalogoPortal, productosParaPais, listarFotos, crearSolicitudPortal, evaluarElegibilidad,
-  type CatalogoPortal,
+  listarAdjuntos, subirAdjunto, eliminarAdjunto, obtenerAdjunto, abrirDataUrl,
+  requisitoCubiertoPorPerfil, productoElegiblePorActividad,
+  type CatalogoPortal, type AdjuntoInfo,
 } from '../../lib/portal'
 import { generarPlan, resumenPlan } from '../../lib/finanzas'
 import { formatCOP } from '../../mocks'
@@ -28,19 +30,63 @@ export default function NuevaSolicitudPortal() {
   const [monto, setMonto] = useState('')
   const [plazo, setPlazo] = useState('')
   const [proposito, setProposito] = useState('')
-  const [confirmados, setConfirmados] = useState<string[]>([])
+  const [adjuntos, setAdjuntos] = useState<AdjuntoInfo[]>([])
+  const [subiendo, setSubiendo] = useState<string | null>(null)
+  const [errorAdjunto, setErrorAdjunto] = useState('')
   const [enviando, setEnviando] = useState(false)
   const [enviada, setEnviada] = useState<string | null>(null)
 
+  // Estado del perfil (fotos y adjuntos): se relee al entrar en requisitos/envío
+  // y al volver a la pestaña, por si se completó en otra pantalla.
+  const refrescarPerfil = async () => {
+    if (!solicitante) return
+    const [lista, adj] = await Promise.all([listarFotos(solicitante.id), listarAdjuntos(solicitante.id)])
+    setFotos({ documento: lista.some(f => f.tipo === 'documento'), selfie: lista.some(f => f.tipo === 'selfie') })
+    setAdjuntos(adj)
+  }
+
   useEffect(() => {
     if (!solicitante) { navigate('/portal/perfil', { replace: true }); return }
-    Promise.all([cargarCatalogoPortal(), listarFotos(solicitante.id)])
-      .then(([cat, lista]) => {
-        setCatalogo(cat)
-        setFotos({ documento: lista.some(f => f.tipo === 'documento'), selfie: lista.some(f => f.tipo === 'selfie') })
-      })
+    Promise.all([cargarCatalogoPortal(), refrescarPerfil()])
+      .then(([cat]) => setCatalogo(cat))
       .catch(e => setError(e.message))
-  }, [solicitante, navigate])
+  }, [solicitante, navigate]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (paso >= 3) void refrescarPerfil().catch(() => {})
+    const onFocus = () => { void refrescarPerfil().catch(() => {}) }
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [paso]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const adjuntar = async (requisitoId: string, f: File | undefined) => {
+    if (!f || !solicitante) return
+    setSubiendo(requisitoId); setErrorAdjunto('')
+    try {
+      const info = await subirAdjunto(solicitante.id, requisitoId, f)
+      setAdjuntos(a => [...a.filter(x => x.requisito_id !== requisitoId), info])
+    } catch (err) {
+      setErrorAdjunto(err instanceof Error ? err.message : 'No se pudo subir el archivo')
+    } finally {
+      setSubiendo(null)
+    }
+  }
+
+  const quitarAdjunto = async (requisitoId: string) => {
+    if (!solicitante) return
+    try {
+      await eliminarAdjunto(solicitante.id, requisitoId)
+      setAdjuntos(a => a.filter(x => x.requisito_id !== requisitoId))
+    } catch (err) {
+      setErrorAdjunto(err instanceof Error ? err.message : 'No se pudo eliminar')
+    }
+  }
+
+  const verAdjunto = async (requisitoId: string) => {
+    if (!solicitante) return
+    const a = await obtenerAdjunto(solicitante.id, requisitoId).catch(() => null)
+    if (a) abrirDataUrl(a.dataUrl)
+  }
 
   const productos = useMemo(() => catalogo ? productosParaPais(catalogo.productos, pais) : [], [catalogo, pais])
   const producto: ProductoCredito | undefined = productos.find(p => p.id === productoId)
@@ -62,16 +108,15 @@ export default function NuevaSolicitudPortal() {
     if (!producto || !solicitante || !catalogo) return null
     return evaluarElegibilidad({
       producto, solicitante, monto: montoN, plazo: plazoN,
-      requisitosConfirmados: confirmados, requisitos: catalogo.requisitos,
+      adjuntos: adjuntos.map(a => a.requisito_id), requisitos: catalogo.requisitos,
       tieneDocumento: fotos.documento, tieneSelfie: fotos.selfie,
     })
-  }, [producto, solicitante, catalogo, montoN, plazoN, confirmados, fotos])
+  }, [producto, solicitante, catalogo, montoN, plazoN, adjuntos, fotos])
 
   const elegirProducto = (p: ProductoCredito) => {
     setProductoId(p.id)
     setMonto(String(p.monto_min))
     setPlazo(String(p.plazo_min))
-    setConfirmados([])
   }
 
   const enviar = async () => {
@@ -81,7 +126,7 @@ export default function NuevaSolicitudPortal() {
       const s = await crearSolicitudPortal({
         solicitante_id: solicitante.id, producto_id: producto.id,
         monto_solicitado: montoN, plazo: plazoN, proposito: proposito.trim() || undefined,
-        requisitos_confirmados: confirmados,
+        requisitos_confirmados: adjuntos.map(a => a.requisito_id),
       })
       setEnviada(s.id)
     } catch (err) {
@@ -165,10 +210,15 @@ export default function NuevaSolicitudPortal() {
             <CardHeader><h2 className="text-sm font-semibold text-gray-800">Elige un producto</h2></CardHeader>
             <CardBody className="space-y-3">
               {productos.length === 0 && <Alert type="info">No hay productos disponibles en {PAIS_LABELS[pais]} por ahora.</Alert>}
-              {productos.map(p => (
-                <button key={p.id} onClick={() => elegirProducto(p)}
-                  className={clsx('w-full p-4 rounded-xl border-2 text-left transition-colors', productoId === p.id ? 'border-brand-500 bg-brand-50' : 'border-gray-200 hover:border-gray-300')}>
+              {productos.map(p => {
+                const elegible = solicitante ? productoElegiblePorActividad(p, solicitante) : false
+                return (
+                <button key={p.id} onClick={() => elegible && elegirProducto(p)} disabled={!elegible}
+                  className={clsx('w-full p-4 rounded-xl border-2 text-left transition-colors',
+                    !elegible ? 'border-gray-100 bg-gray-50 opacity-60 cursor-not-allowed' :
+                    productoId === p.id ? 'border-brand-500 bg-brand-50' : 'border-gray-200 hover:border-gray-300')}>
                   <p className="font-semibold text-gray-900">{p.nombre}</p>
+                  {!elegible && <p className="text-xs text-red-600 mt-0.5">No disponible para tu actividad económica ({catalogo.actividades.find(a => a.id === solicitante?.actividad_economica_id)?.nombre ?? 'sin definir'}).</p>}
                   {p.descripcion && <p className="text-xs text-gray-500 mt-0.5">{p.descripcion}</p>}
                   <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
                     <div><span className="text-gray-400">Monto</span><br /><span className="font-medium">{formatCOP(p.monto_min)} – {formatCOP(p.monto_max)}</span></div>
@@ -177,7 +227,11 @@ export default function NuevaSolicitudPortal() {
                     <div><span className="text-gray-400">Pago</span><br /><span className="font-medium capitalize">{p.frecuencia}</span></div>
                   </div>
                 </button>
-              ))}
+                )
+              })}
+              {productos.length > 0 && solicitante && !productos.some(p => productoElegiblePorActividad(p, solicitante)) && (
+                <Alert type="warning">Ningún producto admite tu actividad económica actual. Revísala en tu perfil o consulta con la organización.</Alert>
+              )}
               <div className="flex justify-between">
                 <Button variant="secondary" onClick={() => setPaso(0)}><ArrowLeft size={16} /> Anterior</Button>
                 <Button onClick={() => setPaso(2)} disabled={!producto}>Siguiente <ArrowRight size={16} /></Button>
@@ -244,23 +298,56 @@ export default function NuevaSolicitudPortal() {
           </div>
         )}
 
-        {/* PASO 3: Requisitos */}
+        {/* PASO 3: Requisitos (adjuntos) */}
         {paso === 3 && producto && (
           <Card>
             <CardHeader><h2 className="text-sm font-semibold text-gray-800">Requisitos del producto</h2></CardHeader>
             <CardBody className="space-y-3">
-              <p className="text-xs text-gray-500">Confirma que cumples cada requisito. Los obligatorios son imprescindibles; el facilitador podrá pedirte los documentos.</p>
+              <p className="text-xs text-gray-500">Adjunta cada documento (foto JPG/PNG o PDF de hasta 1 MB). Los obligatorios son imprescindibles para enviar.</p>
+              {errorAdjunto && <Alert type="error">{errorAdjunto}</Alert>}
               {requisitosProducto.length === 0 && <p className="text-sm text-gray-500">Este producto no tiene requisitos adicionales.</p>}
-              {requisitosProducto.map(r => (
-                <label key={r.id} className={clsx('flex items-start gap-3 p-3 rounded-lg border cursor-pointer', confirmados.includes(r.id) ? 'bg-brand-50 border-brand-300' : 'border-gray-200')}>
-                  <input type="checkbox" className="mt-0.5 w-4 h-4" checked={confirmados.includes(r.id)}
-                    onChange={() => setConfirmados(c => c.includes(r.id) ? c.filter(x => x !== r.id) : [...c, r.id])} />
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">{r.nombre} {r.obligatorio && <span className="text-xs text-red-600">(obligatorio)</span>}</p>
-                    {r.descripcion && <p className="text-xs text-gray-500">{r.descripcion}</p>}
+              {requisitosProducto.map(r => {
+                const porPerfil = requisitoCubiertoPorPerfil(r)
+                const cubiertoPerfil = r.tipo === 'documento_identidad' ? fotos.documento : r.tipo === 'selfie' ? fotos.selfie : false
+                const adj = adjuntos.find(a => a.requisito_id === r.id)
+                const ok = porPerfil ? cubiertoPerfil : Boolean(adj)
+                return (
+                  <div key={r.id} className={clsx('p-3 rounded-lg border', ok ? 'bg-green-50 border-green-200' : r.obligatorio ? 'border-red-200' : 'border-gray-200')}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                          {ok ? <CheckCircle2 size={15} className="text-green-600 shrink-0" /> : <Paperclip size={15} className="text-gray-400 shrink-0" />}
+                          {r.nombre} {r.obligatorio && <span className="text-xs text-red-600">(obligatorio)</span>}
+                        </p>
+                        {r.descripcion && <p className="text-xs text-gray-500 mt-0.5">{r.descripcion}</p>}
+                        {porPerfil && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            {cubiertoPerfil ? 'Cubierto con la foto de tu perfil.' : <>Se cubre con la foto de tu perfil. <button className="underline" onClick={() => navigate('/portal/perfil')}>Ir a mi perfil</button></>}
+                          </p>
+                        )}
+                        {!porPerfil && adj && (
+                          <p className="text-xs text-gray-600 mt-1 truncate">Adjunto: {adj.nombre_archivo}</p>
+                        )}
+                      </div>
+                      {!porPerfil && (
+                        <div className="flex items-center gap-1 shrink-0">
+                          {adj && (
+                            <>
+                              <button onClick={() => void verAdjunto(r.id)} className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100" title="Ver"><Eye size={15} /></button>
+                              <button onClick={() => void quitarAdjunto(r.id)} className="p-1.5 rounded-lg text-red-500 hover:bg-red-50" title="Quitar"><Trash2 size={15} /></button>
+                            </>
+                          )}
+                          <label className={clsx('inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border cursor-pointer', subiendo === r.id ? 'opacity-60' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50')}>
+                            <Upload size={14} /> {subiendo === r.id ? 'Subiendo…' : adj ? 'Reemplazar' : 'Adjuntar'}
+                            <input type="file" accept="image/*,application/pdf" className="hidden" disabled={subiendo !== null}
+                              onChange={e => { void adjuntar(r.id, e.target.files?.[0]); e.target.value = '' }} />
+                          </label>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </label>
-              ))}
+                )
+              })}
               <div className="flex justify-between">
                 <Button variant="secondary" onClick={() => setPaso(2)}><ArrowLeft size={16} /> Anterior</Button>
                 <Button onClick={() => setPaso(4)}>Siguiente <ArrowRight size={16} /></Button>
