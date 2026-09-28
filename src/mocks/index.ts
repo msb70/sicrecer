@@ -46,16 +46,41 @@ async function tabla<T>(nombre: string, orden = 'id'): Promise<T[]> {
   return (data ?? []) as T[]
 }
 
-/** Carga todos los datos desde Neon (requiere sesión activa por RLS). */
+const esperar = (ms: number) => new Promise(r => setTimeout(r, ms))
+
+/**
+ * Carga todos los datos desde Neon (requiere sesión activa por RLS).
+ *
+ * Con muchas consultas en paralelo, el Data API a veces resuelve alguna
+ * sin identidad (auth.user_id() nulo) y la RLS devuelve 0 filas sin error.
+ * `organizaciones` y `usuarios` nunca pueden venir vacías para un usuario
+ * interno: si llegan vacías se reintenta la carga completa.
+ */
 export async function cargarDatosDesdeNeon(): Promise<void> {
+  const INTENTOS = 4
+  for (let intento = 1; intento <= INTENTOS; intento++) {
+    const ok = await cargarUnaVez()
+    if (ok) return
+    console.warn(`[datos] carga incompleta (intento ${intento}/${INTENTOS}), reintentando…`)
+    await esperar(400 * intento)
+  }
+  throw new Error('No se pudieron cargar los datos de tu organización. Recarga la página en unos segundos.')
+}
+
+async function cargarUnaVez(): Promise<boolean> {
+  // Primero lo que define la identidad/organización (pocas consultas),
+  // luego el resto en paralelo.
+  const [organizaciones, usuarios] = await Promise.all([
+    tabla<Organizacion>('organizaciones'),
+    tabla<Usuario>('usuarios'),
+  ])
+  if (organizaciones.length === 0 || usuarios.length === 0) return false
   const [
-    organizaciones, usuarios, convenios, bancos, requisitos,
+    convenios, bancos, requisitos,
     actividades, productos, prospectos, crm, clientes,
     solicitudes, creditos, cobranzas, pagos, visitas, kpis,
     comites, comiteMiembros, comiteVotos, solicitantes,
   ] = await Promise.all([
-    tabla<Organizacion>('organizaciones'),
-    tabla<Usuario>('usuarios'),
     tabla<Convenio>('convenios'),
     tabla<Banco>('bancos'),
     tabla<Requisito>('requisitos'),
@@ -99,6 +124,7 @@ export async function cargarDatosDesdeNeon(): Promise<void> {
   reemplazar(COMITE_VOTOS, comiteVotos)
   reemplazar(SOLICITANTES, solicitantes)
   if (kpis[0]) Object.assign(KPI_REPORTES, kpis[0].datos)
+  return true
 }
 
 /** Recarga selectiva tras una escritura (solicitudes, votos, comités…). */
