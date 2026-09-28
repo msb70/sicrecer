@@ -74,7 +74,8 @@ Requisitos previos: Neon Auth y Data API provisionados en la rama (crean el esqu
 
 `recalcular_mora()` genera los cargos por atraso del día, marca cuotas vencidas y recalcula `dias_mora`/estado
 de los créditos. Debe ejecutarse a diario (además, `aplicar_pago` y `estado_cuenta` generan los cargos al día
-del crédito que tocan). Neon no tiene pg_cron habilitado por defecto: programarlo con
+del crédito que tocan). Lo ejecuta la Neon Function `moradiaria` (`functions/moradiaria.mjs`) con un
+Function Trigger programado una vez al día. Neon no tiene pg_cron habilitado por defecto: programarlo con
 un job externo (GitHub Actions, scheduler de Hostinger o tarea programada) que ejecute
 `select recalcular_mora();` contra la base.
 
