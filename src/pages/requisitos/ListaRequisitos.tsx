@@ -1,14 +1,18 @@
 import { useState } from 'react'
 import { Plus, Edit2, Trash2, ClipboardList, CheckCircle, XCircle } from 'lucide-react'
 import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
-import { Button, Card, Input } from '../../components/ui'
+import { Button, Card, Input, Alert } from '../../components/ui'
 import { REQUISITOS } from '../../mocks'
+import { guardarCatalogo, eliminarCatalogo } from '../../lib/catalogos'
+import { useApp } from '../../context/AppContext'
 import type { Requisito } from '../../types'
 
 const EMPTY_FORM = { nombre: '', descripcion: '', obligatorio: false }
 
 export default function ListaRequisitos() {
-  const [items, setItems]       = useState<Requisito[]>(REQUISITOS)
+  const { modo: modoSesion } = useApp()
+  const [items, setItems]       = useState<Requisito[]>([...REQUISITOS])
+  const [error, setError]       = useState('')
   const [modo, setModo]         = useState<'idle' | 'nuevo' | 'editar'>('idle')
   const [editandoId, setEditId] = useState<string | null>(null)
   const [form, setForm]         = useState(EMPTY_FORM)
@@ -24,17 +28,31 @@ export default function ListaRequisitos() {
     setModo('editar')
   }
 
-  const guardar = () => {
+  const guardar = async () => {
     if (!form.nombre.trim()) return
-    if (modo === 'nuevo') {
-      setItems(prev => [...prev, { id: `req-${Date.now()}`, nombre: form.nombre.trim(), descripcion: form.descripcion.trim(), obligatorio: form.obligatorio }])
-    } else if (editandoId) {
-      setItems(prev => prev.map(r => r.id === editandoId ? { ...r, nombre: form.nombre.trim(), descripcion: form.descripcion.trim(), obligatorio: form.obligatorio } : r))
+    setError('')
+    if (modoSesion !== 'google') { setError('En modo demo no se guardan cambios.'); return }
+    try {
+      const fila = { nombre: form.nombre.trim(), descripcion: form.descripcion.trim() || null, obligatorio: form.obligatorio }
+      await guardarCatalogo('requisitos', fila, modo === 'editar' ? editandoId : null, 'req')
+      setItems([...REQUISITOS])
+      reset()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo guardar')
     }
-    reset()
   }
 
-  const eliminar = (id: string) => { setItems(prev => prev.filter(r => r.id !== id)); setConfirmar(null) }
+  const eliminar = async (id: string) => {
+    setError('')
+    try {
+      await eliminarCatalogo('requisitos', id)
+      setItems([...REQUISITOS])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo eliminar')
+    } finally {
+      setConfirmar(null)
+    }
+  }
 
   return (
     <Shell>
@@ -44,6 +62,8 @@ export default function ListaRequisitos() {
           subtitle="Documentos y condiciones exigidos en los productos crediticios"
           actions={<Button onClick={abrirNuevo}><Plus size={16}/>Nuevo requisito</Button>}
         />
+
+        {error && <Alert type="error" className="mb-4">{error}</Alert>}
 
         {/* Panel de creación / edición */}
         {modo !== 'idle' && (

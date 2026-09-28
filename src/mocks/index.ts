@@ -128,7 +128,7 @@ async function cargarUnaVez(): Promise<boolean> {
 }
 
 /** Recarga selectiva tras una escritura (solicitudes, votos, comités…). */
-export async function recargarTablas(...nombres: ('solicitudes' | 'comite_votos' | 'comites' | 'comite_miembros' | 'clientes' | 'solicitantes' | 'productos_credito')[]): Promise<void> {
+export async function recargarTablas(...nombres: ('solicitudes' | 'comite_votos' | 'comites' | 'comite_miembros' | 'clientes' | 'solicitantes' | 'productos_credito' | 'convenios' | 'bancos' | 'requisitos' | 'actividades_economicas')[]): Promise<void> {
   await Promise.all(nombres.map(async n => {
     switch (n) {
       case 'solicitudes':      reemplazar(SOLICITUDES, await tabla<Solicitud>('solicitudes')); break
@@ -138,6 +138,10 @@ export async function recargarTablas(...nombres: ('solicitudes' | 'comite_votos'
       case 'clientes':         reemplazar(CLIENTES, await tabla<Cliente>('clientes')); break
       case 'solicitantes':     reemplazar(SOLICITANTES, await tabla<Solicitante>('solicitantes')); break
       case 'productos_credito': reemplazar(PRODUCTOS, await tabla<ProductoCredito>('productos_credito')); break
+      case 'convenios':        reemplazar(CONVENIOS, await tabla<Convenio>('convenios')); break
+      case 'bancos':           reemplazar(BANCOS, await tabla<Banco>('bancos')); break
+      case 'requisitos':       reemplazar(REQUISITOS, await tabla<Requisito>('requisitos')); break
+      case 'actividades_economicas': reemplazar(ACTIVIDADES_ECONOMICAS, await tabla<ActividadEconomica>('actividades_economicas')); break
     }
   }))
 }

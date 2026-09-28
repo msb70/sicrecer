@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { Plus, Edit2, Trash2, Briefcase } from 'lucide-react'
 import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
-import { Button, Card, Input } from '../../components/ui'
+import { Button, Card, Input, Alert } from '../../components/ui'
 import { ACTIVIDADES_ECONOMICAS } from '../../mocks'
+import { guardarCatalogo, eliminarCatalogo } from '../../lib/catalogos'
+import { useApp } from '../../context/AppContext'
 import type { ActividadEconomica } from '../../types'
 
 const SECTORES = ['Comercio', 'Industria', 'Servicios', 'Transporte', 'Construcción', 'Agropecuario', 'Otro']
@@ -20,7 +22,9 @@ const SECTOR_COLOR: Record<string, string> = {
 const EMPTY_FORM = { nombre: '', descripcion: '', sector: 'Comercio' }
 
 export default function ListaActividadesEconomicas() {
-  const [items, setItems]       = useState<ActividadEconomica[]>(ACTIVIDADES_ECONOMICAS)
+  const { modo: modoSesion } = useApp()
+  const [items, setItems]       = useState<ActividadEconomica[]>([...ACTIVIDADES_ECONOMICAS])
+  const [error, setError]       = useState('')
   const [modo, setModo]         = useState<'idle' | 'nuevo' | 'editar'>('idle')
   const [editandoId, setEditId] = useState<string | null>(null)
   const [form, setForm]         = useState(EMPTY_FORM)
@@ -37,17 +41,31 @@ export default function ListaActividadesEconomicas() {
     setModo('editar')
   }
 
-  const guardar = () => {
+  const guardar = async () => {
     if (!form.nombre.trim()) return
-    if (modo === 'nuevo') {
-      setItems(prev => [...prev, { id: `act-${Date.now()}`, nombre: form.nombre.trim(), descripcion: form.descripcion.trim(), sector: form.sector }])
-    } else if (editandoId) {
-      setItems(prev => prev.map(a => a.id === editandoId ? { ...a, nombre: form.nombre.trim(), descripcion: form.descripcion.trim(), sector: form.sector } : a))
+    setError('')
+    if (modoSesion !== 'google') { setError('En modo demo no se guardan cambios.'); return }
+    try {
+      const fila = { nombre: form.nombre.trim(), descripcion: form.descripcion.trim() || null, sector: form.sector }
+      await guardarCatalogo('actividades_economicas', fila, modo === 'editar' ? editandoId : null, 'act')
+      setItems([...ACTIVIDADES_ECONOMICAS])
+      reset()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo guardar')
     }
-    reset()
   }
 
-  const eliminar = (id: string) => { setItems(prev => prev.filter(a => a.id !== id)); setConfirmar(null) }
+  const eliminar = async (id: string) => {
+    setError('')
+    try {
+      await eliminarCatalogo('actividades_economicas', id)
+      setItems([...ACTIVIDADES_ECONOMICAS])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo eliminar')
+    } finally {
+      setConfirmar(null)
+    }
+  }
 
   const filtrados = filtroSector === 'todos' ? items : items.filter(a => a.sector === filtroSector)
   const sectoresPresentes = ['todos', ...Array.from(new Set(items.map(a => a.sector)))]
@@ -60,6 +78,8 @@ export default function ListaActividadesEconomicas() {
           subtitle="Rubros productivos asociables a los productos crediticios"
           actions={<Button onClick={abrirNuevo}><Plus size={16}/>Nueva actividad</Button>}
         />
+
+        {error && <Alert type="error" className="mb-4">{error}</Alert>}
 
         {/* Panel de creación / edición */}
         {modo !== 'idle' && (

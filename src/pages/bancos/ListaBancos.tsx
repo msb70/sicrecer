@@ -1,16 +1,16 @@
 import { useState } from 'react'
 import { Landmark, Plus, Pencil, Trash2, Save, X, Check } from 'lucide-react'
 import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
-import { Button, Input, Card, CardBody, EmptyState, Badge } from '../../components/ui'
-import { BANCOS as BANCOS_MOCK } from '../../mocks'
+import { Button, Input, Card, CardBody, EmptyState, Badge, Alert } from '../../components/ui'
+import { BANCOS } from '../../mocks'
+import { guardarCatalogo, eliminarCatalogo } from '../../lib/catalogos'
+import { useApp } from '../../context/AppContext'
 import type { Banco } from '../../types'
 
-// mutable store para la demo
-const bancosStore: Banco[] = [...BANCOS_MOCK]
-let nextId = 100
-
 export default function ListaBancos() {
-  const [bancos, setBancos] = useState<Banco[]>([...bancosStore])
+  const { modo } = useApp()
+  const [bancos, setBancos] = useState<Banco[]>([...BANCOS])
+  const [error, setError] = useState('')
   const [panelOpen, setPanelOpen] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [form, setForm] = useState({ nombre: '', activo: true })
@@ -28,27 +28,30 @@ export default function ListaBancos() {
     setPanelOpen(true)
   }
 
-  const guardar = () => {
+  const guardar = async () => {
     if (!form.nombre.trim()) return
-    if (editId) {
-      const updated = bancos.map(b => b.id === editId ? { ...b, ...form } : b)
-      setBancos(updated)
-      bancosStore.splice(0, bancosStore.length, ...updated)
-    } else {
-      const nuevo: Banco = { id: `ban-${++nextId}`, nombre: form.nombre.trim(), activo: form.activo }
-      const updated = [...bancos, nuevo]
-      setBancos(updated)
-      bancosStore.push(nuevo)
+    setError('')
+    if (modo !== 'google') { setError('En modo demo no se guardan cambios.'); return }
+    try {
+      await guardarCatalogo('bancos', { nombre: form.nombre.trim(), activo: form.activo }, editId, 'ban')
+      setBancos([...BANCOS])
+      setPanelOpen(false)
+      setEditId(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo guardar')
     }
-    setPanelOpen(false)
-    setEditId(null)
   }
 
-  const eliminar = (id: string) => {
-    const updated = bancos.filter(b => b.id !== id)
-    setBancos(updated)
-    bancosStore.splice(0, bancosStore.length, ...updated)
-    setConfirmarEliminar(null)
+  const eliminar = async (id: string) => {
+    setError('')
+    try {
+      await eliminarCatalogo('bancos', id)
+      setBancos([...BANCOS])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo eliminar')
+    } finally {
+      setConfirmarEliminar(null)
+    }
   }
 
   return (
@@ -61,6 +64,8 @@ export default function ListaBancos() {
             <Button onClick={abrirNuevo}><Plus size={16} />Nuevo banco</Button>
           }
         />
+
+        {error && <Alert type="error" className="mb-4">{error}</Alert>}
 
         {/* Panel crear / editar */}
         {panelOpen && (

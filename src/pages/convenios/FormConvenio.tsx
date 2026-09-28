@@ -4,6 +4,8 @@ import { ArrowLeft, Save } from 'lucide-react'
 import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Button, Input, Select, Card, CardHeader, CardBody, Alert } from '../../components/ui'
 import { CONVENIOS } from '../../mocks'
+import { useApp } from '../../context/AppContext'
+import { guardarCatalogo } from '../../lib/catalogos'
 
 export default function FormConvenio() {
   const navigate = useNavigate()
@@ -21,14 +23,46 @@ export default function FormConvenio() {
     estado:           convenio?.estado           ?? 'activo',
   })
   const [guardado, setGuardado] = useState(false)
+  const [guardando, setGuardando] = useState(false)
+  const [error, setError] = useState('')
+  const { modo, organizacion } = useApp()
 
   const campo = (key: string, value: string) =>
     setForm(prev => ({ ...prev, [key]: value }))
 
-  const guardar = () => {
-    // Mock: simula guardado
-    setGuardado(true)
-    setTimeout(() => navigate('/convenios'), 1200)
+  const guardar = async () => {
+    setError('')
+    const monto = Number(form.monto_total)
+    if (!(monto > 0)) { setError('El monto total debe ser mayor que cero'); return }
+    if (form.fecha_fin < form.fecha_inicio) { setError('La fecha de fin no puede ser anterior a la de inicio'); return }
+    if (modo !== 'google') { setError('En modo demo no se guardan cambios.'); return }
+    setGuardando(true)
+    try {
+      const fila: Record<string, unknown> = {
+        cooperante: form.cooperante.trim(),
+        monto_total: monto,
+        moneda: form.moneda,
+        pais: form.pais,
+        fecha_inicio: form.fecha_inicio,
+        fecha_fin: form.fecha_fin,
+        estado: form.estado,
+      }
+      if (esEdicion && convenio) {
+        // Si cambia el monto total, el saldo disponible se ajusta en la misma diferencia
+        fila.saldo_disponible = Number(convenio.saldo_disponible) + (monto - Number(convenio.monto_total))
+        await guardarCatalogo('convenios', fila, convenio.id)
+      } else {
+        fila.saldo_disponible = monto
+        fila.organizacion_id = organizacion.id
+        await guardarCatalogo('convenios', fila, null, 'conv')
+      }
+      setGuardado(true)
+      setTimeout(() => navigate('/convenios'), 900)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo guardar el convenio')
+    } finally {
+      setGuardando(false)
+    }
   }
 
   return (
@@ -45,6 +79,7 @@ export default function FormConvenio() {
         />
 
         {guardado && <Alert type="success" className="mb-4">Convenio guardado correctamente. Redirigiendo…</Alert>}
+        {error && <Alert type="error" className="mb-4">{error}</Alert>}
 
         <div className="max-w-2xl">
           <Card>
@@ -115,7 +150,7 @@ export default function FormConvenio() {
 
               <div className="flex justify-end gap-3 pt-2">
                 <Button variant="ghost" onClick={() => navigate('/convenios')}>Cancelar</Button>
-                <Button onClick={guardar} disabled={!form.cooperante || !form.monto_total || !form.fecha_inicio || !form.fecha_fin}>
+                <Button onClick={guardar} loading={guardando} disabled={!form.cooperante || !form.monto_total || !form.fecha_inicio || !form.fecha_fin}>
                   <Save size={16}/>{esEdicion ? 'Guardar cambios' : 'Crear convenio'}
                 </Button>
               </div>
