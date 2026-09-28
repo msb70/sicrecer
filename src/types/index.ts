@@ -147,7 +147,8 @@ export interface Prospecto {
   estado: EstadoProspecto
   fecha_registro: string
   canal_preferido?: 'whatsapp' | 'llamada' | 'email' | 'visita'
-  canal_captacion?: 'referido' | 'redes_sociales' | 'evento' | 'visita_facilitador' | 'otro'
+  canal_captacion?: 'referido' | 'redes_sociales' | 'evento' | 'visita_facilitador' | 'portal' | 'otro'
+  solicitante_id?: string | null   // registro del portal que originó el prospecto
   lat?: number | null
   lng?: number | null
 }

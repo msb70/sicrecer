@@ -40,13 +40,21 @@ function reemplazar<T>(destino: T[], filas: T[]) {
   destino.splice(0, destino.length, ...filas)
 }
 
-async function tabla<T>(nombre: string, orden = 'id'): Promise<T[]> {
-  const { data, error } = await neon.from(nombre).select('*').order(orden)
-  if (error) throw new Error(`Error cargando ${nombre}: ${error.message}`)
-  return (data ?? []) as T[]
-}
-
 const esperar = (ms: number) => new Promise(r => setTimeout(r, ms))
+
+/**
+ * Lee una tabla completa. Si vuelve vacía se reintenta dos veces: el Data API
+ * a veces resuelve una consulta sin identidad y la RLS devuelve 0 filas sin
+ * error (así una solicitud recién creada "desaparecía" hasta recargar).
+ */
+async function tabla<T>(nombre: string, orden = 'id'): Promise<T[]> {
+  for (let intento = 0; ; intento++) {
+    const { data, error } = await neon.from(nombre).select('*').order(orden)
+    if (error) throw new Error(`Error cargando ${nombre}: ${error.message}`)
+    if ((data && data.length > 0) || intento >= 2) return (data ?? []) as T[]
+    await esperar(300 * (intento + 1))
+  }
+}
 
 /**
  * Carga todos los datos desde Neon (requiere sesión activa por RLS).

@@ -200,6 +200,7 @@ export default function FormProspecto() {
                     <option value="">— Sin especificar —</option>
                     <option value="referido">Referido por cliente</option>
                     <option value="redes_sociales">Redes sociales</option>
+                    <option value="portal">Portal web</option>
                     <option value="evento">Evento / feria</option>
                     <option value="visita_facilitador">Visita del facilitador</option>
                     <option value="otro">Otro</option>

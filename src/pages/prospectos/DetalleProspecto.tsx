@@ -26,6 +26,7 @@ const CANAL_PREFERIDO_LABEL: Record<string, string> = {
 const CANAL_CAPTACION_LABEL: Record<string, string> = {
   referido: 'Referido',
   redes_sociales: 'Redes sociales',
+  portal: 'Portal web (autoregistro)',
   evento: 'Evento / feria',
   visita_facilitador: 'Visita facilitador',
   otro: 'Otro',

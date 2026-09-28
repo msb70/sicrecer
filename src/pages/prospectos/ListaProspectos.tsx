@@ -106,6 +106,7 @@ export default function ListaProspectos() {
                             {p.nombre.split(' ').map(n => n[0]).join('').slice(0,2)}
                           </div>
                           <span className="font-medium text-gray-900">{p.nombre}</span>
+                          {p.canal_captacion === 'portal' && <Badge color="purple">Portal</Badge>}
                         </div>
                       </td>
                       <td className="px-6 py-4 text-gray-600 font-mono text-xs">{p.documento}</td>
