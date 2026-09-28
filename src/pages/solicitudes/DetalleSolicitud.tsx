@@ -3,7 +3,10 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, CheckCircle2, XCircle, Clock, AlertTriangle, Send, Globe } from 'lucide-react'
 import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Button, Badge, Card, CardHeader, CardBody, Alert } from '../../components/ui'
-import { SOLICITUDES, CLIENTES, PRODUCTOS, SOLICITANTES, COMITES, REQUISITOS, ACTIVIDADES_ECONOMICAS, formatCOP, recargarTablas } from '../../mocks'
+import { SOLICITUDES, CLIENTES, PRODUCTOS, SOLICITANTES, COMITES, REQUISITOS, ACTIVIDADES_ECONOMICAS, CREDITOS, formatCOP, recargarTablas, cargarDatosDesdeNeon } from '../../mocks'
+import { DesembolsoModal } from '../../components/credito/DesembolsoModal'
+import { DesgloseCredito } from '../../components/credito/DesgloseCredito'
+import { describirPlazos } from '../../lib/finanzas'
 import { useApp } from '../../context/AppContext'
 import { neon } from '../../lib/neon'
 import { obtenerFoto } from '../../lib/portal'
@@ -48,6 +51,10 @@ export default function DetalleSolicitud() {
   const [fotos, setFotos] = useState<{ documento?: string | null; selfie?: string | null }>({})
   const [enviando, setEnviando] = useState(false)
   const [msg, setMsg] = useState<{ tipo: 'success' | 'error'; texto: string } | null>(null)
+  const [mostrarDesembolso, setMostrarDesembolso] = useState(false)
+  const creditoGenerado = CREDITOS.find(c => c.solicitud_id === solicitud?.id)
+  const puedeDesembolsar = ['administrador', 'coordinador'].includes(rol)
+    && solicitud && ['aprobada', 'firma'].includes(solicitud.estado) && !creditoGenerado && Boolean(producto)
 
   useEffect(() => {
     if (!solicitante) return
@@ -98,14 +105,30 @@ export default function DetalleSolicitud() {
           actions={
             <div className="flex gap-2">
               <Button variant="ghost" onClick={() => navigate('/solicitudes')}><ArrowLeft size={16} />Volver</Button>
-              {solicitud.estado === 'aprobada' && (
-                <Button onClick={() => navigate('/cartera')}>Ir a desembolso</Button>
+              {puedeDesembolsar && (
+                <Button onClick={() => setMostrarDesembolso(true)}>Registrar desembolso</Button>
+              )}
+              {creditoGenerado && (
+                <Button onClick={() => navigate(`/cartera/${creditoGenerado.id}`)}>Ver crédito</Button>
               )}
             </div>
           }
         />
 
         {msg && <Alert type={msg.tipo} className="mb-4">{msg.texto}</Alert>}
+
+        {mostrarDesembolso && producto && (
+          <DesembolsoModal
+            solicitud={solicitud}
+            producto={producto}
+            onClose={() => setMostrarDesembolso(false)}
+            onDone={async (creditoId) => {
+              await cargarDatosDesdeNeon()
+              setMostrarDesembolso(false)
+              navigate(`/cartera/${creditoId}`)
+            }}
+          />
+        )}
 
         {/* Estado banner */}
         <div className={`flex items-center gap-3 px-5 py-4 rounded-xl border mb-6 ${
@@ -136,10 +159,12 @@ export default function DetalleSolicitud() {
                   {[
                     ['Producto',       solicitud.producto_nombre],
                     ['Monto',          formatCOP(solicitud.monto_solicitado)],
-                    ['Plazo',          `${solicitud.plazo} meses`],
+                    ['Plazo',          `${solicitud.plazo} cuotas`],
                     ['Tasa nominal',   producto ? `${producto.tasa_nominal_anual}%` : '—'],
-                    ['Método interés', producto?.metodo_interes === 'flat' ? 'Flat' : 'Saldo decreciente'],
+                    ['Método interés', 'Cuota fija (francés)'],
                     ['Frecuencia',     producto?.frecuencia ?? '—'],
+                    ['Plazos permitidos', producto ? describirPlazos(producto) : '—'],
+                    ['Servicios desarrollo empresarial', producto ? `${producto.pct_servicios ?? 0}%` : '—'],
                   ].map(([k, v]) => (
                     <div key={k} className="flex justify-between py-1.5 border-b border-gray-50">
                       <span className="text-gray-500">{k}</span>
@@ -159,6 +184,11 @@ export default function DetalleSolicitud() {
                     <div><p className="text-xs text-gray-500">Plazo</p><p className="font-semibold">{solicitud.plazo_aprobado} cuotas</p></div>
                     <div><p className="text-xs text-gray-500">Fecha</p><p className="font-semibold">{solicitud.fecha_decision ? new Date(solicitud.fecha_decision).toLocaleDateString('es-CO') : '—'}</p></div>
                   </div>
+                  {producto && (
+                    <div className="mt-4 pt-3 border-t border-gray-100">
+                      <DesgloseCredito monto={Number(solicitud.monto_aprobado)} pctServicios={producto.pct_servicios ?? 0} />
+                    </div>
+                  )}
                 </CardBody>
               </Card>
             )}
@@ -288,8 +318,14 @@ export default function DetalleSolicitud() {
                     </p>
                   </>
                 )}
-                {solicitud.estado === 'aprobada' && (
-                  <Button className="w-full" size="sm">Confirmar desembolso</Button>
+                {puedeDesembolsar && (
+                  <Button className="w-full" size="sm" onClick={() => setMostrarDesembolso(true)}>Registrar desembolso</Button>
+                )}
+                {solicitud.estado === 'aprobada' && !creditoGenerado && !puedeDesembolsar && (
+                  <p className="text-xs text-gray-500">El desembolso lo registra un administrador o coordinador.</p>
+                )}
+                {creditoGenerado && (
+                  <Button className="w-full" size="sm" onClick={() => navigate(`/cartera/${creditoGenerado.id}`)}>Ver crédito {creditoGenerado.id}</Button>
                 )}
                 {solicitud.estado === 'revision_comite' && (
                   <Button className="w-full" size="sm" onClick={() => navigate('/comite')}>

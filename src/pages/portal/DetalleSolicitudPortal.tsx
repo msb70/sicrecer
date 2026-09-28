@@ -6,6 +6,7 @@ import { Button, Card, CardHeader, CardBody, Badge, Alert, Spinner } from '../..
 import { useApp } from '../../context/AppContext'
 import { misSolicitudes, estadoPortal, cargarCatalogoPortal, type CatalogoPortal } from '../../lib/portal'
 import { generarPlan, resumenPlan } from '../../lib/finanzas'
+import { DesgloseCredito } from '../../components/credito/DesgloseCredito'
 import { formatCOP } from '../../mocks'
 import type { Solicitud } from '../../types'
 import { ESTADO_PORTAL_UI } from './MisSolicitudes'
@@ -96,6 +97,11 @@ export default function DetalleSolicitudPortal() {
                   <div><p className="text-xs text-gray-500">Cuota</p><p className="font-semibold">{planAprobado[0] ? formatCOP(planAprobado[0].cuota) : '—'}</p></div>
                   <div><p className="text-xs text-gray-500">Total a pagar</p><p className="font-semibold">{formatCOP(resumen.totalPagar)}</p></div>
                 </div>
+                {producto && (
+                  <div className="mb-3 rounded-xl border border-gray-100 p-3">
+                    <DesgloseCredito monto={Number(solicitud.monto_aprobado)} pctServicios={producto.pct_servicios ?? 0} compacto />
+                  </div>
+                )}
                 {(Number(solicitud.monto_aprobado) !== solicitud.monto_solicitado || solicitud.plazo_aprobado !== solicitud.plazo) && (
                   <Alert type="info" className="mb-3">El comité ajustó las condiciones respecto a lo solicitado.</Alert>
                 )}

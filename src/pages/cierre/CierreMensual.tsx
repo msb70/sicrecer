@@ -32,9 +32,10 @@ export default function CierreMensual() {
     .map(cr => ({
       fecha: cr.fecha_desembolso!,
       tipo: 'egreso',
-      concepto: `Desembolso — ${cr.producto_nombre}`,
+      concepto: `Desembolso — ${cr.producto_nombre}${Number(cr.monto_servicios ?? 0) > 0 ? ` (crédito ${formatCOP(cr.monto_desembolsado)}, servicios ${formatCOP(Number(cr.monto_servicios))})` : ''}`,
       referencia: cr.id.toUpperCase(),
-      monto: cr.monto_desembolsado,
+      // Efectivo entregado: monto del crédito menos servicios de desarrollo empresarial
+      monto: Number(cr.monto_entregado ?? cr.monto_desembolsado),
       cliente_nombre: cr.cliente_nombre,
     }))
 
@@ -46,7 +47,7 @@ export default function CierreMensual() {
       return {
         fecha: cb.fecha,
         tipo: 'ingreso',
-        concepto: `Cuotas [${cb.cuotas_aplicadas.join(', ')}] — ${credito?.producto_nombre ?? ''}`,
+        concepto: `Pago${cb.cuotas_aplicadas.length ? ` (cuotas ${cb.cuotas_aplicadas.join(', ')})` : ''} — ${credito?.producto_nombre ?? ''}`,
         referencia: cb.numero_deposito,
         monto: cb.monto,
         cliente_nombre: cb.cliente_nombre,

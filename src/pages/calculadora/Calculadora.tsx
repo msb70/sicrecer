@@ -14,7 +14,8 @@ const FRECUENCIA_LABEL: Record<ProductoCredito['frecuencia'], string> = {
 // ─── Cálculo de cuota ─────────────────────────────────────────
 // Motor financiero único (src/lib/finanzas.ts) — misma lógica que
 // la función SQL generar_cronograma en la base de datos.
-import { calcularCuota as cuotaMotor, generarPlan } from '../../lib/finanzas'
+import { calcularCuota as cuotaMotor, generarPlan, resumenPlan, plazoValido, describirPlazos, plazosPermitidos } from '../../lib/finanzas'
+import { DesgloseCredito } from '../../components/credito/DesgloseCredito'
 
 function calcularCuota(
   monto: number,
@@ -81,15 +82,14 @@ export default function Calculadora() {
     const e: string[] = []
     if (montoNum && montoNum < producto.monto_min) e.push(`Monto mínimo: ${formatCOP(producto.monto_min)}`)
     if (montoNum && montoNum > producto.monto_max) e.push(`Monto máximo: ${formatCOP(producto.monto_max)}`)
-    if (plazoNum && plazoNum < producto.plazo_min) e.push(`Plazo mínimo: ${producto.plazo_min} cuotas`)
-    if (plazoNum && plazoNum > producto.plazo_max) e.push(`Plazo máximo: ${producto.plazo_max} cuotas`)
+    if (plazoNum && !plazoValido(producto, plazoNum)) e.push(`Plazos permitidos: ${describirPlazos(producto)} cuotas`)
     return e
   }, [montoNum, plazoNum, producto])
 
   const listo = montoNum > 0 && plazoNum > 0 && errores.length === 0
 
   const cuota         = listo ? calcularCuota(montoNum, plazoNum, producto.tasa_nominal_anual, producto.metodo_interes, producto.frecuencia) : 0
-  const totalPagar    = Math.round(cuota) * plazoNum
+  const totalPagar    = listo ? resumenPlan(tablaAmortizacion(montoNum, plazoNum, producto.tasa_nominal_anual, producto.metodo_interes, producto.frecuencia).map(f => ({ ...f }))).totalPagar : 0
   const totalInteres  = totalPagar - montoNum
   const tabla         = listo && verTabla ? tablaAmortizacion(montoNum, plazoNum, producto.tasa_nominal_anual, producto.metodo_interes, producto.frecuencia) : []
 
@@ -153,7 +153,7 @@ export default function Calculadora() {
                 min={producto.plazo_min}
                 max={producto.plazo_max}
                 suffix="cuotas"
-                hint={`Rango: ${producto.plazo_min} – ${producto.plazo_max} cuotas`}
+                hint={plazosPermitidos(producto) ? `Permitidos: ${describirPlazos(producto)} cuotas` : `Rango: ${describirPlazos(producto)} cuotas`}
               />
 
               {/* Errores */}
@@ -196,6 +196,10 @@ export default function Calculadora() {
                     <p className="text-xs text-gray-500 mb-1">Total a pagar</p>
                     <p className="text-sm font-semibold text-gray-900">{formatCOP(totalPagar)}</p>
                   </div>
+                </div>
+
+                <div className="mt-4 bg-white rounded-xl p-3 border border-brand-100">
+                  <DesgloseCredito monto={montoNum} pctServicios={producto.pct_servicios ?? 0} compacto />
                 </div>
 
                 <div className="mt-4 flex items-center justify-between text-xs text-brand-600">

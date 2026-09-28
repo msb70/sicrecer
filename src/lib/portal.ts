@@ -1,4 +1,5 @@
 // ─── PORTAL DE SOLICITANTES: acceso a datos ───────────────────
+import { plazoValido, describirPlazos } from './finanzas'
 // Todo pasa por el Data API con la sesión del solicitante; la
 // autorización real está en RLS (db/migrations/0004_portal_solicitantes.sql).
 
@@ -265,7 +266,7 @@ export function evaluarElegibilidad(args: {
   const faltantes: string[] = []
   if (!(p.paises ?? []).includes(s.pais)) faltantes.push('El producto no está disponible en tu país.')
   if (monto < p.monto_min || monto > p.monto_max) faltantes.push('El monto está fuera del rango del producto.')
-  if (plazo < p.plazo_min || plazo > p.plazo_max) faltantes.push('El plazo está fuera del rango del producto.')
+  if (!plazoValido(p, plazo)) faltantes.push(`El plazo no está permitido para este producto (${describirPlazos(p)} cuotas).`)
   const acts = p.actividad_economica_ids ?? []
   if (acts.length > 0 && (!s.actividad_economica_id || !acts.includes(s.actividad_economica_id))) {
     faltantes.push('Tu actividad económica no es elegible para este producto.')

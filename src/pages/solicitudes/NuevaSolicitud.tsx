@@ -9,7 +9,8 @@ import { clsx } from 'clsx'
 // ─── CÁLCULO DE CUOTAS ────────────────────────────────────────
 // Motor financiero único (src/lib/finanzas.ts) — misma lógica que
 // la función SQL generar_cronograma en la base de datos.
-import { generarPlan, type MetodoInteres, type Frecuencia } from '../../lib/finanzas'
+import { generarPlan, plazoValido as plazoPermitido, describirPlazos, type MetodoInteres, type Frecuencia } from '../../lib/finanzas'
+import { DesgloseCredito } from '../../components/credito/DesgloseCredito'
 
 function generarAmortizacion(monto: number, tasaAnual: number, plazo: number, metodo: MetodoInteres, frecuencia: Frecuencia) {
   return generarPlan({ monto, tasaNominalAnual: tasaAnual, plazo, metodo, frecuencia })
@@ -45,7 +46,7 @@ export default function NuevaSolicitud() {
 
   // Validaciones básicas
   const montoValido = monto >= producto.monto_min && monto <= producto.monto_max
-  const plazoValido = plazo >= producto.plazo_min && plazo <= producto.plazo_max
+  const plazoValido = plazoPermitido(producto, plazo)
 
   const amortizacion = useMemo(() => {
     if (!montoValido || !plazoValido || monto <= 0) return []
@@ -139,12 +140,13 @@ export default function NuevaSolicitud() {
                   {[
                     ['Convenio',            producto.convenio_id],
                     ['Tasa nominal anual',  `${producto.tasa_nominal_anual}%`],
-                    ['Método de interés',   producto.metodo_interes === 'flat' ? 'Flat (sobre capital inicial)' : 'Saldo decreciente'],
+                    ['Método de interés',   'Cuota fija (francés)'],
+                    ['Servicios desarrollo empresarial', `${producto.pct_servicios ?? 0}% (se descuenta al desembolsar)`],
+                    ['Mora / gastos admin. por período', `${producto.pct_mora_periodo ?? 0}% / ${producto.pct_gastos_admin_periodo ?? 0}% · ${producto.dias_gracia_mora ?? 0} días de gracia`],
                     ['Frecuencia de pago',  producto.frecuencia],
                     ['Monto mínimo',        formatCOP(producto.monto_min)],
                     ['Monto máximo',        formatCOP(producto.monto_max)],
-                    ['Plazo mínimo',        `${producto.plazo_min} meses`],
-                    ['Plazo máximo',        `${producto.plazo_max} meses`],
+                    ['Plazos permitidos',   `${describirPlazos(producto)} cuotas`],
                   ].map(([k, v]) => (
                     <div key={k} className="flex justify-between py-1.5 border-b border-gray-50 last:border-0">
                       <span className="text-gray-500">{k}</span>
@@ -219,7 +221,7 @@ export default function NuevaSolicitud() {
                     min={producto.plazo_min} max={producto.plazo_max}
                   />
                   {!plazoValido && plazo > 0 && (
-                    <p className="text-xs text-red-600 mt-1">Plazo entre {producto.plazo_min} y {producto.plazo_max} meses</p>
+                    <p className="text-xs text-red-600 mt-1">Plazos permitidos: {describirPlazos(producto)} cuotas</p>
                   )}
                   <input
                     type="range" min={producto.plazo_min} max={producto.plazo_max} step={1}
@@ -246,10 +248,9 @@ export default function NuevaSolicitud() {
                           <div className="flex justify-between"><span className="text-gray-500">Capital</span><span className="font-medium">{formatCOP(monto)}</span></div>
                           <div className="flex justify-between"><span className="text-gray-500">Intereses totales</span><span className="font-medium">{formatCOP(totalInteres)}</span></div>
                           <div className="flex justify-between font-semibold"><span>Total a pagar</span><span>{formatCOP(totalPagar)}</span></div>
-                          <div className="flex justify-between text-xs text-gray-400">
-                            <span>Tasa efectiva anual ≈</span>
-                            <span>{(producto.tasa_nominal_anual * 1.05).toFixed(1)}%</span>
-                          </div>
+                        </div>
+                        <div className="border-t border-brand-200 pt-3">
+                          <DesgloseCredito monto={monto} pctServicios={producto.pct_servicios ?? 0} compacto />
                         </div>
                       </div>
                     </CardBody>

@@ -11,7 +11,8 @@ import {
   requisitoCubiertoPorPerfil, productoElegiblePorActividad,
   type CatalogoPortal, type AdjuntoInfo,
 } from '../../lib/portal'
-import { generarPlan, resumenPlan } from '../../lib/finanzas'
+import { generarPlan, resumenPlan, plazoValido as plazoPermitido, describirPlazos, plazosPermitidos } from '../../lib/finanzas'
+import { DesgloseCredito } from '../../components/credito/DesgloseCredito'
 import { formatCOP } from '../../mocks'
 import { PAIS_LABELS, type Pais, type ProductoCredito } from '../../types'
 
@@ -116,7 +117,7 @@ export default function NuevaSolicitudPortal() {
   const elegirProducto = (p: ProductoCredito) => {
     setProductoId(p.id)
     setMonto(String(p.monto_min))
-    setPlazo(String(p.plazo_min))
+    setPlazo(String(plazosPermitidos(p)?.[0] ?? p.plazo_min))
   }
 
   const enviar = async () => {
@@ -150,7 +151,8 @@ export default function NuevaSolicitudPortal() {
   }
 
   const montoValido = producto ? montoN >= producto.monto_min && montoN <= producto.monto_max : false
-  const plazoValido = producto ? plazoN >= producto.plazo_min && plazoN <= producto.plazo_max : false
+  const plazoValido = producto ? plazoPermitido(producto, plazoN) : false
+  const listaPlazos = producto ? plazosPermitidos(producto) : null
   const perfilIncompleto = !fotos.documento || !fotos.selfie
 
   return (
@@ -222,7 +224,7 @@ export default function NuevaSolicitudPortal() {
                   {p.descripcion && <p className="text-xs text-gray-500 mt-0.5">{p.descripcion}</p>}
                   <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
                     <div><span className="text-gray-400">Monto</span><br /><span className="font-medium">{formatCOP(p.monto_min)} – {formatCOP(p.monto_max)}</span></div>
-                    <div><span className="text-gray-400">Plazo</span><br /><span className="font-medium">{p.plazo_min} – {p.plazo_max} cuotas</span></div>
+                    <div><span className="text-gray-400">Plazo</span><br /><span className="font-medium">{describirPlazos(p)} cuotas</span></div>
                     <div><span className="text-gray-400">Tasa</span><br /><span className="font-medium">{p.tasa_nominal_anual}% anual</span></div>
                     <div><span className="text-gray-400">Pago</span><br /><span className="font-medium capitalize">{p.frecuencia}</span></div>
                   </div>
@@ -253,11 +255,25 @@ export default function NuevaSolicitudPortal() {
                     error={!montoValido && montoN > 0 ? `Entre ${formatCOP(producto.monto_min)} y ${formatCOP(producto.monto_max)}` : undefined} />
                   <input type="range" min={producto.monto_min} max={producto.monto_max} step={10000} value={montoN || producto.monto_min} onChange={e => setMonto(e.target.value)} className="w-full mt-2 accent-brand-600" />
                 </div>
-                <div>
-                  <Input label={`Plazo (cuotas ${producto.frecuencia}es)`} type="number" value={plazo} onChange={e => setPlazo(e.target.value)} min={producto.plazo_min} max={producto.plazo_max}
-                    error={!plazoValido && plazoN > 0 ? `Entre ${producto.plazo_min} y ${producto.plazo_max}` : undefined} />
-                  <input type="range" min={producto.plazo_min} max={producto.plazo_max} step={1} value={plazoN || producto.plazo_min} onChange={e => setPlazo(e.target.value)} className="w-full mt-2 accent-brand-600" />
-                </div>
+                {listaPlazos ? (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Plazo (cuotas {producto.frecuencia}es)</label>
+                    <div className="flex flex-wrap gap-2">
+                      {listaPlazos.map(n => (
+                        <button key={n} type="button" onClick={() => setPlazo(String(n))}
+                          className={`px-4 py-2 rounded-lg border text-sm ${plazoN === n ? 'bg-brand-600 text-white border-brand-600' : 'border-gray-200 text-gray-700 hover:border-brand-300'}`}>
+                          {n} cuotas
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <Input label={`Plazo (cuotas ${producto.frecuencia}es)`} type="number" value={plazo} onChange={e => setPlazo(e.target.value)} min={producto.plazo_min} max={producto.plazo_max}
+                      error={!plazoValido && plazoN > 0 ? `Entre ${producto.plazo_min} y ${producto.plazo_max}` : undefined} />
+                    <input type="range" min={producto.plazo_min} max={producto.plazo_max} step={1} value={plazoN || producto.plazo_min} onChange={e => setPlazo(e.target.value)} className="w-full mt-2 accent-brand-600" />
+                  </div>
+                )}
                 <Input label="¿Para qué usarás el crédito? (opcional)" value={proposito} onChange={e => setProposito(e.target.value)} placeholder="Ej. Comprar mercancía para mi tienda" />
               </CardBody>
             </Card>
@@ -274,6 +290,9 @@ export default function NuevaSolicitudPortal() {
                     <div><span className="text-gray-500">Capital</span><br /><span className="font-medium">{formatCOP(montoN)}</span></div>
                     <div><span className="text-gray-500">Intereses</span><br /><span className="font-medium">{formatCOP(resumen.totalInteres)}</span></div>
                     <div><span className="text-gray-500">Total</span><br /><span className="font-medium">{formatCOP(resumen.totalPagar)}</span></div>
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-brand-200">
+                    <DesgloseCredito monto={montoN} pctServicios={producto.pct_servicios ?? 0} compacto />
                   </div>
                   <details className="mt-3">
                     <summary className="text-xs text-brand-700 cursor-pointer">Ver todas las cuotas</summary>
@@ -365,7 +384,9 @@ export default function NuevaSolicitudPortal() {
                 {[
                   ['País', PAIS_LABELS[pais]],
                   ['Producto', producto.nombre],
-                  ['Monto', formatCOP(montoN)],
+                  ['Monto del crédito', formatCOP(montoN)],
+                  [`Servicios de desarrollo empresarial (${producto.pct_servicios ?? 0}%)`, `− ${formatCOP(Math.round(montoN * (producto.pct_servicios ?? 0) / 100))}`],
+                  ['Monto que recibirías', formatCOP(montoN - Math.round(montoN * (producto.pct_servicios ?? 0) / 100))],
                   ['Plazo', `${plazoN} cuotas (${producto.frecuencia})`],
                   ['Cuota estimada', plan[0] ? formatCOP(plan[0].cuota) : '—'],
                   ['Total a pagar', formatCOP(resumen.totalPagar)],

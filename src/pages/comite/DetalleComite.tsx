@@ -11,7 +11,7 @@ import { useApp } from '../../context/AppContext'
 import { neon } from '../../lib/neon'
 import { obtenerFoto } from '../../lib/portal'
 import { AdjuntosSolicitante } from '../../components/portal/AdjuntosSolicitante'
-import { generarPlan, resumenPlan } from '../../lib/finanzas'
+import { generarPlan, resumenPlan, describirPlazos, plazoValido } from '../../lib/finanzas'
 import { PAIS_LABELS, type Pais } from '../../types'
 import { clsx } from 'clsx'
 
@@ -75,8 +75,8 @@ export default function DetalleComite() {
     setError(''); setOk('')
     if (!decision) { setError('Selecciona una decisión.'); return }
     if (decision === 'rechazado' && !comentario.trim()) { setError('Indica el motivo del rechazo: el solicitante lo verá.'); return }
-    if (decision === 'aprobado' && producto && (montoN < producto.monto_min || montoN > producto.monto_max || plazoN < producto.plazo_min || plazoN > producto.plazo_max)) {
-      setError('Monto o plazo fuera del rango del producto.'); return
+    if (decision === 'aprobado' && producto && (montoN < producto.monto_min || montoN > producto.monto_max || !plazoValido(producto, plazoN))) {
+      setError(`Monto o plazo fuera de lo permitido por el producto (plazos: ${describirPlazos(producto)}).`); return
     }
     setEnviando(true)
     try {
@@ -136,7 +136,9 @@ export default function DetalleComite() {
                     ['Monto', formatCOP(solicitud.monto_solicitado)],
                     ['Plazo', `${solicitud.plazo} cuotas (${producto?.frecuencia ?? ''})`],
                     ['Tasa nominal', producto ? `${producto.tasa_nominal_anual}%` : '—'],
-                    ['Método', producto?.metodo_interes === 'flat' ? 'Flat' : 'Saldo decreciente'],
+                    ['Método', 'Cuota fija (francés)'],
+                    ['Plazos permitidos', producto ? describirPlazos(producto) : '—'],
+                    ['Servicios desarrollo empresarial', producto ? `${producto.pct_servicios ?? 0}% (${formatCOP(Math.round(solicitud.monto_solicitado * (producto.pct_servicios ?? 0) / 100))})` : '—'],
                     ['Propósito', solicitud.proposito ?? '—'],
                     ['Fecha', new Date(solicitud.fecha_solicitud).toLocaleDateString('es-CO')],
                     ['Enviada al comité', solicitud.enviada_comite_en ? new Date(solicitud.enviada_comite_en).toLocaleString('es-CO') : '—'],

@@ -6,17 +6,12 @@ import { Button, Input, Select, Card, CardHeader, CardBody, Alert } from '../../
 import { PRODUCTOS, CONVENIOS, REQUISITOS, ACTIVIDADES_ECONOMICAS, formatCOP, recargarTablas } from '../../mocks'
 import { neon } from '../../lib/neon'
 import { PAIS_LABELS, type Pais } from '../../types'
+import { calcularCuota, DIAS_PERIODO } from '../../lib/finanzas'
+import { DesgloseCredito } from '../../components/credito/DesgloseCredito'
 
-// Simulación del cálculo de cuota para preview en tiempo real
-function calcularCuotaFlat(monto: number, tasa: number, plazo: number): number {
-  const tasaMensual = tasa / 100 / 12
-  return monto / plazo + monto * tasaMensual
-}
-
-function calcularCuotaFrench(monto: number, tasa: number, plazo: number): number {
-  const i = tasa / 100 / 12
-  if (i === 0) return monto / plazo
-  return (monto * i * Math.pow(1 + i, plazo)) / (Math.pow(1 + i, plazo) - 1)
+/** "3, 6, 12" → [3, 6, 12] (sin duplicados, ordenado) */
+function parsePlazos(txt: string): number[] {
+  return [...new Set(txt.split(/[\s,;]+/).map(Number).filter(n => Number.isInteger(n) && n > 0))].sort((a, b) => a - b)
 }
 
 export default function FormProducto() {
@@ -30,13 +25,16 @@ export default function FormProducto() {
     nombre:              producto?.nombre             ?? '',
     descripcion:         producto?.descripcion        ?? '',
     tasa_nominal_anual:  String(producto?.tasa_nominal_anual ?? ''),
-    metodo_interes:      producto?.metodo_interes     ?? 'declining_balance' as 'declining_balance' | 'flat',
     plazo_min:           String(producto?.plazo_min   ?? ''),
     plazo_max:           String(producto?.plazo_max   ?? ''),
     monto_min:           String(producto?.monto_min   ?? ''),
     monto_max:           String(producto?.monto_max   ?? ''),
     frecuencia:          producto?.frecuencia         ?? 'mensual' as 'semanal' | 'quincenal' | 'mensual',
-    periodo_gracia_dias: String(producto?.periodo_gracia_dias ?? '0'),
+    pct_servicios:       String(producto?.pct_servicios ?? '7'),
+    pct_mora_periodo:    String(producto?.pct_mora_periodo ?? '0'),
+    pct_gastos_admin_periodo: String(producto?.pct_gastos_admin_periodo ?? '0'),
+    dias_gracia_mora:    String(producto?.dias_gracia_mora ?? '0'),
+    plazos_permitidos:   (producto?.plazos_permitidos ?? []).join(', '),
     requisito_ids:       producto?.requisito_ids      ?? [] as string[],
     actividad_economica_ids: producto?.actividad_economica_ids ?? [] as string[],
     paises:              (producto?.paises ?? (CONVENIOS[0]?.pais ? [CONVENIOS[0].pais] : [])) as Pais[],
@@ -71,17 +69,24 @@ export default function FormProducto() {
     }))
   }
 
-  // Preview de cuota con valores de ejemplo (monto_min, plazo_max)
+  // Plazos: lista explícita (si se indica) o rango min–max
+  const listaPlazos = parsePlazos(form.plazos_permitidos)
+  const plazoMin = listaPlazos.length ? listaPlazos[0] : Number(form.plazo_min)
+  const plazoMax = listaPlazos.length ? listaPlazos[listaPlazos.length - 1] : Number(form.plazo_max)
+
+  // Preview de cuota con valores de ejemplo (monto_min, plazo máximo)
   const montoEjemplo = Number(form.monto_min) || 1000000
-  const plazoEjemplo = Number(form.plazo_max) || 12
+  const plazoEjemplo = plazoMax || 12
   const tasaEjemplo  = Number(form.tasa_nominal_anual) || 0
-  const cuotaEjemplo = form.metodo_interes === 'flat'
-    ? calcularCuotaFlat(montoEjemplo, tasaEjemplo, plazoEjemplo)
-    : calcularCuotaFrench(montoEjemplo, tasaEjemplo, plazoEjemplo)
+  const cuotaEjemplo = calcularCuota({ monto: montoEjemplo, tasaNominalAnual: tasaEjemplo, plazo: plazoEjemplo, frecuencia: form.frecuencia })
+  const pctNum = (v: string) => Number(v.replace(',', '.')) || 0
 
   const guardar = async () => {
     setError('')
     if (form.paises.length === 0) { setError('Selecciona al menos un país'); return }
+    if (!plazoMin || !plazoMax || plazoMin > plazoMax) { setError('Define los plazos permitidos o un rango de plazo válido'); return }
+    if (Number(form.monto_min) > Number(form.monto_max)) { setError('El monto mínimo no puede ser mayor que el máximo'); return }
+    if (pctNum(form.pct_servicios) >= 100) { setError('El % de servicios debe ser menor a 100'); return }
     setGuardando(true)
     try {
       const fila = {
@@ -89,9 +94,13 @@ export default function FormProducto() {
         nombre: form.nombre.trim(),
         descripcion: form.descripcion.trim() || null,
         tasa_nominal_anual: Number(form.tasa_nominal_anual),
-        metodo_interes: form.metodo_interes,
-        periodo_gracia_dias: Number(form.periodo_gracia_dias) || 0,
-        plazo_min: Number(form.plazo_min), plazo_max: Number(form.plazo_max),
+        metodo_interes: 'declining_balance' as const,   // cuota fija (sistema francés)
+        pct_servicios: pctNum(form.pct_servicios),
+        pct_mora_periodo: pctNum(form.pct_mora_periodo),
+        pct_gastos_admin_periodo: pctNum(form.pct_gastos_admin_periodo),
+        dias_gracia_mora: Math.max(0, Math.trunc(Number(form.dias_gracia_mora) || 0)),
+        plazos_permitidos: listaPlazos,
+        plazo_min: plazoMin, plazo_max: plazoMax,
         monto_min: Number(form.monto_min), monto_max: Number(form.monto_max),
         frecuencia: form.frecuencia,
         requisito_ids: form.requisito_ids,
@@ -216,30 +225,48 @@ export default function FormProducto() {
                   onChange={e => campo('tasa_nominal_anual', e.target.value)}
                   required
                 />
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Método de cálculo de interés</label>
-                  <div className="grid sm:grid-cols-2 gap-3">
-                    {[
-                      { v: 'declining_balance', label: 'Saldo decreciente (francés)', desc: 'Cuota fija, interés decrece sobre capital.' },
-                      { v: 'flat',              label: 'Flat',                        desc: 'Interés calculado siempre sobre monto original.' },
-                    ].map(opt => (
-                      <label key={opt.v} className={`flex gap-3 p-3 rounded-xl border-2 cursor-pointer transition-colors ${form.metodo_interes === opt.v ? 'border-brand-500 bg-brand-50' : 'border-gray-200 hover:border-gray-300'}`}>
-                        <input type="radio" className="mt-0.5" name="metodo" value={opt.v} checked={form.metodo_interes === opt.v} onChange={e => campo('metodo_interes', e.target.value)}/>
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">{opt.label}</p>
-                          <p className="text-xs text-gray-500">{opt.desc}</p>
-                        </div>
-                      </label>
-                    ))}
-                  </div>
+                <div className="p-3 rounded-xl border border-brand-200 bg-brand-50">
+                  <p className="text-sm font-medium text-gray-900">Cuota fija (sistema francés)</p>
+                  <p className="text-xs text-gray-500">La cuota es igual en todo el plazo; al inicio paga más interés y menos capital. Tasa por período: anual ÷ {form.frecuencia === 'mensual' ? 12 : form.frecuencia === 'quincenal' ? 24 : 52}. Convención 30/360.</p>
+                </div>
+              </CardBody>
+            </Card>
+
+            {/* Servicios y cargos por atraso */}
+            <Card>
+              <CardHeader><h2 className="text-sm font-semibold text-gray-800">Servicios y cargos por atraso</h2></CardHeader>
+              <CardBody className="space-y-4">
+                <Input
+                  label="Servicios de desarrollo empresarial (%)"
+                  type="number" step="0.01" min="0"
+                  value={form.pct_servicios}
+                  onChange={e => campo('pct_servicios', e.target.value)}
+                  helperText="Se descuenta automáticamente del monto prestado al desembolsar. El cliente debe el monto total."
+                />
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <Input
+                    label={`Mora (% por período ${form.frecuencia})`}
+                    type="number" step="0.01" min="0"
+                    value={form.pct_mora_periodo}
+                    onChange={e => campo('pct_mora_periodo', e.target.value)}
+                    helperText="Sobre capital vencido. Se cobra el período completo."
+                  />
+                  <Input
+                    label={`Gastos administrativos (% por período ${form.frecuencia})`}
+                    type="number" step="0.01" min="0"
+                    value={form.pct_gastos_admin_periodo}
+                    onChange={e => campo('pct_gastos_admin_periodo', e.target.value)}
+                    helperText="Sobre capital vencido, mientras existan cuotas vencidas."
+                  />
                 </div>
                 <Input
-                  label="Período de gracia (días)"
-                  type="number"
-                  value={form.periodo_gracia_dias}
-                  onChange={e => campo('periodo_gracia_dias', e.target.value)}
-                  helperText="Días desde el desembolso hasta la primera cuota"
+                  label="Días de gracia"
+                  type="number" min="0"
+                  value={form.dias_gracia_mora}
+                  onChange={e => campo('dias_gracia_mora', e.target.value)}
+                  helperText={`Días después del vencimiento antes de cobrar mora y gastos administrativos (período = ${DIAS_PERIODO[form.frecuencia]} días).`}
                 />
+                <p className="text-xs text-gray-500">Orden de cobro de cada pago: gastos administrativos → mora → interés → capital. Un pago mayor a lo exigible se aplica como anticipo a capital y recalcula la cuota.</p>
               </CardBody>
             </Card>
 
@@ -250,9 +277,22 @@ export default function FormProducto() {
                 <div className="grid sm:grid-cols-2 gap-4">
                   <Input label="Monto mínimo (COP)"  type="number" value={form.monto_min} onChange={e => campo('monto_min', e.target.value)} placeholder="500000"/>
                   <Input label="Monto máximo (COP)"  type="number" value={form.monto_max} onChange={e => campo('monto_max', e.target.value)} placeholder="5000000"/>
-                  <Input label="Plazo mínimo (cuotas)" type="number" value={form.plazo_min} onChange={e => campo('plazo_min', e.target.value)} placeholder="3"/>
-                  <Input label="Plazo máximo (cuotas)" type="number" value={form.plazo_max} onChange={e => campo('plazo_max', e.target.value)} placeholder="24"/>
                 </div>
+                <div className="mt-4">
+                  <Input
+                    label="Plazos permitidos (cuotas)"
+                    placeholder="Ej: 3, 6, 12"
+                    value={form.plazos_permitidos}
+                    onChange={e => campo('plazos_permitidos', e.target.value)}
+                    helperText={listaPlazos.length ? `Solo se podrán solicitar: ${listaPlazos.join(', ')} cuotas` : 'Déjalo vacío para permitir cualquier plazo dentro del rango mínimo–máximo.'}
+                  />
+                </div>
+                {listaPlazos.length === 0 && (
+                  <div className="grid sm:grid-cols-2 gap-4 mt-4">
+                    <Input label="Plazo mínimo (cuotas)" type="number" value={form.plazo_min} onChange={e => campo('plazo_min', e.target.value)} placeholder="3"/>
+                    <Input label="Plazo máximo (cuotas)" type="number" value={form.plazo_max} onChange={e => campo('plazo_max', e.target.value)} placeholder="24"/>
+                  </div>
+                )}
               </CardBody>
             </Card>
 
@@ -326,7 +366,7 @@ export default function FormProducto() {
 
             <div className="flex justify-end gap-3">
               <Button variant="ghost" onClick={() => navigate('/productos')}>Cancelar</Button>
-              <Button onClick={guardar} loading={guardando} disabled={!form.nombre || !form.tasa_nominal_anual || !form.monto_min || !form.monto_max || !form.plazo_min || !form.plazo_max}>
+              <Button onClick={guardar} loading={guardando} disabled={!form.nombre || !form.tasa_nominal_anual || !form.monto_min || !form.monto_max || !plazoMin || !plazoMax}>
                 <Save size={16}/>{esEdicion ? 'Guardar cambios' : 'Crear producto'}
               </Button>
             </div>
@@ -350,7 +390,7 @@ export default function FormProducto() {
                     ['Monto',  formatCOP(montoEjemplo)],
                     ['Plazo',  `${plazoEjemplo} cuotas`],
                     ['Tasa',   `${tasaEjemplo}%/año`],
-                    ['Método', form.metodo_interes === 'flat' ? 'Flat' : 'Saldo decreciente'],
+                    ['Método', 'Cuota fija (francés)'],
                   ].map(([k,v]) => (
                     <div key={k} className="flex justify-between py-1.5 border-b border-gray-50">
                       <span className="text-gray-500">{k}</span>
@@ -363,8 +403,11 @@ export default function FormProducto() {
                   <p className="text-2xl font-bold text-brand-700">{formatCOP(cuotaEjemplo)}</p>
                   <p className="text-xs text-brand-500 mt-1">por {form.frecuencia}</p>
                 </div>
+                <div className="mt-4">
+                  <DesgloseCredito monto={montoEjemplo} pctServicios={pctNum(form.pct_servicios)} compacto />
+                </div>
                 <p className="text-xs text-gray-400 mt-3">
-                  * Calculadora referencial. La cuota real puede variar con el período de gracia y redondeos.
+                  * Primera cuota un período después del desembolso. Montos redondeados al entero.
                 </p>
               </CardBody>
             </Card>

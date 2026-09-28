@@ -13,6 +13,7 @@ aplicado en la rama `production`; este directorio es la fuente de verdad version
 | `0002_seed_inicial.sql` | Datos iniciales (migrados desde los mocks del frontend) |
 | `0003_transaccional_rbac.sql` | Cronograma de cuotas real, `audit_log` inmutable con triggers, RBAC en RLS por rol/organización, funciones `generar_cronograma`, `aplicar_pago` (idempotente) y `recalcular_mora` |
 | `0005_requisitos_adjuntos.sql` | `requisitos.tipo` (archivo / documento_identidad / selfie), tabla `solicitante_requisitos` (adjunto por requisito, imagen o PDF ≤ 1,2 MB, RLS propia) y validación de solicitud externa que exige adjunto para los obligatorios de tipo archivo |
+| `0006_reglas_credito.sql` | Reglas de crédito acordadas con SiCrecer (2026-09-28): configuración de producto (servicios de desarrollo empresarial, mora, gastos administrativos, días de gracia, plazos permitidos), `desembolsar_solicitud`, cronograma con primera cuota a un período del desembolso, `cargos_atraso`, `aplicar_pago` (gastos → mora → interés → capital; excedente = anticipo con recálculo de cuota), `simular_pago`, `estado_cuenta`, `recalcular_mora` |
 | `0004_portal_solicitantes.sql` | Portal de autoservicio: `solicitantes` + fotos (`solicitante_documentos`, bytea), productos con `paises`/`publico`, `comites` (uno activo por producto) + `comite_miembros` + `comite_votos`, outbox `notificaciones`, RLS del solicitante (solo lo suyo), trigger de validación de solicitudes externas, funciones `enviar_a_comite` y `votar_solicitud` (mayoría simple; al aprobar convierte solicitante→cliente). Endurece la identidad: exige `emailVerified` en Neon Auth |
 
 ## Cómo aplicar en un entorno nuevo
@@ -24,6 +25,7 @@ psql "$DATABASE_URL" -f db/migrations/0002_seed_inicial.sql
 psql "$DATABASE_URL" -f db/migrations/0003_transaccional_rbac.sql
 psql "$DATABASE_URL" -f db/migrations/0004_portal_solicitantes.sql
 psql "$DATABASE_URL" -f db/migrations/0005_requisitos_adjuntos.sql
+psql "$DATABASE_URL" -f db/migrations/0006_reglas_credito.sql
 ```
 
 Tras crear tablas nuevas hay que refrescar la caché de esquema del Data API (Consola → Data API →
@@ -47,10 +49,32 @@ Requisitos previos: Neon Auth y Data API provisionados en la rama (crean el esqu
   solicitudes/convenios vía trigger; sin políticas de UPDATE/DELETE (inmutable por API).
   Lectura solo `administrador`/`auditor`.
 
+## Reglas de crédito (0006)
+
+- **Producto** (`productos_credito`): `tasa_nominal_anual`, `frecuencia` (mensual/quincenal/semanal → tasa por
+  período anual/12, /24, /52), `pct_servicios`, `pct_mora_periodo`, `pct_gastos_admin_periodo`,
+  `dias_gracia_mora`, `plazos_permitidos` (vacío = rango `plazo_min`–`plazo_max`), `monto_min`/`monto_max`.
+  Todos los productos son de cuota fija (francés). `periodo_gracia_dias` quedó obsoleto.
+- **Desembolso** (`desembolsar_solicitud(solicitud, fecha)`, admin/coordinador): crea el crédito con las
+  condiciones del producto congeladas; `monto_desembolsado` = monto del crédito (lo que se debe),
+  `monto_servicios` = round(monto × pct_servicios), `monto_entregado` = monto − servicios. Primera cuota un
+  período después de la fecha de desembolso. Marca la solicitud `desembolsada` y notifica al solicitante.
+- **Cargos por atraso** (`cargos_atraso`, `fn_generar_cargos`): por cada cuota con capital vencido, pasados los
+  días de gracia, se generan gastos administrativos y mora por **período completo** de atraso
+  (ceil(días/30|15|7)) sobre el capital vencido de la cuota. Idempotente (único por cuota/tipo/período).
+- **Pagos** (`aplicar_pago`): gastos administrativos → mora → por cuota (vencidas y la corriente) interés →
+  capital. El excedente es **anticipo a capital**: se recalcula la cuota fija manteniendo el número de cuotas
+  restantes y sus fechas. Un pago mayor al total para cancelar se rechaza. `simular_pago` ejecuta la misma
+  lógica y revierte (para previsualizar en la UI).
+- **Estado de cuenta** (`estado_cuenta(credito, fecha)`): genera cargos al día y devuelve cronograma, cargos,
+  pagos y resumen (total para ponerse al día y para cancelar).
+- Montos redondeados al entero (pesos). Condonación de cargos: pendiente (fase posterior).
+
 ## Mora
 
-`recalcular_mora()` marca cuotas vencidas y recalcula `dias_mora`/estado de los créditos.
-Debe ejecutarse a diario. Neon no tiene pg_cron habilitado por defecto: programarlo con
+`recalcular_mora()` genera los cargos por atraso del día, marca cuotas vencidas y recalcula `dias_mora`/estado
+de los créditos. Debe ejecutarse a diario (además, `aplicar_pago` y `estado_cuenta` generan los cargos al día
+del crédito que tocan). Neon no tiene pg_cron habilitado por defecto: programarlo con
 un job externo (GitHub Actions, scheduler de Hostinger o tarea programada) que ejecute
 `select recalcular_mora();` contra la base.
 
@@ -61,8 +85,7 @@ un job externo (GitHub Actions, scheduler de Hostinger o tarea programada) que e
 - Las tablas operativas (clientes, créditos, etc.) no tienen `organizacion_id`: el
   aislamiento multi-organización completo requiere agregar esa columna y extender las
   políticas.
-- `aplicar_pago` reparte cada abono proporcionalmente entre interés y capital de la
-  cuota; no hay tabla de cargos por mora (`late_fees`) todavía.
+- Créditos heredados del seed (cred-01..03) tienen `pct_*` en 0: no generan cargos por atraso.
 
 ## Portal de solicitantes (0004)
 

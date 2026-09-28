@@ -96,6 +96,7 @@ export interface ProductoCredito {
   descripcion?: string
   tasa_nominal_anual: number
   metodo_interes: 'flat' | 'declining_balance'
+  /** OBSOLETO (0006): la primera cuota vence un período después del desembolso */
   periodo_gracia_dias: number
   plazo_min: number
   plazo_max: number
@@ -104,6 +105,12 @@ export interface ProductoCredito {
   frecuencia: 'semanal' | 'quincenal' | 'mensual'
   requisito_ids?: string[]
   actividad_economica_ids?: string[]
+  // Reglas de crédito (migración 0006)
+  pct_servicios?: number             // % servicios de desarrollo empresarial (descontado al desembolsar)
+  pct_mora_periodo?: number          // % mora por período, sobre capital vencido
+  pct_gastos_admin_periodo?: number  // % gastos administrativos por período, sobre capital vencido
+  dias_gracia_mora?: number          // días tras el vencimiento antes de cobrar mora y gastos
+  plazos_permitidos?: number[]       // plazos permitidos (vacío = rango plazo_min–plazo_max)
   paises?: Pais[]            // países donde se ofrece (uno o más)
   publico?: boolean          // visible en el portal de solicitantes
   activo?: boolean
@@ -257,6 +264,7 @@ export interface Credito {
   producto_nombre: string
   convenio_id?: string
   fecha_desembolso?: string
+  /** Monto del crédito: capital adeudado (incluye servicios) */
   monto_desembolsado: number
   saldo_capital: number
   cuotas_total: number
@@ -264,4 +272,103 @@ export interface Credito {
   proxima_cuota: string
   dias_mora: number
   estado: EstadoCredito
+  // Condiciones congeladas al desembolso (0006)
+  producto_id?: string | null
+  solicitud_id?: string | null
+  tasa_nominal_anual?: number | null
+  metodo_interes?: 'flat' | 'declining_balance' | null
+  frecuencia?: 'semanal' | 'quincenal' | 'mensual' | null
+  pct_servicios?: number
+  monto_servicios?: number
+  monto_entregado?: number | null
+  pct_mora_periodo?: number
+  pct_gastos_admin_periodo?: number
+  dias_gracia_mora?: number
+  cuota_actual?: number | null
+}
+
+// ─── ESTADO DE CUENTA (rpc estado_cuenta) ─────────────────────
+export interface CuotaCronograma {
+  id: number
+  credito_id: string
+  num: number
+  fecha_vencimiento: string
+  cuota: number
+  capital: number
+  interes: number
+  saldo_posterior: number
+  monto_pagado: number
+  interes_pagado: number
+  capital_pagado: number
+  estado: 'pendiente' | 'parcial' | 'pagada' | 'vencida'
+  pagada_en: string | null
+}
+
+export interface CargoAtraso {
+  id: number
+  credito_id: string
+  cuota_num: number
+  tipo: 'gastos_admin' | 'mora'
+  periodo: number
+  fecha: string
+  base_capital: number
+  porcentaje: number
+  monto: number
+  monto_pagado: number
+  estado: 'pendiente' | 'pagado'
+}
+
+export interface PagoRegistro {
+  id: string
+  credito_id: string
+  cuota_num: number
+  fecha: string
+  monto_capital: number
+  monto_interes: number
+  monto_gastos: number
+  monto_mora: number
+  monto_total: number
+  metodo: 'efectivo' | 'transferencia' | 'pse'
+  referencia: string | null
+  registrado_por: string | null
+  tipo: 'cuota' | 'cargos' | 'anticipo'
+  cobranza_id: string | null
+}
+
+export interface ResumenCuenta {
+  fecha: string
+  gastos_pendientes: number
+  mora_pendiente: number
+  interes_vencido: number
+  capital_vencido: number
+  cuota_corriente_num: number | null
+  cuota_corriente_pendiente: number
+  capital_posterior: number
+  total_para_ponerse_al_dia: number
+  total_para_cancelar: number
+}
+
+export interface EstadoCuenta {
+  credito: Credito
+  cuotas: CuotaCronograma[]
+  cargos: CargoAtraso[]
+  pagos: PagoRegistro[]
+  resumen: ResumenCuenta
+}
+
+/** Resultado de aplicar_pago / simular_pago */
+export interface ResultadoPagoServidor {
+  cobranza_id?: string
+  duplicado?: boolean
+  monto_recibido: number
+  gastos_admin: number
+  mora: number
+  interes: number
+  capital: number
+  anticipo: number
+  excedente: number
+  cuotas_completadas: number[]
+  cuota_nueva: number | null
+  saldo_capital: number
+  estado_credito: EstadoCredito
 }
