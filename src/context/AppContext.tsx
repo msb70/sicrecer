@@ -72,14 +72,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setEmailSesion(email.toLowerCase())
       setEmailVerificado(Boolean((data?.user as { emailVerified?: boolean } | undefined)?.emailVerified))
 
-      const { data: filas, error } = await neon
-        .from('usuarios')
-        .select('*')
-        .eq('email', email)
-        .limit(1)
-      if (error) throw new Error(error.message)
-
-      const u = (filas?.[0] ?? null) as Usuario | null
+      // El Data API a veces resuelve una consulta sin identidad (RLS → 0 filas
+      // sin error). Antes de concluir que no es usuario interno se reintenta,
+      // para no mandar a un administrador al portal de solicitantes.
+      let u: Usuario | null = null
+      for (let intento = 1; intento <= 3 && !u; intento++) {
+        const { data: filas, error } = await neon
+          .from('usuarios')
+          .select('*')
+          .eq('email', email)
+          .limit(1)
+        if (error) throw new Error(error.message)
+        u = (filas?.[0] ?? null) as Usuario | null
+        if (!u && intento < 3) await new Promise(r => setTimeout(r, 350 * intento))
+      }
       if (u) {
         await cargarDatosDesdeNeon()
         const org = ORGANIZACIONES.find(o => o.id === u.organizacion_id) ?? ORGANIZACIONES[0]
