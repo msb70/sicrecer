@@ -19,6 +19,7 @@ aplicado en la rama `production`; este directorio es la fuente de verdad version
 | `0009_ubicaciones.sql` | `pais/ciudad/localidad/direccion` en prospectos y clientes, `localidad` en solicitantes, `productos_credito.cobertura`, `fn_cobertura_incluye`, triggers `trg_validar_cobertura` (solicitudes) y `trg_copiar_ubicacion` (solicitante → cliente) |
 | `0010_prospecto_desde_portal.sql` | Cada registro del portal crea/actualiza su prospecto (`prospectos.solicitante_id`, canal `portal`); pasa a `convertido` al volverse cliente |
 | `0011_bloqueo_conversion_portal.sql` | Impide convertir a mano un prospecto del portal (solo al aprobarse su solicitud en comité) |
+| `0012_comite_plazo_y_saldo_convenio.sql` | Comité valida plazo con `fn_plazo_valido` (1..máximo); desembolso exige convenio activo con saldo y descuenta el monto del crédito de `saldo_disponible` |
 | `0004_portal_solicitantes.sql` | Portal de autoservicio: `solicitantes` + fotos (`solicitante_documentos`, bytea), productos con `paises`/`publico`, `comites` (uno activo por producto) + `comite_miembros` + `comite_votos`, outbox `notificaciones`, RLS del solicitante (solo lo suyo), trigger de validación de solicitudes externas, funciones `enviar_a_comite` y `votar_solicitud` (mayoría simple; al aprobar convierte solicitante→cliente). Endurece la identidad: exige `emailVerified` en Neon Auth |
 
 ## Cómo aplicar en un entorno nuevo
@@ -36,6 +37,7 @@ psql "$DATABASE_URL" -f db/migrations/0008_plazo_hasta_maximo.sql
 psql "$DATABASE_URL" -f db/migrations/0009_ubicaciones.sql
 psql "$DATABASE_URL" -f db/migrations/0010_prospecto_desde_portal.sql
 psql "$DATABASE_URL" -f db/migrations/0011_bloqueo_conversion_portal.sql
+psql "$DATABASE_URL" -f db/migrations/0012_comite_plazo_y_saldo_convenio.sql
 ```
 
 Tras crear tablas **o columnas** nuevas hay que refrescar la caché de esquema del Data API (Consola → Data API →

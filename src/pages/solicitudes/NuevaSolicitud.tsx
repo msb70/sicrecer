@@ -5,6 +5,8 @@ import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Button, Input, Select, Card, CardHeader, CardBody, Alert } from '../../components/ui'
 import { CLIENTES, PRODUCTOS, formatCOP } from '../../mocks'
 import { coberturaIncluye, describirCobertura } from '../../lib/ubicaciones'
+import { useApp } from '../../context/AppContext'
+import { guardarCatalogo } from '../../lib/catalogos'
 import { clsx } from 'clsx'
 
 // ─── CÁLCULO DE CUOTAS ────────────────────────────────────────
@@ -29,6 +31,8 @@ export default function NuevaSolicitud() {
   const [paso, setPaso] = useState(0)
   const [loading, setLoading] = useState(false)
   const [exito, setExito] = useState(false)
+  const [error, setError] = useState('')
+  const { modo, usuario, organizacion } = useApp()
 
   const [form, setForm] = useState({
     cliente_id:  clientePresel,
@@ -60,11 +64,34 @@ export default function NuevaSolicitud() {
   const totalInteres = totalPagar - monto
 
   const handleEnviar = async () => {
+    setError('')
+    if (!cliente) { setError('Selecciona el cliente.'); return }
+    if (!montoValido || !plazoValido) { setError('Revisa el monto y el número de cuotas.'); return }
+    if (!coberturaOk) { setError(`${producto.nombre} no se ofrece en la zona del cliente.`); return }
+    if (modo !== 'google') { setError('En modo demo no se guardan cambios.'); return }
     setLoading(true)
-    await new Promise(r => setTimeout(r, 1000))
-    setExito(true)
-    setLoading(false)
-    setTimeout(() => navigate('/solicitudes'), 2000)
+    try {
+      const id = await guardarCatalogo('solicitudes', {
+        cliente_id: cliente.id,
+        cliente_nombre: cliente.nombre,
+        producto_id: producto.id,
+        producto_nombre: producto.nombre,
+        monto_solicitado: monto,
+        plazo,
+        estado: 'enviada',
+        fecha_solicitud: new Date().toLocaleDateString('en-CA'),
+        facilitador_id: usuario?.id ?? null,
+        origen: 'interno',
+        pais: cliente.pais ?? producto.paises?.[0] ?? organizacion?.pais ?? 'CO',
+        proposito: form.proposito.trim() || null,
+      }, null, 'sol')
+      setExito(true)
+      setTimeout(() => navigate(`/solicitudes/${id}`), 1500)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo registrar la solicitud')
+    } finally {
+      setLoading(false)
+    }
   }
 
   if (exito) {
@@ -74,7 +101,7 @@ export default function NuevaSolicitud() {
           <div className="flex flex-col items-center justify-center py-24 text-center">
             <CheckCircle2 size={56} className="text-green-500 mb-4" />
             <h2 className="text-xl font-bold text-gray-900">Solicitud enviada</h2>
-            <p className="text-gray-500 mt-2">La solicitud fue registrada y pasará a evaluación de scoring.</p>
+            <p className="text-gray-500 mt-2">La solicitud quedó registrada como "Enviada". Desde su ficha puedes enviarla al comité.</p>
           </div>
         </PageContainer>
       </Shell>
@@ -328,8 +355,8 @@ export default function NuevaSolicitud() {
                   ['Cliente',          cliente?.nombre ?? '—'],
                   ['Producto',         producto.nombre],
                   ['Monto',            formatCOP(monto)],
-                  ['Plazo',            `${plazo} meses`],
-                  ['Cuota mensual',    formatCOP(cuota)],
+                  ['Plazo',            `${plazo} cuotas (${producto.frecuencia})`],
+                  [`Cuota ${producto.frecuencia}`, formatCOP(cuota)],
                   ['Total a pagar',    formatCOP(totalPagar)],
                   ['Propósito',        form.proposito || '—'],
                 ].map(([k, v]) => (
@@ -342,8 +369,9 @@ export default function NuevaSolicitud() {
             </Card>
 
             <Alert type="info">
-              Al enviar, la solicitud pasará por el motor de scoring. Si supera los umbrales automáticos, quedará aprobada. De lo contrario, irá a revisión del comité.
+              La solicitud quedará en estado "Enviada". Luego se envía al comité del producto, que la aprueba o rechaza por mayoría.
             </Alert>
+            {error && <Alert type="error">{error}</Alert>}
 
             <div className="flex justify-between">
               <Button variant="secondary" onClick={() => setPaso(1)}><ArrowLeft size={16} />Anterior</Button>
