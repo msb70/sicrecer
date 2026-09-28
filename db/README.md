@@ -38,8 +38,10 @@ psql "$DATABASE_URL" -f db/migrations/0010_prospecto_desde_portal.sql
 psql "$DATABASE_URL" -f db/migrations/0011_bloqueo_conversion_portal.sql
 ```
 
-Tras crear tablas nuevas hay que refrescar la caché de esquema del Data API (Consola → Data API →
-"Refresh schema cache"); si no, algunas instancias devuelven `PGRST205`.
+Tras crear tablas **o columnas** nuevas hay que refrescar la caché de esquema del Data API (Consola → Data API →
+"Refresh schema cache", o reaplicar su configuración sin cambios); si no, algunas instancias devuelven `PGRST205`
+y `select *` omite las columnas nuevas en silencio (pasó con 0009/0010: la web no veía ciudad, localidad ni `solicitante_id`).
+`notify pgrst, 'reload schema'` no basta en Neon.
 
 Requisitos previos: Neon Auth y Data API provisionados en la rama (crean el esquema
 `neon_auth`, la función `auth.user_id()` y los roles `authenticated`/`anonymous`).
