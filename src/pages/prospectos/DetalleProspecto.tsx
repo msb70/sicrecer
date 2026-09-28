@@ -115,7 +115,7 @@ export default function DetalleProspecto() {
             <div className="flex gap-2">
               <Button variant="ghost" onClick={() => navigate('/prospectos')}><ArrowLeft size={16} />Volver</Button>
               <Button variant="secondary" onClick={() => navigate(`/prospectos/${id}/editar`)}><Pencil size={16} />Editar</Button>
-              {prospecto.estado !== 'convertido' && (
+              {prospecto.estado !== 'convertido' && !prospecto.solicitante_id && (
                 <Button onClick={() => navigate(`/clientes/nuevo?prospecto=${id}`)}>
                   <UserPlus size={16} />Convertir a cliente
                 </Button>
@@ -347,7 +347,13 @@ export default function DetalleProspecto() {
                 <Button variant="secondary" className="w-full" size="sm" onClick={() => navigate(`/prospectos/${id}/editar`)}>
                   <Pencil size={14} /> Editar datos
                 </Button>
-                {prospecto.estado !== 'convertido' && (
+                {prospecto.solicitante_id && prospecto.estado !== 'convertido' && (
+                  <Alert type="info">
+                    Viene del portal: se convierte en cliente automáticamente cuando el comité aprueba su solicitud.{' '}
+                    <button type="button" className="underline" onClick={() => navigate('/solicitudes')}>Ver solicitudes</button>
+                  </Alert>
+                )}
+                {prospecto.estado !== 'convertido' && !prospecto.solicitante_id && (
                   <Button className="w-full" size="sm" onClick={() => navigate(`/clientes/nuevo?prospecto=${id}`)}>
                     <UserPlus size={14} /> Convertir a cliente
                   </Button>

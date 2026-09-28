@@ -131,7 +131,7 @@ export default function ListaProspectos() {
                           >
                             <Pencil size={15} />
                           </button>
-                          {p.estado !== 'convertido' && (
+                          {p.estado !== 'convertido' && !p.solicitante_id && (
                             <button
                               onClick={() => navigate(`/clientes/nuevo?prospecto=${p.id}`)}
                               className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"

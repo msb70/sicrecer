@@ -38,6 +38,7 @@ export default function ConvertirProspecto() {
 
   const guardar = async () => {
     setError('')
+    if (prospecto?.solicitante_id) { setError('Este prospecto viene del portal: se convierte en cliente al aprobarse su solicitud en comité.'); return }
     if (modo !== 'google') { setError('En modo demo no se guardan cambios.'); return }
     const doc = form.documento.trim()
     const existente = CLIENTES.find(c => c.documento === doc)
@@ -76,6 +77,11 @@ export default function ConvertirProspecto() {
           actions={<Button variant="ghost" onClick={() => navigate(prospecto ? `/prospectos/${prospecto.id}` : '/clientes')}><ArrowLeft size={16} />Volver</Button>}
         />
         {error && <Alert type="error" className="mb-4">{error}</Alert>}
+        {prospecto?.solicitante_id && (
+          <Alert type="warning" className="mb-4">
+            Este prospecto se registró en el portal. No se convierte a mano: el sistema crea el cliente cuando el comité aprueba su solicitud (evita clientes duplicados).
+          </Alert>
+        )}
         <div className="max-w-xl">
           <Card>
             <CardHeader><h2 className="text-sm font-semibold text-gray-800">Datos del cliente</h2></CardHeader>
@@ -94,7 +100,7 @@ export default function ConvertirProspecto() {
               <SelectorUbicacion value={ubic} onChange={c => setUbic(u => ({ ...u, ...c }))} />
               <div className="flex justify-end gap-3 pt-2">
                 <Button variant="ghost" onClick={() => navigate(-1)}>Cancelar</Button>
-                <Button onClick={guardar} loading={guardando} disabled={!form.nombre.trim() || !form.documento.trim()}>
+                <Button onClick={guardar} loading={guardando} disabled={Boolean(prospecto?.solicitante_id) || !form.nombre.trim() || !form.documento.trim()}>
                   <UserPlus size={16} />{prospecto ? 'Convertir en cliente' : 'Crear cliente'}
                 </Button>
               </div>
