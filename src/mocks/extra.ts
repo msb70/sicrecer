@@ -72,6 +72,7 @@ export interface Visita {
   estado: EstadoVisita
   motivo: string
   nota?: string
+  facilitador_id?: string | null
 }
 
 export const VISITAS: Visita[] = [...VISITAS_DEMO]

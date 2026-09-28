@@ -4,17 +4,22 @@
 // devuelven como Error con un mensaje legible.
 
 import { neon } from './neon'
-import { recargarTablas } from '../mocks'
+import { recargarTablas, type TablaRecargable } from '../mocks'
 
-export type TablaCatalogo = 'convenios' | 'bancos' | 'requisitos' | 'actividades_economicas'
+export type TablaCatalogo = Extract<TablaRecargable,
+  'convenios' | 'bancos' | 'requisitos' | 'actividades_economicas'
+  | 'usuarios' | 'organizaciones' | 'prospectos' | 'actividades_crm' | 'visitas' | 'clientes'>
 
 function mensaje(err: { message?: string; code?: string } | null): string {
   const m = err?.message ?? 'Error desconocido'
   if (err?.code === '42501' || /row-level security|permission denied/i.test(m)) {
-    return 'No tienes permiso para modificar este catálogo (solo administrador).'
+    return 'Tu rol no tiene permiso para esta operación.'
   }
   if (err?.code === '23503' || /foreign key/i.test(m)) {
     return 'No se puede eliminar: está en uso por otros registros (productos, créditos, etc.).'
+  }
+  if (err?.code === '23505' || /duplicate key|unique/i.test(m)) {
+    return 'Ya existe un registro con ese dato (por ejemplo, el mismo correo o documento).'
   }
   return m
 }

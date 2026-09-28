@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { neon } from '../../lib/neon'
 import { useNavigate } from 'react-router-dom'
 import { Eye, EyeOff, CheckCircle2, X } from 'lucide-react'
 import { Button, Alert } from '../../components/ui'
@@ -55,14 +56,27 @@ export default function CambiarContrasena() {
   const coinciden = nueva === confirmar && confirmar.length > 0
   const puedeGuardar = actual.length > 0 && requisitosOk && coinciden
 
+  const [error, setError] = useState('')
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!puedeGuardar) return
+    setError('')
     setLoading(true)
-    await new Promise(r => setTimeout(r, 1000))
-    setExito(true)
-    setLoading(false)
-    setTimeout(() => navigate('/seleccionar-org'), 2000)
+    try {
+      const auth = neon.auth as unknown as {
+        changePassword?: (a: { currentPassword: string; newPassword: string; revokeOtherSessions?: boolean }) => Promise<{ error: { message?: string } | null }>
+      }
+      if (!auth.changePassword) throw new Error('El cambio de contraseña no está disponible')
+      const { error } = await auth.changePassword({ currentPassword: actual, newPassword: nueva, revokeOtherSessions: true })
+      if (error) throw new Error(error.message ?? 'No se pudo cambiar la contraseña')
+      setExito(true)
+      setTimeout(() => navigate('/'), 2000)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo cambiar la contraseña')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -84,7 +98,8 @@ export default function CambiarContrasena() {
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
-              <PasswordInput label="Contraseña temporal actual" value={actual} onChange={setActual} />
+              {error && <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg p-2">{error}</p>}
+              <PasswordInput label="Contraseña actual" value={actual} onChange={setActual} />
               <PasswordInput label="Nueva contraseña" value={nueva} onChange={setNueva} />
 
               {/* Indicador de requisitos */}

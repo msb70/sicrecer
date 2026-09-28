@@ -3,6 +3,9 @@ import { MapPin, Clock, CheckCircle2, AlertTriangle, RefreshCw, Plus, Calendar }
 import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Button, Badge, Card, CardHeader, CardBody, StatCard, Alert } from '../../components/ui'
 import { VISITAS } from '../../mocks/extra'
+import { CLIENTES, PROSPECTOS } from '../../mocks'
+import { useApp } from '../../context/AppContext'
+import { guardarCatalogo } from '../../lib/catalogos'
 import type { Visita, TipoVisita, EstadoVisita } from '../../mocks/extra'
 import { clsx } from 'clsx'
 
@@ -27,34 +30,49 @@ function agrupar(visitas: Visita[]): Record<string, Visita[]> {
   }, {} as Record<string, Visita[]>)
 }
 
-const FECHAS_LABELS: Record<string, string> = {
-  '2026-06-06': 'Hoy',
-  '2026-06-07': 'Mañana',
+/** Fecha local YYYY-MM-DD (no UTC), con desplazamiento opcional en días. */
+function fechaLocal(desplazamiento = 0): string {
+  const d = new Date()
+  d.setDate(d.getDate() + desplazamiento)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
+const fechaLarga = (f: string) => new Date(`${f}T00:00:00`).toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' })
 
 export default function AgendaFacilitador() {
-  const [visitas, setVisitas] = useState<Visita[]>(VISITAS)
+  const { modo, usuario } = useApp()
+  const [visitas, setVisitas] = useState<Visita[]>([...VISITAS])
+  const [error, setError] = useState('')
+  const [verPasadas, setVerPasadas] = useState(false)
   const [filtroTipo, setFiltroTipo] = useState<TipoVisita | 'todos'>('todos')
   const [mostrarFormNota, setMostrarFormNota] = useState<string | null>(null)
   const [nota, setNota] = useState('')
   const [mostrarNuevaVisita, setMostrarNuevaVisita] = useState(false)
 
-  const filtradas = visitas.filter(v => filtroTipo === 'todos' || v.tipo === filtroTipo)
+  const hoy = fechaLocal()
+  const FECHAS_LABELS: Record<string, string> = { [hoy]: 'Hoy', [fechaLocal(1)]: 'Mañana', [fechaLocal(-1)]: 'Ayer' }
+  // Por defecto: pendientes de días anteriores + hoy en adelante
+  const filtradas = visitas.filter(v =>
+    (filtroTipo === 'todos' || v.tipo === filtroTipo) &&
+    (verPasadas || v.fecha >= hoy || v.estado === 'pendiente'))
   const agrupadas = agrupar(filtradas)
   const fechas    = Object.keys(agrupadas).sort()
 
-  const hoy = '2026-06-06'
   const pendientesHoy  = visitas.filter(v => v.fecha === hoy && v.estado === 'pendiente').length
   const realizadasHoy  = visitas.filter(v => v.fecha === hoy && v.estado === 'realizada').length
   const cobranzasHoy   = visitas.filter(v => v.fecha === hoy && v.tipo === 'cobranza').length
 
-  const marcarRealizada = (id: string) => {
+  const marcarRealizada = async (id: string) => {
     if (!nota.trim()) return
-    setVisitas(prev => prev.map(v =>
-      v.id === id ? { ...v, estado: 'realizada', nota } : v
-    ))
-    setMostrarFormNota(null)
-    setNota('')
+    setError('')
+    if (modo !== 'google') { setError('En modo demo no se guardan cambios.'); return }
+    try {
+      await guardarCatalogo('visitas', { estado: 'realizada', nota: nota.trim() }, id)
+      setVisitas([...VISITAS])
+      setMostrarFormNota(null)
+      setNota('')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo actualizar la visita')
+    }
   }
 
   return (
@@ -62,7 +80,7 @@ export default function AgendaFacilitador() {
       <PageContainer>
         <PageHeader
           title="Agenda de campo"
-          subtitle={`${new Date(hoy).toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' })}`}
+          subtitle={fechaLarga(hoy)}
           actions={
             <Button onClick={() => setMostrarNuevaVisita(true)}><Plus size={16}/>Nueva visita</Button>
           }
@@ -74,6 +92,8 @@ export default function AgendaFacilitador() {
           <StatCard label="Realizadas hoy"  value={String(realizadasHoy)} color="green"  />
           <StatCard label="Cobranzas hoy"   value={String(cobranzasHoy)}  color="red"    />
         </div>
+
+        {error && <Alert type="error" className="mb-4">{error}</Alert>}
 
         {/* Alerta cobranzas urgentes */}
         {cobranzasHoy > 0 && (
@@ -97,6 +117,10 @@ export default function AgendaFacilitador() {
               {t === 'todos' ? 'Todas' : TIPO_CONFIG[t as TipoVisita].label}
             </button>
           ))}
+          <label className="flex items-center gap-1.5 text-xs text-gray-500 ml-auto">
+            <input type="checkbox" checked={verPasadas} onChange={e => setVerPasadas(e.target.checked)} />
+            Ver visitas pasadas ya cerradas
+          </label>
         </div>
 
         {/* Visitas agrupadas por fecha */}
@@ -107,7 +131,7 @@ export default function AgendaFacilitador() {
               <div className="flex items-center gap-3 mb-3">
                 <Calendar size={15} className="text-brand-500"/>
                 <h3 className="text-sm font-semibold text-gray-800">
-                  {FECHAS_LABELS[fecha] ?? new Date(fecha).toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' })}
+                  {FECHAS_LABELS[fecha] ?? fechaLarga(fecha)}
                 </h3>
                 <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
                   {agrupadas[fecha].length} visitas
@@ -213,24 +237,57 @@ export default function AgendaFacilitador() {
         </div>
 
         {/* Modal nueva visita */}
-        {mostrarNuevaVisita && <NuevaVisitaModal onClose={() => setMostrarNuevaVisita(false)}/>}
+        {mostrarNuevaVisita && (
+          <NuevaVisitaModal
+            hoy={hoy}
+            demo={modo !== 'google'}
+            facilitadorId={usuario?.id ?? null}
+            onClose={() => setMostrarNuevaVisita(false)}
+            onSaved={() => { setVisitas([...VISITAS]); setMostrarNuevaVisita(false) }}
+          />
+        )}
       </PageContainer>
     </Shell>
   )
 }
 
 // Modal nueva visita
-function NuevaVisitaModal({ onClose }: { onClose: () => void }) {
+function NuevaVisitaModal({ hoy, demo, facilitadorId, onClose, onSaved }: {
+  hoy: string; demo: boolean; facilitadorId: string | null; onClose: () => void; onSaved: () => void
+}) {
   const [form, setForm] = useState({
     cliente_nombre: '', tipo: 'seguimiento' as TipoVisita,
-    fecha: '2026-06-06', hora: '09:00', zona: 'Zona Norte', motivo: '',
+    fecha: hoy, hora: '09:00', zona: 'Zona Norte', motivo: '',
   })
   const [guardado, setGuardado] = useState(false)
+  const [guardando, setGuardando] = useState(false)
+  const [errorModal, setErrorModal] = useState('')
+  // Nombres conocidos (clientes y prospectos) para vincular la visita
+  const opciones = [
+    ...CLIENTES.map(c => ({ nombre: c.nombre, cliente_id: c.id as string | null, zona: c.zona })),
+    ...PROSPECTOS.filter(p => p.estado !== 'convertido').map(p => ({ nombre: p.nombre, cliente_id: null, zona: p.zona })),
+  ]
 
-  const guardar = () => {
+  const guardar = async () => {
     if (!form.cliente_nombre || !form.motivo) return
-    setGuardado(true)
-    setTimeout(onClose, 1000)
+    setErrorModal('')
+    if (demo) { setErrorModal('En modo demo no se guardan cambios.'); return }
+    setGuardando(true)
+    try {
+      const match = opciones.find(o => o.nombre.toLowerCase() === form.cliente_nombre.trim().toLowerCase())
+      await guardarCatalogo('visitas', {
+        cliente_id: match?.cliente_id ?? null,
+        cliente_nombre: form.cliente_nombre.trim(),
+        tipo: form.tipo, fecha: form.fecha, hora: form.hora, zona: form.zona,
+        estado: 'pendiente', motivo: form.motivo.trim(), facilitador_id: facilitadorId,
+      }, null, 'vis')
+      setGuardado(true)
+      setTimeout(onSaved, 700)
+    } catch (err) {
+      setErrorModal(err instanceof Error ? err.message : 'No se pudo agendar la visita')
+    } finally {
+      setGuardando(false)
+    }
   }
 
   return (
@@ -242,10 +299,14 @@ function NuevaVisitaModal({ onClose }: { onClose: () => void }) {
           <Alert type="success"><CheckCircle2 size={14} className="inline mr-1.5"/>Visita agendada.</Alert>
         ) : (
           <div className="space-y-4">
+            {errorModal && <Alert type="error">{errorModal}</Alert>}
             <div>
               <label className="text-sm font-medium text-gray-700 block mb-1">Cliente / Prospecto</label>
-              <input value={form.cliente_nombre} onChange={e => setForm(f => ({ ...f, cliente_nombre: e.target.value }))}
+              <input list="lista-contactos" value={form.cliente_nombre} onChange={e => setForm(f => ({ ...f, cliente_nombre: e.target.value }))}
                 placeholder="Nombre del cliente" className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg outline-none focus:border-brand-500"/>
+              <datalist id="lista-contactos">
+                {opciones.map(o => <option key={`${o.cliente_id ?? 'p'}-${o.nombre}`} value={o.nombre} />)}
+              </datalist>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -286,7 +347,7 @@ function NuevaVisitaModal({ onClose }: { onClose: () => void }) {
             </div>
             <div className="flex gap-3 pt-2">
               <Button variant="ghost" className="flex-1" onClick={onClose}>Cancelar</Button>
-              <Button className="flex-1" onClick={guardar} disabled={!form.cliente_nombre || !form.motivo}>
+              <Button className="flex-1" onClick={guardar} loading={guardando} disabled={!form.cliente_nombre || !form.motivo}>
                 <Plus size={15}/>Agendar visita
               </Button>
             </div>

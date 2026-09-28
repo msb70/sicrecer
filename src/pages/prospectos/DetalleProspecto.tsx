@@ -8,6 +8,8 @@ import {
 import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Button, Badge, Card, CardHeader, CardBody, Alert } from '../../components/ui'
 import { PROSPECTOS, ACTIVIDADES_CRM } from '../../mocks'
+import { useApp } from '../../context/AppContext'
+import { guardarCatalogo } from '../../lib/catalogos'
 import type { ActividadCRM, TipoActividadCRM } from '../../types'
 
 const ESTADO_COLOR = { nuevo: 'blue', contactado: 'yellow', convertido: 'green', descartado: 'gray' } as const
@@ -35,18 +37,19 @@ const TIPO_CONFIG: Record<TipoActividadCRM, { label: string; icon: React.ReactNo
   nota:     { label: 'Nota interna',icon: <StickyNote size={14}/>,   color: 'text-yellow-600', bg: 'bg-yellow-100' },
 }
 
-// Mutable store de actividades para la demo
-const actividadesStore: ActividadCRM[] = [...ACTIVIDADES_CRM]
-let nextActId = 100
+const ordenar = (xs: ActividadCRM[]) => [...xs].sort((a, b) => b.fecha.localeCompare(a.fecha))
 
 export default function DetalleProspecto() {
   const navigate = useNavigate()
   const { id } = useParams()
   const prospecto = PROSPECTOS.find(p => p.id === id)
 
+  const { modo, usuario } = useApp()
   const [actividades, setActividades] = useState<ActividadCRM[]>(
-    actividadesStore.filter(a => a.prospecto_id === id)
+    ordenar(ACTIVIDADES_CRM.filter(a => a.prospecto_id === id))
   )
+  const [guardandoAct, setGuardandoAct] = useState(false)
+  const [errorAct, setErrorAct] = useState('')
   const [panelAbierto, setPanelAbierto] = useState(false)
   const [formAct, setFormAct] = useState<{
     tipo: TipoActividadCRM; fecha: string; descripcion: string; resultado: string
@@ -59,21 +62,32 @@ export default function DetalleProspecto() {
 
   const setA = (k: string, v: string) => setFormAct(f => ({ ...f, [k]: v }))
 
-  const guardarActividad = () => {
+  const guardarActividad = async () => {
     if (!formAct.descripcion.trim()) return
-    const nueva: ActividadCRM = {
-      id: `acrm-${++nextActId}`,
-      prospecto_id: id!,
-      tipo: formAct.tipo,
-      fecha: formAct.fecha,
-      descripcion: formAct.descripcion,
-      resultado: formAct.resultado || undefined,
-      facilitador_id: 'u-03',
+    setErrorAct('')
+    if (modo !== 'google') { setErrorAct('En modo demo no se guardan cambios.'); return }
+    setGuardandoAct(true)
+    try {
+      await guardarCatalogo('actividades_crm', {
+        prospecto_id: id!,
+        tipo: formAct.tipo,
+        fecha: formAct.fecha,
+        descripcion: formAct.descripcion.trim(),
+        resultado: formAct.resultado.trim() || null,
+        facilitador_id: usuario?.id ?? null,
+      }, null, 'acrm')
+      // Primer contacto registrado: el prospecto pasa de "nuevo" a "contactado"
+      if (prospecto?.estado === 'nuevo') {
+        await guardarCatalogo('prospectos', { estado: 'contactado' }, id!)
+      }
+      setActividades(ordenar(ACTIVIDADES_CRM.filter(a => a.prospecto_id === id)))
+      setPanelAbierto(false)
+      setFormAct({ tipo: 'llamada', fecha: new Date().toISOString().slice(0, 10), descripcion: '', resultado: '' })
+    } catch (err) {
+      setErrorAct(err instanceof Error ? err.message : 'No se pudo guardar la actividad')
+    } finally {
+      setGuardandoAct(false)
     }
-    actividadesStore.push(nueva)
-    setActividades(prev => [nueva, ...prev])
-    setPanelAbierto(false)
-    setFormAct({ tipo: 'llamada', fecha: new Date().toISOString().slice(0, 10), descripcion: '', resultado: '' })
   }
 
   if (!prospecto) {
@@ -264,7 +278,8 @@ export default function DetalleProspecto() {
                       <Button size="sm" variant="secondary" onClick={() => setPanelAbierto(false)}>
                         <X size={13}/>Cancelar
                       </Button>
-                      <Button size="sm" onClick={guardarActividad} disabled={!formAct.descripcion.trim()}>
+                      {errorAct && <p className="text-xs text-red-600 self-center">{errorAct}</p>}
+                      <Button size="sm" onClick={guardarActividad} loading={guardandoAct} disabled={!formAct.descripcion.trim()}>
                         <Save size={13}/>Guardar
                       </Button>
                     </div>

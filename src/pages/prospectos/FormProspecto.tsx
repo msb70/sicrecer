@@ -4,6 +4,8 @@ import { MapPin, Save, ArrowLeft } from 'lucide-react'
 import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Button, Input, Select, Alert, Card, CardBody, CardHeader } from '../../components/ui'
 import { PROSPECTOS } from '../../mocks'
+import { useApp } from '../../context/AppContext'
+import { guardarCatalogo } from '../../lib/catalogos'
 
 export default function FormProspecto() {
   const navigate = useNavigate()
@@ -21,22 +23,64 @@ export default function FormProspecto() {
     estado:          prospecto?.estado          ?? 'nuevo',
     canal_preferido: prospecto?.canal_preferido ?? '',
     canal_captacion: prospecto?.canal_captacion ?? '',
-    lat:             '4.7110',
-    lng:             '-74.0721',
+    lat:             prospecto?.lat != null ? String(prospecto.lat) : '',
+    lng:             prospecto?.lng != null ? String(prospecto.lng) : '',
     nota:            '',
   })
   const [loading, setLoading] = useState(false)
   const [exito, setExito] = useState(false)
+  const [error, setError] = useState('')
+  const { modo, usuario } = useApp()
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError('')
+    if (modo !== 'google') { setError('En modo demo no se guardan cambios.'); return }
+    const lat = form.lat.trim() ? Number(form.lat) : null
+    const lng = form.lng.trim() ? Number(form.lng) : null
+    if ((lat !== null && Number.isNaN(lat)) || (lng !== null && Number.isNaN(lng))) { setError('Coordenadas GPS inválidas'); return }
     setLoading(true)
-    await new Promise(r => setTimeout(r, 700))
-    setExito(true)
-    setLoading(false)
-    setTimeout(() => navigate('/prospectos'), 1200)
+    try {
+      const fila = {
+        nombre: form.nombre.trim(),
+        documento: form.documento.trim(),
+        telefono: form.telefono.trim() || null,
+        email: form.email.trim().toLowerCase() || null,
+        sexo: form.sexo || null,
+        zona: form.zona || null,
+        estado: form.estado,
+        canal_preferido: form.canal_preferido || null,
+        canal_captacion: form.canal_captacion || null,
+        lat, lng,
+      }
+      const pid = await guardarCatalogo('prospectos',
+        isEditing ? fila : { ...fila, facilitador_id: usuario?.id ?? null, fecha_registro: new Date().toISOString().slice(0, 10) },
+        isEditing ? id : null, 'pro')
+      // La nota inicial se guarda como actividad del CRM
+      if (form.nota.trim()) {
+        await guardarCatalogo('actividades_crm', {
+          prospecto_id: pid, tipo: 'nota', fecha: new Date().toISOString().slice(0, 10),
+          descripcion: form.nota.trim(), facilitador_id: usuario?.id ?? null,
+        }, null, 'acrm')
+      }
+      setExito(true)
+      setTimeout(() => navigate(`/prospectos/${pid}`), 900)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo guardar el prospecto')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const usarUbicacion = () => {
+    if (!navigator.geolocation) { setError('Este dispositivo no permite obtener la ubicación'); return }
+    navigator.geolocation.getCurrentPosition(
+      pos => setForm(f => ({ ...f, lat: pos.coords.latitude.toFixed(6), lng: pos.coords.longitude.toFixed(6) })),
+      () => setError('No se pudo obtener la ubicación (permiso denegado o sin señal)'),
+      { enableHighAccuracy: true, timeout: 10000 },
+    )
   }
 
   return (
@@ -53,6 +97,7 @@ export default function FormProspecto() {
         />
 
         {exito && <Alert type="success">Prospecto guardado correctamente. Redirigiendo…</Alert>}
+        {error && <Alert type="error">{error}</Alert>}
 
         <form onSubmit={handleSubmit} className="space-y-5 mt-4">
           <div className="grid lg:grid-cols-2 gap-5">
@@ -169,10 +214,9 @@ export default function FormProspecto() {
                     <Input label="Latitud (GPS)" value={form.lat} onChange={e => set('lat', e.target.value)} />
                     <Input label="Longitud (GPS)" value={form.lng} onChange={e => set('lng', e.target.value)} />
                   </div>
-                  <div className="w-full h-32 bg-gray-100 rounded-lg border border-gray-200 flex flex-col items-center justify-center gap-1.5 text-gray-400">
-                    <MapPin size={20} />
-                    <p className="text-xs font-mono">{form.lat}, {form.lng}</p>
-                  </div>
+                  <Button type="button" variant="secondary" size="sm" onClick={usarUbicacion}>
+                    <MapPin size={14} />Usar mi ubicación actual
+                  </Button>
                   <Input
                     label="Nota de visita"
                     value={form.nota}

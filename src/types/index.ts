@@ -19,7 +19,14 @@ export interface Organizacion {
   id: string
   nombre: string
   pais: 'CO' | 'VE'
-  logo?: string
+  logo?: string | null
+  configuracion?: ConfiguracionOrganizacion
+}
+
+export interface ConfiguracionOrganizacion {
+  general?: { nit?: string; email?: string; telefono?: string; direccion?: string }
+  notificaciones?: Record<string, boolean | number>
+  regional?: Record<string, string>
 }
 
 // ─── USUARIO ──────────────────────────────────────────────────
@@ -136,6 +143,8 @@ export interface Prospecto {
   fecha_registro: string
   canal_preferido?: 'whatsapp' | 'llamada' | 'email' | 'visita'
   canal_captacion?: 'referido' | 'redes_sociales' | 'evento' | 'visita_facilitador' | 'otro'
+  lat?: number | null
+  lng?: number | null
 }
 
 export interface Cliente {

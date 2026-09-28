@@ -14,6 +14,7 @@ aplicado en la rama `production`; este directorio es la fuente de verdad version
 | `0003_transaccional_rbac.sql` | Cronograma de cuotas real, `audit_log` inmutable con triggers, RBAC en RLS por rol/organización, funciones `generar_cronograma`, `aplicar_pago` (idempotente) y `recalcular_mora` |
 | `0005_requisitos_adjuntos.sql` | `requisitos.tipo` (archivo / documento_identidad / selfie), tabla `solicitante_requisitos` (adjunto por requisito, imagen o PDF ≤ 1,2 MB, RLS propia) y validación de solicitud externa que exige adjunto para los obligatorios de tipo archivo |
 | `0006_reglas_credito.sql` | Reglas de crédito acordadas con SiCrecer (2026-09-28): configuración de producto (servicios de desarrollo empresarial, mora, gastos administrativos, días de gracia, plazos permitidos), `desembolsar_solicitud`, cronograma con primera cuota a un período del desembolso, `cargos_atraso`, `aplicar_pago` (gastos → mora → interés → capital; excedente = anticipo con recálculo de cuota), `simular_pago`, `estado_cuenta`, `recalcular_mora` |
+| `0007_config_y_agenda.sql` | `organizaciones.configuracion` (jsonb: datos generales, notificaciones, regional), `visitas.facilitador_id`, `prospectos.lat/lng` |
 | `0004_portal_solicitantes.sql` | Portal de autoservicio: `solicitantes` + fotos (`solicitante_documentos`, bytea), productos con `paises`/`publico`, `comites` (uno activo por producto) + `comite_miembros` + `comite_votos`, outbox `notificaciones`, RLS del solicitante (solo lo suyo), trigger de validación de solicitudes externas, funciones `enviar_a_comite` y `votar_solicitud` (mayoría simple; al aprobar convierte solicitante→cliente). Endurece la identidad: exige `emailVerified` en Neon Auth |
 
 ## Cómo aplicar en un entorno nuevo
@@ -26,6 +27,7 @@ psql "$DATABASE_URL" -f db/migrations/0003_transaccional_rbac.sql
 psql "$DATABASE_URL" -f db/migrations/0004_portal_solicitantes.sql
 psql "$DATABASE_URL" -f db/migrations/0005_requisitos_adjuntos.sql
 psql "$DATABASE_URL" -f db/migrations/0006_reglas_credito.sql
+psql "$DATABASE_URL" -f db/migrations/0007_config_y_agenda.sql
 ```
 
 Tras crear tablas nuevas hay que refrescar la caché de esquema del Data API (Consola → Data API →

@@ -53,6 +53,7 @@ import DetalleProspecto  from '../pages/prospectos/DetalleProspecto'
 import ListaClientes     from '../pages/clientes/ListaClientes'
 import DetalleCliente    from '../pages/clientes/DetalleCliente'
 import GruposSolidarios  from '../pages/clientes/GruposSolidarios'
+import ConvertirProspecto from '../pages/clientes/ConvertirProspecto'
 import ListaSolicitudes  from '../pages/solicitudes/ListaSolicitudes'
 import NuevaSolicitud    from '../pages/solicitudes/NuevaSolicitud'
 import DetalleSolicitud  from '../pages/solicitudes/DetalleSolicitud'
@@ -164,7 +165,7 @@ const router = createBrowserRouter([
   // Sprint 3 — Clientes
   { path: '/clientes',              element: <PrivateRoute><ListaClientes /></PrivateRoute> },
   { path: '/clientes/grupos',       element: <PrivateRoute><GruposSolidarios /></PrivateRoute> },
-  { path: '/clientes/nuevo',        element: <PrivateRoute><Placeholder titulo="Convertir prospecto a cliente" /></PrivateRoute> },
+  { path: '/clientes/nuevo',        element: <PrivateRoute><ConvertirProspecto /></PrivateRoute> },
   { path: '/clientes/:id',          element: <PrivateRoute><DetalleCliente /></PrivateRoute> },
 
   // Sprint 3 — Solicitudes
