@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, Calculator, CheckCircle2, Save } from 'lucide-re
 import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Button, Input, Select, Card, CardHeader, CardBody, Alert } from '../../components/ui'
 import { CLIENTES, PRODUCTOS, formatCOP } from '../../mocks'
+import { coberturaIncluye, describirCobertura } from '../../lib/ubicaciones'
 import { clsx } from 'clsx'
 
 // ─── CÁLCULO DE CUOTAS ────────────────────────────────────────
@@ -41,6 +42,7 @@ export default function NuevaSolicitud() {
 
   const producto = PRODUCTOS.find(p => p.id === form.producto_id) ?? PRODUCTOS[0]
   const cliente  = CLIENTES.find(c => c.id === form.cliente_id)
+  const coberturaOk = !cliente || coberturaIncluye(producto.cobertura, cliente.ciudad, cliente.localidad)
   const monto    = parseInt(form.monto) || 0
   const plazo    = parseInt(form.plazo) || 12
 
@@ -121,7 +123,10 @@ export default function NuevaSolicitud() {
                 </Select>
 
                 <Select label="Producto crediticio *" value={form.producto_id} onChange={e => set('producto_id', e.target.value)}>
-                  {PRODUCTOS.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+                  {PRODUCTOS.map(p => {
+                    const ok = !cliente || coberturaIncluye(p.cobertura, cliente.ciudad, cliente.localidad)
+                    return <option key={p.id} value={p.id}>{p.nombre}{ok ? '' : ' — no disponible en su zona'}</option>
+                  })}
                 </Select>
 
                 <Input
@@ -147,6 +152,7 @@ export default function NuevaSolicitud() {
                     ['Monto mínimo',        formatCOP(producto.monto_min)],
                     ['Monto máximo',        formatCOP(producto.monto_max)],
                     ['Plazos permitidos',   `${describirPlazos(producto)} cuotas`],
+                    ['Cobertura',           describirCobertura(producto.cobertura)],
                   ].map(([k, v]) => (
                     <div key={k} className="flex justify-between py-1.5 border-b border-gray-50 last:border-0">
                       <span className="text-gray-500">{k}</span>
@@ -158,7 +164,13 @@ export default function NuevaSolicitud() {
             </Card>
 
             <div className="lg:col-span-2 flex justify-end">
-              <Button onClick={() => setPaso(1)} disabled={!form.cliente_id}>
+              {cliente && !coberturaOk && (
+                <Alert type="warning">
+                  {producto.nombre} no se ofrece en {[cliente.localidad, cliente.ciudad].filter(Boolean).join(', ') || 'la zona del cliente (sin ciudad registrada)'}.
+                  {' '}<button type="button" className="underline" onClick={() => navigate(`/clientes/${cliente.id}`)}>Revisar dirección del cliente</button>
+                </Alert>
+              )}
+              <Button onClick={() => setPaso(1)} disabled={!form.cliente_id || !coberturaOk}>
                 Siguiente <ArrowRight size={16} />
               </Button>
             </div>

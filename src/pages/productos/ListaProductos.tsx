@@ -4,6 +4,7 @@ import { Plus, Edit, ChevronRight } from 'lucide-react'
 import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Button, Badge, Card, EmptyState } from '../../components/ui'
 import { PRODUCTOS, CONVENIOS, formatCOP } from '../../mocks'
+import { describirCobertura } from '../../lib/ubicaciones'
 
 const METODO_LABEL = { flat: 'Flat', declining_balance: 'Saldo decreciente' }
 const FREQ_LABEL   = { semanal: 'Semanal', quincenal: 'Quincenal', mensual: 'Mensual' }
@@ -78,6 +79,10 @@ export default function ListaProductos() {
                           <div>
                             <p className="text-xs text-gray-400">Plazo</p>
                             <p className="font-semibold text-gray-800">hasta {prod.plazo_max} cuotas</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-400">Dónde se ofrece</p>
+                            <p className="font-semibold text-gray-800">{describirCobertura(prod.cobertura)}</p>
                           </div>
                           <div>
                             <p className="text-xs text-gray-400">Monto mínimo</p>

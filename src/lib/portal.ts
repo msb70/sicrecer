@@ -1,5 +1,6 @@
 // ─── PORTAL DE SOLICITANTES: acceso a datos ───────────────────
 import { plazoValido, describirPlazos } from './finanzas'
+import { coberturaIncluye } from './ubicaciones'
 // Todo pasa por el Data API con la sesión del solicitante; la
 // autorización real está en RLS (db/migrations/0004_portal_solicitantes.sql).
 
@@ -265,6 +266,7 @@ export function evaluarElegibilidad(args: {
   const { producto: p, solicitante: s, monto, plazo, adjuntos, requisitos, tieneDocumento, tieneSelfie } = args
   const faltantes: string[] = []
   if (!(p.paises ?? []).includes(s.pais)) faltantes.push('El producto no está disponible en tu país.')
+  if (!productoElegiblePorUbicacion(p, s)) faltantes.push('El producto no está disponible en tu ciudad o localidad.')
   if (monto < p.monto_min || monto > p.monto_max) faltantes.push('El monto está fuera del rango del producto.')
   if (!plazoValido(p, plazo)) faltantes.push(`El plazo no está permitido para este producto (${describirPlazos(p)} cuotas).`)
   const acts = p.actividad_economica_ids ?? []
@@ -306,4 +308,9 @@ export function estadoPortal(estado: Solicitud['estado']): EstadoPortal {
     case 'desembolsada': return 'Aprobada'
     case 'rechazada': return 'No aprobada'
   }
+}
+
+/** ¿El producto se ofrece en la ciudad/localidad del solicitante? Cobertura vacía = cualquier lugar. */
+export function productoElegiblePorUbicacion(p: ProductoCredito, s: Solicitante): boolean {
+  return coberturaIncluye(p.cobertura, s.ciudad, s.localidad)
 }

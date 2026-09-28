@@ -8,6 +8,7 @@ import { neon } from '../../lib/neon'
 import { PAIS_LABELS, type Pais } from '../../types'
 import { calcularCuota, DIAS_PERIODO } from '../../lib/finanzas'
 import { DesgloseCredito } from '../../components/credito/DesgloseCredito'
+import { SelectorCobertura } from '../../components/ubicacion/SelectorCobertura'
 
 export default function FormProducto() {
   const navigate = useNavigate()
@@ -75,6 +76,7 @@ export default function FormProducto() {
   const tasaEjemplo  = Number(form.tasa_nominal_anual) || 0
   const cuotaEjemplo = calcularCuota({ monto: montoEjemplo, tasaNominalAnual: tasaEjemplo, plazo: plazoEjemplo, frecuencia: form.frecuencia })
   const pctNum = (v: string) => Number(v.replace(',', '.')) || 0
+  const [cobertura, setCobertura] = useState<string[]>(producto?.cobertura ?? [])
 
   const guardar = async () => {
     setError('')
@@ -101,6 +103,7 @@ export default function FormProducto() {
         requisito_ids: form.requisito_ids,
         actividad_economica_ids: form.actividad_economica_ids,
         paises: form.paises, publico: form.publico, activo: form.activo,
+        cobertura,
       }
       if (esEdicion && producto) {
         const { error } = await neon.from('productos_credito').update(fila).eq('id', producto.id)
@@ -283,6 +286,14 @@ export default function FormProducto() {
                     helperText={plazoMax ? `El solicitante podrá elegir de 1 a ${plazoMax} cuotas.` : 'El solicitante podrá elegir cualquier número de cuotas hasta este máximo.'}
                   />
                 </div>
+              </CardBody>
+            </Card>
+
+            {/* Cobertura geográfica */}
+            <Card>
+              <CardHeader><h2 className="text-sm font-semibold text-gray-800">Dónde se ofrece</h2></CardHeader>
+              <CardBody>
+                <SelectorCobertura value={cobertura} onChange={setCobertura} />
               </CardBody>
             </Card>
 

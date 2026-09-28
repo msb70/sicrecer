@@ -3,6 +3,8 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { MapPin, Save, ArrowLeft } from 'lucide-react'
 import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Button, Input, Select, Alert, Card, CardBody, CardHeader } from '../../components/ui'
+import { SelectorUbicacion } from '../../components/ubicacion/SelectorUbicacion'
+import { validarUbicacion, type Ubicacion } from '../../lib/ubicaciones'
 import { PROSPECTOS } from '../../mocks'
 import { useApp } from '../../context/AppContext'
 import { guardarCatalogo } from '../../lib/catalogos'
@@ -13,6 +15,7 @@ export default function FormProspecto() {
   const isEditing = !!id
   const prospecto = isEditing ? PROSPECTOS.find(p => p.id === id) : null
 
+  const { organizacion } = useApp()
   const [form, setForm] = useState({
     nombre:          prospecto?.nombre          ?? '',
     documento:       prospecto?.documento       ?? '',
@@ -20,6 +23,10 @@ export default function FormProspecto() {
     email:           prospecto?.email           ?? '',
     sexo:            prospecto?.sexo            ?? '',
     zona:            prospecto?.zona            ?? 'Zona Norte',
+    pais:            prospecto?.pais            ?? organizacion?.pais ?? 'CO',
+    ciudad:          prospecto?.ciudad          ?? '',
+    localidad:       prospecto?.localidad       ?? '',
+    direccion:       prospecto?.direccion       ?? '',
     estado:          prospecto?.estado          ?? 'nuevo',
     canal_preferido: prospecto?.canal_preferido ?? '',
     canal_captacion: prospecto?.canal_captacion ?? '',
@@ -41,6 +48,8 @@ export default function FormProspecto() {
     const lat = form.lat.trim() ? Number(form.lat) : null
     const lng = form.lng.trim() ? Number(form.lng) : null
     if ((lat !== null && Number.isNaN(lat)) || (lng !== null && Number.isNaN(lng))) { setError('Coordenadas GPS inválidas'); return }
+    const errUbic = validarUbicacion(form)
+    if (errUbic) { setError(errUbic); return }
     setLoading(true)
     try {
       const fila = {
@@ -50,6 +59,10 @@ export default function FormProspecto() {
         email: form.email.trim().toLowerCase() || null,
         sexo: form.sexo || null,
         zona: form.zona || null,
+        pais: form.pais,
+        ciudad: form.ciudad.trim(),
+        localidad: form.localidad || null,
+        direccion: form.direccion.trim() || null,
         estado: form.estado,
         canal_preferido: form.canal_preferido || null,
         canal_captacion: form.canal_captacion || null,
@@ -200,6 +213,10 @@ export default function FormProspecto() {
                   <h2 className="text-sm font-semibold text-gray-800">Ubicación</h2>
                 </CardHeader>
                 <CardBody className="space-y-4">
+                  <SelectorUbicacion
+                    value={form}
+                    onChange={(c: Partial<Ubicacion>) => setForm(f => ({ ...f, ...Object.fromEntries(Object.entries(c).map(([k, v]) => [k, v ?? ''])) }))}
+                  />
                   <Select
                     label="Zona asignada"
                     value={form.zona}

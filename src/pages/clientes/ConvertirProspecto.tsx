@@ -6,6 +6,8 @@ import { Button, Input, Select, Card, CardHeader, CardBody, Alert } from '../../
 import { PROSPECTOS, CLIENTES, ACTIVIDADES_ECONOMICAS } from '../../mocks'
 import { useApp } from '../../context/AppContext'
 import { guardarCatalogo } from '../../lib/catalogos'
+import { SelectorUbicacion } from '../../components/ubicacion/SelectorUbicacion'
+import { validarUbicacion, type Ubicacion } from '../../lib/ubicaciones'
 
 /**
  * Convierte un prospecto en cliente: crea la ficha en `clientes` y marca el
@@ -14,7 +16,7 @@ import { guardarCatalogo } from '../../lib/catalogos'
 export default function ConvertirProspecto() {
   const navigate = useNavigate()
   const [params] = useSearchParams()
-  const { modo, usuario } = useApp()
+  const { modo, usuario, organizacion } = useApp()
   const prospecto = PROSPECTOS.find(p => p.id === params.get('prospecto'))
 
   const [form, setForm] = useState({
@@ -26,6 +28,10 @@ export default function ConvertirProspecto() {
     actividad_economica: '',
     zona: prospecto?.zona ?? '',
   })
+  const [ubic, setUbic] = useState<Ubicacion>({
+    pais: prospecto?.pais ?? organizacion?.pais ?? 'CO', ciudad: prospecto?.ciudad ?? '',
+    localidad: prospecto?.localidad ?? null, direccion: prospecto?.direccion ?? '',
+  })
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
   const campo = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
@@ -36,6 +42,8 @@ export default function ConvertirProspecto() {
     const doc = form.documento.trim()
     const existente = CLIENTES.find(c => c.documento === doc)
     if (existente) { setError(`Ya existe un cliente con el documento ${doc}: ${existente.nombre}`); return }
+    const errUbic = validarUbicacion(ubic)
+    if (errUbic) { setError(errUbic); return }
     setGuardando(true)
     try {
       const idCliente = await guardarCatalogo('clientes', {
@@ -46,6 +54,7 @@ export default function ConvertirProspecto() {
         fecha_nacimiento: form.fecha_nacimiento || null,
         actividad_economica: form.actividad_economica || null,
         zona: form.zona || null,
+        pais: ubic.pais, ciudad: ubic.ciudad?.trim(), localidad: ubic.localidad || null, direccion: ubic.direccion?.trim() || null,
         estado: 'activo',
         facilitador_id: prospecto?.facilitador_id ?? usuario?.id ?? null,
       }, null, 'cli')
@@ -82,6 +91,7 @@ export default function ConvertirProspecto() {
               <Select label="Actividad económica" value={form.actividad_economica} onChange={e => campo('actividad_economica', e.target.value)}
                 options={[{ value: '', label: 'Selecciona…' }, ...ACTIVIDADES_ECONOMICAS.map(a => ({ value: a.nombre, label: `${a.nombre} (${a.sector})` }))]} />
               <Input label="Zona" value={form.zona} onChange={e => campo('zona', e.target.value)} />
+              <SelectorUbicacion value={ubic} onChange={c => setUbic(u => ({ ...u, ...c }))} />
               <div className="flex justify-end gap-3 pt-2">
                 <Button variant="ghost" onClick={() => navigate(-1)}>Cancelar</Button>
                 <Button onClick={guardar} loading={guardando} disabled={!form.nombre.trim() || !form.documento.trim()}>

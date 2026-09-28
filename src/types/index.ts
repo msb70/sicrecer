@@ -117,7 +117,8 @@ export interface ProductoCredito {
   pct_mora_periodo?: number          // % mora por período, sobre capital vencido
   pct_gastos_admin_periodo?: number  // % gastos administrativos por período, sobre capital vencido
   dias_gracia_mora?: number          // días tras el vencimiento antes de cobrar mora y gastos
-  plazos_permitidos?: number[]       // plazos permitidos (vacío = rango plazo_min–plazo_max)
+  plazos_permitidos?: number[]       // obsoleto (0008): solo aporta su mayor valor como máximo
+  cobertura?: string[]               // ciudades / 'Bogotá|Localidad' / '*otras'; vacío = cualquier lugar
   paises?: Pais[]            // países donde se ofrece (uno o más)
   publico?: boolean          // visible en el portal de solicitantes
   activo?: boolean
@@ -138,6 +139,10 @@ export interface Prospecto {
   email?: string
   sexo?: 'M' | 'F' | 'otro'
   zona: string
+  pais?: string | null
+  ciudad?: string | null
+  localidad?: string | null
+  direccion?: string | null
   facilitador_id: string
   estado: EstadoProspecto
   fecha_registro: string
@@ -155,6 +160,10 @@ export interface Cliente {
   genero: 'M' | 'F'
   actividad_economica: string
   zona: string
+  pais?: string | null
+  ciudad?: string | null
+  localidad?: string | null
+  direccion?: string | null
   telefono: string
   estado: EstadoCliente
   creditos_activos: number
@@ -214,6 +223,7 @@ export interface Solicitante {
   telefono?: string | null
   pais: Pais
   ciudad?: string | null
+  localidad?: string | null
   direccion?: string | null
   actividad_economica_id?: string | null
   estado: 'registrado' | 'cliente'

@@ -5,6 +5,7 @@ import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Button, Badge, Card, CardHeader, CardBody, Alert, StatCard } from '../../components/ui'
 import { CLIENTES, CREDITOS, SOLICITUDES, formatCOP } from '../../mocks'
 import type { Credito } from '../../types'
+import { TarjetaUbicacion } from '../../components/ubicacion/TarjetaUbicacion'
 
 const ESTADO_LABEL = { activo: 'Activo', al_dia: 'Al día', moroso: 'En mora', inactivo: 'Inactivo' }
 
@@ -237,6 +238,8 @@ export default function DetalleCliente() {
                 </div>
               </CardBody>
             </Card>
+
+            <TarjetaUbicacion tabla="clientes" id={cliente.id} valor={cliente} />
 
             {/* Plan de pagos por crédito activo */}
             {creditosActivos.length > 0 && (

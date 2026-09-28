@@ -11,6 +11,7 @@ import { PROSPECTOS, ACTIVIDADES_CRM } from '../../mocks'
 import { useApp } from '../../context/AppContext'
 import { guardarCatalogo } from '../../lib/catalogos'
 import type { ActividadCRM, TipoActividadCRM } from '../../types'
+import { describirUbicacion, etiquetaLocalidad } from '../../lib/ubicaciones'
 
 const ESTADO_COLOR = { nuevo: 'blue', contactado: 'yellow', convertido: 'green', descartado: 'gray' } as const
 const ESTADO_LABEL = { nuevo: 'Nuevo', contactado: 'Contactado', convertido: 'Convertido', descartado: 'Descartado' }
@@ -167,6 +168,15 @@ export default function DetalleProspecto() {
                     <div>
                       <p className="text-xs text-gray-500">Zona</p>
                       <p className="text-sm font-medium text-gray-900">{prospecto.zona}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <MapPin size={16} className="text-gray-400 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-xs text-gray-500">Dirección</p>
+                      <p className="text-sm font-medium text-gray-900">
+                        {prospecto.ciudad ? describirUbicacion({ ...prospecto, localidad: prospecto.localidad ? etiquetaLocalidad(prospecto.localidad) : null }) : 'Sin registrar'}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">

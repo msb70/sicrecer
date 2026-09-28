@@ -10,6 +10,8 @@ import {
   type SolicitanteInput,
 } from '../../lib/portal'
 import { PAIS_LABELS, type ActividadEconomica, type Pais } from '../../types'
+import { SelectorUbicacion } from '../../components/ubicacion/SelectorUbicacion'
+import { validarUbicacion } from '../../lib/ubicaciones'
 
 const TIPOS_DOC: Record<Pais, { value: string; label: string }[]> = {
   CO: [
@@ -39,6 +41,7 @@ export default function Perfil() {
     genero: (solicitante?.genero ?? '') as '' | 'M' | 'F' | 'otro',
     telefono: solicitante?.telefono ?? '',
     ciudad: solicitante?.ciudad ?? '',
+    localidad: solicitante?.localidad ?? '',
     direccion: solicitante?.direccion ?? '',
     actividad_economica_id: solicitante?.actividad_economica_id ?? '',
   })
@@ -69,6 +72,8 @@ export default function Perfil() {
       setError('Nombre, documento y teléfono son obligatorios'); return
     }
     if (!form.actividad_economica_id) { setError('Selecciona tu actividad económica'); return }
+    const errUbic = validarUbicacion(form)
+    if (errUbic) { setError(errUbic); return }
     setGuardando(true)
     try {
       const input: SolicitanteInput = {
@@ -81,6 +86,7 @@ export default function Perfil() {
         genero: form.genero || null,
         telefono: form.telefono.trim(),
         ciudad: form.ciudad.trim() || null,
+        localidad: form.localidad || null,
         direccion: form.direccion.trim() || null,
         actividad_economica_id: form.actividad_economica_id,
       }
@@ -125,9 +131,6 @@ export default function Perfil() {
         <CardHeader><h2 className="text-sm font-semibold text-gray-800">1. Datos personales</h2></CardHeader>
         <CardBody className="space-y-4">
           <div className="grid sm:grid-cols-2 gap-4">
-            <Select label="País" value={form.pais} disabled={!esNuevo}
-              onChange={e => { set('pais', e.target.value); set('tipo_documento', 'cedula') }}
-              options={(Object.keys(PAIS_LABELS) as Pais[]).map(p => ({ value: p, label: PAIS_LABELS[p] }))} />
             <Input label="Nombre completo" value={form.nombre} onChange={e => set('nombre', e.target.value)} disabled={bloqueado} />
             <Select label="Tipo de documento" value={form.tipo_documento} onChange={e => set('tipo_documento', e.target.value)} options={TIPOS_DOC[form.pais]} disabled={bloqueado} />
             <Input label="Número de documento" value={form.documento} onChange={e => set('documento', e.target.value)} disabled={bloqueado} />
@@ -135,9 +138,15 @@ export default function Perfil() {
             <Select label="Género" value={form.genero} onChange={e => set('genero', e.target.value)} disabled={bloqueado}
               options={[{ value: '', label: 'Prefiero no decir' }, { value: 'F', label: 'Femenino' }, { value: 'M', label: 'Masculino' }, { value: 'otro', label: 'Otro' }]} />
             <Input label="Teléfono / WhatsApp" value={form.telefono} onChange={e => set('telefono', e.target.value)} placeholder="+57 300 000 0000" />
-            <Input label="Ciudad" value={form.ciudad} onChange={e => set('ciudad', e.target.value)} />
             <div className="sm:col-span-2">
-              <Input label="Dirección" value={form.direccion} onChange={e => set('direccion', e.target.value)} />
+              <SelectorUbicacion
+                value={form}
+                paisBloqueado={!esNuevo}
+                onChange={c => {
+                  if (c.pais && c.pais !== form.pais) set('tipo_documento', 'cedula')
+                  for (const [k, v] of Object.entries(c)) set(k as 'ciudad', (v ?? '') as string)
+                }}
+              />
             </div>
             <div className="sm:col-span-2">
               <Select label="Actividad económica" value={form.actividad_economica_id} onChange={e => set('actividad_economica_id', e.target.value)} disabled={bloqueado}

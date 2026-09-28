@@ -8,7 +8,7 @@ import { useApp } from '../../context/AppContext'
 import {
   cargarCatalogoPortal, productosParaPais, listarFotos, crearSolicitudPortal, evaluarElegibilidad,
   listarAdjuntos, subirAdjunto, eliminarAdjunto, obtenerAdjunto, abrirDataUrl,
-  requisitoCubiertoPorPerfil, productoElegiblePorActividad,
+  requisitoCubiertoPorPerfil, productoElegiblePorActividad, productoElegiblePorUbicacion,
   type CatalogoPortal, type AdjuntoInfo,
 } from '../../lib/portal'
 import { generarPlan, resumenPlan, plazoValido as plazoPermitido, describirPlazos, maxCuotas } from '../../lib/finanzas'
@@ -213,14 +213,17 @@ export default function NuevaSolicitudPortal() {
             <CardBody className="space-y-3">
               {productos.length === 0 && <Alert type="info">No hay productos disponibles en {PAIS_LABELS[pais]} por ahora.</Alert>}
               {productos.map(p => {
-                const elegible = solicitante ? productoElegiblePorActividad(p, solicitante) : false
+                const porActividad = solicitante ? productoElegiblePorActividad(p, solicitante) : false
+                const porUbicacion = solicitante ? productoElegiblePorUbicacion(p, solicitante) : false
+                const elegible = porActividad && porUbicacion
                 return (
                 <button key={p.id} onClick={() => elegible && elegirProducto(p)} disabled={!elegible}
                   className={clsx('w-full p-4 rounded-xl border-2 text-left transition-colors',
                     !elegible ? 'border-gray-100 bg-gray-50 opacity-60 cursor-not-allowed' :
                     productoId === p.id ? 'border-brand-500 bg-brand-50' : 'border-gray-200 hover:border-gray-300')}>
                   <p className="font-semibold text-gray-900">{p.nombre}</p>
-                  {!elegible && <p className="text-xs text-red-600 mt-0.5">No disponible para tu actividad económica ({catalogo.actividades.find(a => a.id === solicitante?.actividad_economica_id)?.nombre ?? 'sin definir'}).</p>}
+                  {!porUbicacion && <p className="text-xs text-red-600 mt-0.5">No disponible en tu ciudad o localidad ({[solicitante?.localidad, solicitante?.ciudad].filter(Boolean).join(', ') || 'sin registrar en tu perfil'}).</p>}
+                  {porUbicacion && !porActividad && <p className="text-xs text-red-600 mt-0.5">No disponible para tu actividad económica ({catalogo.actividades.find(a => a.id === solicitante?.actividad_economica_id)?.nombre ?? 'sin definir'}).</p>}
                   {p.descripcion && <p className="text-xs text-gray-500 mt-0.5">{p.descripcion}</p>}
                   <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
                     <div><span className="text-gray-400">Monto</span><br /><span className="font-medium">{formatCOP(p.monto_min)} – {formatCOP(p.monto_max)}</span></div>
@@ -231,8 +234,8 @@ export default function NuevaSolicitudPortal() {
                 </button>
                 )
               })}
-              {productos.length > 0 && solicitante && !productos.some(p => productoElegiblePorActividad(p, solicitante)) && (
-                <Alert type="warning">Ningún producto admite tu actividad económica actual. Revísala en tu perfil o consulta con la organización.</Alert>
+              {productos.length > 0 && solicitante && !productos.some(p => productoElegiblePorActividad(p, solicitante) && productoElegiblePorUbicacion(p, solicitante)) && (
+                <Alert type="warning">Ningún producto está disponible para tu actividad económica o tu ubicación. Revisa tu perfil (actividad, ciudad y localidad) o consulta con la organización.</Alert>
               )}
               <div className="flex justify-between">
                 <Button variant="secondary" onClick={() => setPaso(0)}><ArrowLeft size={16} /> Anterior</Button>
