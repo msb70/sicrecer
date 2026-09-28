@@ -9,7 +9,7 @@ import { clsx } from 'clsx'
 // ─── CÁLCULO DE CUOTAS ────────────────────────────────────────
 // Motor financiero único (src/lib/finanzas.ts) — misma lógica que
 // la función SQL generar_cronograma en la base de datos.
-import { generarPlan, plazoValido as plazoPermitido, describirPlazos, type MetodoInteres, type Frecuencia } from '../../lib/finanzas'
+import { generarPlan, plazoValido as plazoPermitido, describirPlazos, maxCuotas, type MetodoInteres, type Frecuencia } from '../../lib/finanzas'
 import { DesgloseCredito } from '../../components/credito/DesgloseCredito'
 
 function generarAmortizacion(monto: number, tasaAnual: number, plazo: number, metodo: MetodoInteres, frecuencia: Frecuencia) {
@@ -212,19 +212,19 @@ export default function NuevaSolicitud() {
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium text-gray-700">Plazo (meses) *</label>
+                  <label className="text-sm font-medium text-gray-700">Número de cuotas * <span className="font-normal text-gray-400">(máximo {maxCuotas(producto)})</span></label>
                   <input
                     type="number"
                     value={form.plazo}
                     onChange={e => set('plazo', e.target.value)}
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200 mt-1"
-                    min={producto.plazo_min} max={producto.plazo_max}
+                    min={1} max={maxCuotas(producto)}
                   />
                   {!plazoValido && plazo > 0 && (
                     <p className="text-xs text-red-600 mt-1">Plazos permitidos: {describirPlazos(producto)} cuotas</p>
                   )}
                   <input
-                    type="range" min={producto.plazo_min} max={producto.plazo_max} step={1}
+                    type="range" min={1} max={maxCuotas(producto)} step={1}
                     value={plazo} onChange={e => set('plazo', e.target.value)}
                     className="w-full mt-2 accent-brand-600"
                   />

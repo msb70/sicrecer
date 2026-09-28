@@ -135,7 +135,7 @@ export default function DetalleConvenio() {
                         <div className="text-xs text-gray-500 mt-1 space-y-0.5">
                           <p>Tasa: {p.tasa_nominal_anual}% nominal anual</p>
                           <p>Método: {p.metodo_interes === 'flat' ? 'Flat' : 'Saldo decreciente'}</p>
-                          <p>Plazo: {p.plazo_min}–{p.plazo_max} meses · {p.frecuencia}</p>
+                          <p>Plazo: hasta {p.plazo_max} cuotas · {p.frecuencia}</p>
                         </div>
                         <Button size="sm" variant="ghost" className="mt-2 w-full text-xs" onClick={() => navigate(`/productos/${p.id}`)}>
                           Ver producto

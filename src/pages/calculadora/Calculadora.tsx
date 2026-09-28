@@ -14,7 +14,7 @@ const FRECUENCIA_LABEL: Record<ProductoCredito['frecuencia'], string> = {
 // ─── Cálculo de cuota ─────────────────────────────────────────
 // Motor financiero único (src/lib/finanzas.ts) — misma lógica que
 // la función SQL generar_cronograma en la base de datos.
-import { calcularCuota as cuotaMotor, generarPlan, resumenPlan, plazoValido, describirPlazos, plazosPermitidos } from '../../lib/finanzas'
+import { calcularCuota as cuotaMotor, generarPlan, resumenPlan, plazoValido, describirPlazos, maxCuotas } from '../../lib/finanzas'
 import { DesgloseCredito } from '../../components/credito/DesgloseCredito'
 
 function calcularCuota(
@@ -150,10 +150,10 @@ export default function Calculadora() {
                 label={`Plazo (cuotas ${producto.frecuencia === 'mensual' ? 'mensuales' : producto.frecuencia === 'quincenal' ? 'quincenales' : 'semanales'})`}
                 value={plazo}
                 onChange={setPlazo}
-                min={producto.plazo_min}
-                max={producto.plazo_max}
+                min={1}
+                max={maxCuotas(producto)}
                 suffix="cuotas"
-                hint={plazosPermitidos(producto) ? `Permitidos: ${describirPlazos(producto)} cuotas` : `Rango: ${describirPlazos(producto)} cuotas`}
+                hint={`De 1 a ${maxCuotas(producto)} cuotas`}
               />
 
               {/* Errores */}

@@ -77,7 +77,7 @@ export default function ListaProductos() {
                           </div>
                           <div>
                             <p className="text-xs text-gray-400">Plazo</p>
-                            <p className="font-semibold text-gray-800">{prod.plazo_min}–{prod.plazo_max} meses</p>
+                            <p className="font-semibold text-gray-800">hasta {prod.plazo_max} cuotas</p>
                           </div>
                           <div>
                             <p className="text-xs text-gray-400">Monto mínimo</p>

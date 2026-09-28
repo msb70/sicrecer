@@ -9,11 +9,6 @@ import { PAIS_LABELS, type Pais } from '../../types'
 import { calcularCuota, DIAS_PERIODO } from '../../lib/finanzas'
 import { DesgloseCredito } from '../../components/credito/DesgloseCredito'
 
-/** "3, 6, 12" → [3, 6, 12] (sin duplicados, ordenado) */
-function parsePlazos(txt: string): number[] {
-  return [...new Set(txt.split(/[\s,;]+/).map(Number).filter(n => Number.isInteger(n) && n > 0))].sort((a, b) => a - b)
-}
-
 export default function FormProducto() {
   const navigate = useNavigate()
   const { id }   = useParams()
@@ -26,7 +21,7 @@ export default function FormProducto() {
     descripcion:         producto?.descripcion        ?? '',
     tasa_nominal_anual:  String(producto?.tasa_nominal_anual ?? ''),
     plazo_min:           String(producto?.plazo_min   ?? ''),
-    plazo_max:           String(producto?.plazo_max   ?? ''),
+    plazo_max:           String(producto ? Math.max(producto.plazo_max ?? 0, ...(producto.plazos_permitidos ?? [])) : ''),
     monto_min:           String(producto?.monto_min   ?? ''),
     monto_max:           String(producto?.monto_max   ?? ''),
     frecuencia:          producto?.frecuencia         ?? 'mensual' as 'semanal' | 'quincenal' | 'mensual',
@@ -70,9 +65,9 @@ export default function FormProducto() {
   }
 
   // Plazos: lista explícita (si se indica) o rango min–max
-  const listaPlazos = parsePlazos(form.plazos_permitidos)
-  const plazoMin = listaPlazos.length ? listaPlazos[0] : Number(form.plazo_min)
-  const plazoMax = listaPlazos.length ? listaPlazos[listaPlazos.length - 1] : Number(form.plazo_max)
+  // Plazo: solo se define el máximo de cuotas; el solicitante elige de 1 a ese máximo
+  const plazoMin = 1
+  const plazoMax = Math.trunc(Number(form.plazo_max)) || 0
 
   // Preview de cuota con valores de ejemplo (monto_min, plazo máximo)
   const montoEjemplo = Number(form.monto_min) || 1000000
@@ -84,7 +79,7 @@ export default function FormProducto() {
   const guardar = async () => {
     setError('')
     if (form.paises.length === 0) { setError('Selecciona al menos un país'); return }
-    if (!plazoMin || !plazoMax || plazoMin > plazoMax) { setError('Define los plazos permitidos o un rango de plazo válido'); return }
+    if (plazoMax < 1) { setError('Define el número máximo de cuotas'); return }
     if (Number(form.monto_min) > Number(form.monto_max)) { setError('El monto mínimo no puede ser mayor que el máximo'); return }
     if (pctNum(form.pct_servicios) >= 100) { setError('El % de servicios debe ser menor a 100'); return }
     setGuardando(true)
@@ -99,7 +94,7 @@ export default function FormProducto() {
         pct_mora_periodo: pctNum(form.pct_mora_periodo),
         pct_gastos_admin_periodo: pctNum(form.pct_gastos_admin_periodo),
         dias_gracia_mora: Math.max(0, Math.trunc(Number(form.dias_gracia_mora) || 0)),
-        plazos_permitidos: listaPlazos,
+        plazos_permitidos: [] as number[],
         plazo_min: plazoMin, plazo_max: plazoMax,
         monto_min: Number(form.monto_min), monto_max: Number(form.monto_max),
         frecuencia: form.frecuencia,
@@ -278,21 +273,16 @@ export default function FormProducto() {
                   <Input label="Monto mínimo (COP)"  type="number" value={form.monto_min} onChange={e => campo('monto_min', e.target.value)} placeholder="500000"/>
                   <Input label="Monto máximo (COP)"  type="number" value={form.monto_max} onChange={e => campo('monto_max', e.target.value)} placeholder="5000000"/>
                 </div>
-                <div className="mt-4">
+                <div className="mt-4 sm:w-1/2">
                   <Input
-                    label="Plazos permitidos (cuotas)"
-                    placeholder="Ej: 3, 6, 12"
-                    value={form.plazos_permitidos}
-                    onChange={e => campo('plazos_permitidos', e.target.value)}
-                    helperText={listaPlazos.length ? `Solo se podrán solicitar: ${listaPlazos.join(', ')} cuotas` : 'Déjalo vacío para permitir cualquier plazo dentro del rango mínimo–máximo.'}
+                    label="Número máximo de cuotas"
+                    type="number"
+                    value={form.plazo_max}
+                    onChange={e => campo('plazo_max', e.target.value)}
+                    placeholder="12"
+                    helperText={plazoMax ? `El solicitante podrá elegir de 1 a ${plazoMax} cuotas.` : 'El solicitante podrá elegir cualquier número de cuotas hasta este máximo.'}
                   />
                 </div>
-                {listaPlazos.length === 0 && (
-                  <div className="grid sm:grid-cols-2 gap-4 mt-4">
-                    <Input label="Plazo mínimo (cuotas)" type="number" value={form.plazo_min} onChange={e => campo('plazo_min', e.target.value)} placeholder="3"/>
-                    <Input label="Plazo máximo (cuotas)" type="number" value={form.plazo_max} onChange={e => campo('plazo_max', e.target.value)} placeholder="24"/>
-                  </div>
-                )}
               </CardBody>
             </Card>
 

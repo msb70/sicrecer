@@ -11,7 +11,7 @@ import {
   requisitoCubiertoPorPerfil, productoElegiblePorActividad,
   type CatalogoPortal, type AdjuntoInfo,
 } from '../../lib/portal'
-import { generarPlan, resumenPlan, plazoValido as plazoPermitido, describirPlazos, plazosPermitidos } from '../../lib/finanzas'
+import { generarPlan, resumenPlan, plazoValido as plazoPermitido, describirPlazos, maxCuotas } from '../../lib/finanzas'
 import { DesgloseCredito } from '../../components/credito/DesgloseCredito'
 import { formatCOP } from '../../mocks'
 import { PAIS_LABELS, type Pais, type ProductoCredito } from '../../types'
@@ -117,7 +117,7 @@ export default function NuevaSolicitudPortal() {
   const elegirProducto = (p: ProductoCredito) => {
     setProductoId(p.id)
     setMonto(String(p.monto_min))
-    setPlazo(String(plazosPermitidos(p)?.[0] ?? p.plazo_min))
+    setPlazo(String(maxCuotas(p)))
   }
 
   const enviar = async () => {
@@ -152,7 +152,7 @@ export default function NuevaSolicitudPortal() {
 
   const montoValido = producto ? montoN >= producto.monto_min && montoN <= producto.monto_max : false
   const plazoValido = producto ? plazoPermitido(producto, plazoN) : false
-  const listaPlazos = producto ? plazosPermitidos(producto) : null
+  const topeCuotas = producto ? maxCuotas(producto) : 1
   const perfilIncompleto = !fotos.documento || !fotos.selfie
 
   return (
@@ -255,25 +255,12 @@ export default function NuevaSolicitudPortal() {
                     error={!montoValido && montoN > 0 ? `Entre ${formatCOP(producto.monto_min)} y ${formatCOP(producto.monto_max)}` : undefined} />
                   <input type="range" min={producto.monto_min} max={producto.monto_max} step={10000} value={montoN || producto.monto_min} onChange={e => setMonto(e.target.value)} className="w-full mt-2 accent-brand-600" />
                 </div>
-                {listaPlazos ? (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Plazo (cuotas {producto.frecuencia}es)</label>
-                    <div className="flex flex-wrap gap-2">
-                      {listaPlazos.map(n => (
-                        <button key={n} type="button" onClick={() => setPlazo(String(n))}
-                          className={`px-4 py-2 rounded-lg border text-sm ${plazoN === n ? 'bg-brand-600 text-white border-brand-600' : 'border-gray-200 text-gray-700 hover:border-brand-300'}`}>
-                          {n} cuotas
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <div>
-                    <Input label={`Plazo (cuotas ${producto.frecuencia}es)`} type="number" value={plazo} onChange={e => setPlazo(e.target.value)} min={producto.plazo_min} max={producto.plazo_max}
-                      error={!plazoValido && plazoN > 0 ? `Entre ${producto.plazo_min} y ${producto.plazo_max}` : undefined} />
-                    <input type="range" min={producto.plazo_min} max={producto.plazo_max} step={1} value={plazoN || producto.plazo_min} onChange={e => setPlazo(e.target.value)} className="w-full mt-2 accent-brand-600" />
-                  </div>
-                )}
+                <div>
+                  <Input label={`Número de cuotas (${producto.frecuencia}es) · máximo ${topeCuotas}`} type="number" value={plazo} onChange={e => setPlazo(e.target.value)} min={1} max={topeCuotas}
+                    error={!plazoValido && plazo !== '' ? `Elige entre 1 y ${topeCuotas} cuotas` : undefined} />
+                  <input type="range" min={1} max={topeCuotas} step={1} value={plazoN || topeCuotas} onChange={e => setPlazo(e.target.value)} className="w-full mt-2 accent-brand-600" />
+                  <div className="flex justify-between text-xs text-gray-400 mt-1"><span>1 cuota</span><span>{topeCuotas} cuotas</span></div>
+                </div>
                 <Input label="¿Para qué usarás el crédito? (opcional)" value={proposito} onChange={e => setProposito(e.target.value)} placeholder="Ej. Comprar mercancía para mi tienda" />
               </CardBody>
             </Card>

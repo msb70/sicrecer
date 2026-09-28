@@ -156,22 +156,28 @@ export interface ReglasPlazo {
   plazos_permitidos?: number[] | null
 }
 
-/** Lista explícita de plazos permitidos, o null si el producto usa rango min–max. */
-export function plazosPermitidos(p: ReglasPlazo): number[] | null {
+/**
+ * Máximo de cuotas del producto. El solicitante elige cualquier número de
+ * cuotas entre 1 y este máximo (regla acordada 2026-09-28). Si el producto
+ * trae una lista antigua de plazos, se toma su mayor valor como máximo.
+ */
+export function maxCuotas(p: ReglasPlazo): number {
   const lista = (p.plazos_permitidos ?? []).filter(n => n > 0)
-  return lista.length > 0 ? [...new Set(lista)].sort((a, b) => a - b) : null
+  return Math.max(p.plazo_max ?? 0, ...lista, 1)
 }
 
-/** Espejo de fn_plazo_valido. */
+/** @deprecated ya no hay listas cerradas de plazos; siempre null. */
+export function plazosPermitidos(_p: ReglasPlazo): number[] | null {
+  return null
+}
+
+/** Espejo de fn_plazo_valido: entero entre 1 y el máximo de cuotas. */
 export function plazoValido(p: ReglasPlazo, plazo: number): boolean {
-  const lista = plazosPermitidos(p)
-  if (lista) return lista.includes(plazo)
-  return plazo >= (p.plazo_min ?? 1) && plazo <= (p.plazo_max ?? 100000)
+  return Number.isInteger(plazo) && plazo >= 1 && plazo <= maxCuotas(p)
 }
 
 export function describirPlazos(p: ReglasPlazo): string {
-  const lista = plazosPermitidos(p)
-  return lista ? lista.join(', ') : `${p.plazo_min ?? 1} – ${p.plazo_max ?? '∞'}`
+  return `1 – ${maxCuotas(p)}`
 }
 
 // ─── Cargos por atraso ───────────────────────────────────────

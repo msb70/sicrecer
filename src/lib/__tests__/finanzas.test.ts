@@ -71,9 +71,12 @@ describe('desgloseDesembolso', () => {
 describe('plazos permitidos', () => {
   it('lista explícita', () => {
     const p = { plazo_min: 6, plazo_max: 12, plazos_permitidos: [12, 6] }
-    expect(plazosPermitidos(p)).toEqual([6, 12])
-    expect(plazoValido(p, 6)).toBe(true)
-    expect(plazoValido(p, 7)).toBe(false)
+    expect(plazosPermitidos(p)).toBeNull()
+    expect(plazoValido(p, 1)).toBe(true)
+    expect(plazoValido(p, 1)).toBe(true)
+    expect(plazoValido(p, 0)).toBe(false)
+    expect(plazoValido(p, 7)).toBe(true)
+    expect(plazoValido(p, 13)).toBe(false)
   })
   it('sin lista usa el rango', () => {
     const p = { plazo_min: 3, plazo_max: 12, plazos_permitidos: [] }
