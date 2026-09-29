@@ -6,7 +6,7 @@ import { Badge, Card, StatCard } from '../../components/ui'
 import { CREDITOS, formatCOP } from '../../mocks'
 import { BarraFiltros } from '../../components/filtros/BarraFiltros'
 import { FILTROS_VACIOS, coincide, filaDeCredito, type FiltrosCartera } from '../../lib/filtros'
-import { KPI_REPORTES } from '../../mocks/extra'
+import { cartera } from '../../lib/reportes'
 import type { EstadoCredito } from '../../types'
 import { clsx } from 'clsx'
 
@@ -37,6 +37,7 @@ export default function ListaCartera() {
     .filter(c => filtro === 'todos' || c.estado === filtro)
     .filter(c => coincide(filaDeCredito(c), filtros, c.cliente_nombre))
 
+  const kpi = cartera(filtrados)
   const enMora    = filtrados.filter(c => c.estado === 'en_mora')
   const totalSaldo = filtrados.reduce((s, c) => s + c.saldo_capital, 0)
 
@@ -51,8 +52,8 @@ export default function ListaCartera() {
         {/* KPIs */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
           <StatCard label="Cartera total"     value={formatCOP(totalSaldo)}             color="blue"   />
-          <StatCard label="PAR 30"            value={`${KPI_REPORTES.par_30}%`}         color={KPI_REPORTES.par_30 > 5 ? 'red' : 'green'} />
-          <StatCard label="PAR 90"            value={`${KPI_REPORTES.par_90}%`}         color={KPI_REPORTES.par_90 > 3 ? 'red' : 'green'} />
+          <StatCard label="PAR 30"            value={`${kpi.par30.toFixed(1)}%`}         color={kpi.par30 > 5 ? 'red' : 'green'} />
+          <StatCard label="PAR 90"            value={`${kpi.par90.toFixed(1)}%`}         color={kpi.par90 > 3 ? 'red' : 'green'} />
           <StatCard label="Créditos en mora"  value={String(enMora.length)}             color="red"    />
         </div>
 
