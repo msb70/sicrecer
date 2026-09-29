@@ -12,6 +12,9 @@ import { neon } from '../../lib/neon'
 import { obtenerFoto } from '../../lib/portal'
 import { AdjuntosSolicitante } from '../../components/portal/AdjuntosSolicitante'
 import { PAIS_LABELS, type Pais } from '../../types'
+import { FormEvaluacion } from '../../components/scoring/FormEvaluacion'
+import { Preanalisis } from '../../components/scoring/Preanalisis'
+import type { ScoringFEM } from '../../lib/scoring'
 
 const ESTADO_CONFIG = {
   borrador:        { label: 'Borrador',     color: 'gray'   as const, icon: <Clock size={16} /> },
@@ -23,18 +26,6 @@ const ESTADO_CONFIG = {
   firma:           { label: 'Firma',       color: 'blue'   as const, icon: <Clock size={16} /> },
   desembolsada:    { label: 'Desembolsada',color: 'gray'   as const, icon: <CheckCircle2 size={16} /> },
 }
-
-const BANDA_COLOR = { A: 'green', B: 'blue', C: 'yellow', D: 'orange', E: 'red' } as const
-
-// Score breakdown mock
-const SCORE_BREAKDOWN = [
-  { variable: 'Antigüedad del negocio',  puntos: 120, max: 150 },
-  { variable: 'Ratio cuota/ingreso DTI', puntos: 140, max: 200 },
-  { variable: 'Historial interno',       puntos: 180, max: 200 },
-  { variable: 'Actividad económica',     puntos: 100, max: 150 },
-  { variable: 'Datos demográficos',      puntos: 90,  max: 150 },
-  { variable: 'Liquidez estimada',       puntos: 90,  max: 150 },
-]
 
 export default function DetalleSolicitud() {
   const navigate = useNavigate()
@@ -52,6 +43,7 @@ export default function DetalleSolicitud() {
   const [enviando, setEnviando] = useState(false)
   const [msg, setMsg] = useState<{ tipo: 'success' | 'error'; texto: string } | null>(null)
   const [mostrarDesembolso, setMostrarDesembolso] = useState(false)
+  const [recarga, setRecarga] = useState(0)
   const creditoGenerado = CREDITOS.find(c => c.solicitud_id === solicitud?.id)
   const puedeDesembolsar = ['administrador', 'coordinador'].includes(rol)
     && solicitud && ['aprobada', 'firma'].includes(solicitud.estado) && !creditoGenerado && Boolean(producto)
@@ -233,47 +225,13 @@ export default function DetalleSolicitud() {
               </Card>
             )}
 
-            {/* Scoring */}
-            {solicitud.score && (
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-sm font-semibold text-gray-800">Resultado de scoring</h2>
-                    <div className="flex items-center gap-2">
-                      <span className="text-2xl font-bold text-gray-900">{solicitud.score}</span>
-                      {solicitud.banda_riesgo && (
-                        <Badge color={BANDA_COLOR[solicitud.banda_riesgo]}>Banda {solicitud.banda_riesgo}</Badge>
-                      )}
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardBody>
-                  <div className="space-y-3">
-                    {SCORE_BREAKDOWN.map(item => {
-                      const pct = (item.puntos / item.max) * 100
-                      return (
-                        <div key={item.variable}>
-                          <div className="flex justify-between text-xs mb-1">
-                            <span className="text-gray-600">{item.variable}</span>
-                            <span className="font-medium text-gray-900">{item.puntos}/{item.max}</span>
-                          </div>
-                          <div className="w-full bg-gray-100 rounded-full h-1.5">
-                            <div
-                              className={`h-1.5 rounded-full ${pct >= 80 ? 'bg-green-500' : pct >= 60 ? 'bg-yellow-500' : 'bg-red-400'}`}
-                              style={{ width: `${pct}%` }}
-                            />
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                  <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-100">
-                    <p className="text-xs text-gray-500 font-medium">Scorecard versión</p>
-                    <p className="text-xs text-gray-400">v1.0.0-reglas-expertas · {solicitud.fecha_solicitud}</p>
-                  </div>
-                </CardBody>
-              </Card>
-            )}
+            {/* Scoring FEM: visita del asesor + preanálisis */}
+            <FormEvaluacion
+              solicitudId={solicitud.id}
+              editable={['administrador', 'coordinador', 'facilitador'].includes(rol) && !['desembolsada', 'rechazada'].includes(solicitud.estado)}
+              onGuardado={() => { setRecarga(r => r + 1); void recargarTablas('solicitudes') }}
+            />
+            <Preanalisis solicitudId={solicitud.id} inicial={solicitud.scoring as ScoringFEM | null} recarga={recarga} />
           </div>
 
           {/* Panel lateral */}

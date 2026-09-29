@@ -4,6 +4,7 @@ import { Plus, Eye, FileText } from 'lucide-react'
 import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Button, Badge, Card, EmptyState } from '../../components/ui'
 import { SOLICITUDES, formatCOP } from '../../mocks'
+import { SEMAFORO } from '../../lib/scoring'
 import { BarraFiltros } from '../../components/filtros/BarraFiltros'
 import { FILTROS_VACIOS, coincide, filaDeSolicitud, type FiltrosCartera } from '../../lib/filtros'
 import type { EstadoSolicitud } from '../../types'
@@ -91,12 +92,12 @@ export default function ListaSolicitudes() {
                       </td>
                       <td className="px-6 py-4 text-gray-600 text-xs max-w-[140px] truncate">{s.producto_nombre}</td>
                       <td className="px-6 py-4 font-semibold text-gray-900">{formatCOP(s.monto_solicitado)}</td>
-                      <td className="px-6 py-4 text-gray-600">{s.plazo} meses</td>
+                      <td className="px-6 py-4 text-gray-600">{s.plazo} cuotas</td>
                       <td className="px-6 py-4">
                         {s.score ? (
                           <div className="flex items-center gap-2">
                             <span className="font-semibold text-gray-900">{s.score}</span>
-                            {s.banda_riesgo && <Badge color={BANDA_COLOR[s.banda_riesgo]}>Banda {s.banda_riesgo}</Badge>}
+                            {s.semaforo ? <Badge color={SEMAFORO[s.semaforo].color}>{SEMAFORO[s.semaforo].texto}</Badge> : s.banda_riesgo && <Badge color={BANDA_COLOR[s.banda_riesgo]}>Banda {s.banda_riesgo}</Badge>}
                           </div>
                         ) : <span className="text-gray-300">—</span>}
                       </td>

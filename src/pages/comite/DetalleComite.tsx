@@ -14,6 +14,8 @@ import { AdjuntosSolicitante } from '../../components/portal/AdjuntosSolicitante
 import { generarPlan, resumenPlan, describirPlazos, plazoValido } from '../../lib/finanzas'
 import { PAIS_LABELS, type Pais } from '../../types'
 import { clsx } from 'clsx'
+import { Preanalisis } from '../../components/scoring/Preanalisis'
+import type { ScoringFEM } from '../../lib/scoring'
 
 type Decision = 'aprobado' | 'rechazado'
 
@@ -148,6 +150,9 @@ export default function DetalleComite() {
                 </div>
               </CardBody>
             </Card>
+
+            {/* Expediente para comité: preanálisis FEM */}
+            <Preanalisis solicitudId={solicitud.id} inicial={solicitud.scoring as ScoringFEM | null} />
 
             {/* Datos del solicitante externo */}
             {solicitante && (

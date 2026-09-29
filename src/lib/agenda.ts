@@ -5,9 +5,12 @@
 
 import { neon } from './neon'
 
-export type Preaprobacion = 'preaprobado' | 'revision' | 'no_preaprobado' | 'sin_historial'
+export type Preaprobacion = 'preaprobado' | 'revision' | 'no_preaprobado' | 'sin_historial' | 'pendiente_visita'
 
 export interface Scoring {
+  estado?: 'evaluada' | 'sin_evaluacion'
+  semaforo?: 'verde' | 'ambar' | 'naranja' | 'rojo' | null
+  monto_pedido?: number
   score: number | null
   banda: 'A' | 'B' | 'C' | 'D' | 'E' | null
   preaprobacion: Preaprobacion
@@ -160,16 +163,17 @@ export async function cargarAgenda(): Promise<DatosAgenda> {
     a.orden - b.orden
     || b.dias_mora - a.dias_mora
     || (a.dias_para_vencer ?? 9999) - (b.dias_para_vencer ?? 9999))
-  renovacion.sort((a, b) => ORDEN_PRE[a.scoring.preaprobacion] - ORDEN_PRE[b.scoring.preaprobacion] || a.cuotas_restantes - b.cuotas_restantes)
-  solicitudes.sort((a, b) => ORDEN_PRE[a.scoring.preaprobacion] - ORDEN_PRE[b.scoring.preaprobacion] || b.dias_esperando - a.dias_esperando)
+  renovacion.sort((a, b) => ORDEN_PRE[a.scoring?.preaprobacion ?? 'pendiente_visita'] - ORDEN_PRE[b.scoring?.preaprobacion ?? 'pendiente_visita'] || a.cuotas_restantes - b.cuotas_restantes)
+  solicitudes.sort((a, b) => ORDEN_PRE[a.scoring?.preaprobacion ?? 'pendiente_visita'] - ORDEN_PRE[b.scoring?.preaprobacion ?? 'pendiente_visita'] || b.dias_esperando - a.dias_esperando)
   return { cobranza, renovacion, solicitudes }
 }
 
-export const ORDEN_PRE: Record<Preaprobacion, number> = { preaprobado: 0, revision: 1, sin_historial: 2, no_preaprobado: 3 }
+export const ORDEN_PRE: Record<Preaprobacion, number> = { preaprobado: 0, revision: 1, pendiente_visita: 2, sin_historial: 2, no_preaprobado: 3 }
 
 export const ETIQUETA_PRE: Record<Preaprobacion, { texto: string; color: 'green' | 'yellow' | 'gray' | 'red' }> = {
   preaprobado:    { texto: 'Preaprobado',     color: 'green'  },
   revision:       { texto: 'Revisar',         color: 'yellow' },
   sin_historial:  { texto: 'Sin historial',   color: 'gray'   },
+  pendiente_visita: { texto: 'Falta visita del asesor', color: 'gray' },
   no_preaprobado: { texto: 'No preaprobado',  color: 'red'    },
 }

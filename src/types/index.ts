@@ -226,6 +226,10 @@ export interface Solicitud {
   decidido_por?: string | null
   enviada_comite_en?: string | null
   enviada_comite_por?: string | null
+  /** Scoring FEM (0014): semáforo, resultado completo y monto sugerido */
+  semaforo?: 'verde' | 'ambar' | 'naranja' | 'rojo' | null
+  scoring?: Record<string, unknown> | null
+  monto_sugerido?: number | null
 }
 
 // ─── SOLICITANTE (usuario externo del portal) ─────────────────

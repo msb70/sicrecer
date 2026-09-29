@@ -12,6 +12,7 @@ import {
   type FilaSolicitudPendiente, type Scoring,
 } from '../../lib/agenda'
 import TabVisitas from './TabVisitas'
+import { SEMAFORO } from '../../lib/scoring'
 import { clsx } from 'clsx'
 
 type Tab = 'cobranza' | 'cartera' | 'renovacion' | 'solicitudes' | 'visitas'
@@ -51,7 +52,7 @@ export default function AgendaFacilitador() {
     saldo: cobranza.reduce((s, f) => s + f.saldo_capital, 0),
     vencido: vencidos.reduce((s, f) => s + f.total_vencido, 0),
     porVencer: porVencer.reduce((s, f) => s + f.proxima_monto, 0),
-    preaprobados: renovacion.filter(r => r.scoring.preaprobacion === 'preaprobado' && !r.tiene_solicitud_abierta).length,
+    preaprobados: renovacion.filter(r => r.scoring?.preaprobacion === 'preaprobado' && !r.tiene_solicitud_abierta).length,
   }
 
   const TABS: { id: Tab; label: string; n?: number; icon: React.ReactNode }[] = [
@@ -246,16 +247,18 @@ function TabCartera({ filas }: { filas: FilaCobranza[] }) {
 }
 
 // ─── Scoring (común a renovación y solicitudes) ───────────────
-function ResumenScoring({ s, montoPedido }: { s: Scoring; montoPedido?: number }) {
-  const et = ETIQUETA_PRE[s.preaprobacion]
+function ResumenScoring({ s, montoPedido }: { s: Scoring | null; montoPedido?: number }) {
+  if (!s) return null
+  const sem = s.semaforo ? SEMAFORO[s.semaforo] : null
+  const et = ETIQUETA_PRE[s.preaprobacion] ?? ETIQUETA_PRE.pendiente_visita
   return (
     <div className="space-y-1.5">
       <div className="flex items-center gap-2 flex-wrap">
-        <Badge color={et.color}>{et.texto}</Badge>
-        {s.score != null && <span className="text-xs text-gray-600">Score <strong>{s.score}</strong> · banda <strong>{s.banda}</strong></span>}
+        {sem ? <Badge color={sem.color}>{sem.texto}</Badge> : <Badge color={et.color}>{et.texto}</Badge>}
+        {s.score != null && <span className="text-xs text-gray-600">Puntaje <strong>{s.score}</strong>/100{sem && <> · {sem.accion.toLowerCase()}</>}</span>}
         {s.monto_sugerido != null && (
           <span className="text-xs text-green-700">
-            Monto sugerido hasta <strong>{formatCOP(s.monto_sugerido)}</strong>
+            Monto sugerido <strong>{formatCOP(s.monto_sugerido)}</strong>
             {montoPedido != null && montoPedido > s.monto_sugerido && <span className="text-orange-600"> (pide {formatCOP(montoPedido)})</span>}
           </span>
         )}
@@ -272,19 +275,17 @@ function ComoSeCalcula() {
   return (
     <div className="mb-4">
       <button onClick={() => setAbierto(!abierto)} className="flex items-center gap-1.5 text-xs text-brand-700 hover:underline">
-        <Info size={13} /> ¿Cómo se calcula la preaprobación?
+        <Info size={13} /> ¿Cómo se calcula el semáforo?
       </button>
       {abierto && (
         <Alert type="info" className="mt-2">
-          <p className="text-xs mb-1"><strong>Scoring provisional (0–1000)</strong> con el historial de pagos del cliente en SiCrecer:</p>
+          <p className="text-xs mb-1"><strong>Scoring FEM (100 puntos)</strong> con la visita del asesor y el historial en SiCrecer:</p>
           <ul className="text-xs list-disc pl-4 space-y-0.5">
-            <li>Puntualidad (350): % de cuotas pagadas dentro de los días de gracia.</li>
-            <li>Peor atraso (200): 0 días = 200; hasta 7 = 170; 15 = 130; 30 = 80; 60 = 30; más = 0.</li>
-            <li>Situación actual (200): sin cuotas vencidas hoy = 200.</li>
-            <li>Experiencia (150): créditos cancelados en SiCrecer (0 = 60, 1 = 110, 2+ = 150).</li>
-            <li>Incremento (100): monto pedido frente al último desembolsado.</li>
+            <li>Capacidad de pago (50): cobertura de la cuota sobre el flujo libre (30) y estabilidad del negocio (20).</li>
+            <li>Experiencia crediticia (30): pagos en SiCrecer; sin historial, base 15 más referencias y consulta externa.</li>
+            <li>Voluntad de pago (20): veracidad comprobada (12) y compromisos cumplidos (8), solo con evidencia.</li>
           </ul>
-          <p className="text-xs mt-1">Bandas: A ≥ 850 · B ≥ 700 · C ≥ 550 · D ≥ 400 · E. <strong>Preaprobado</strong> = banda A o B, sin cuotas vencidas, peor atraso ≤ 30 días y al menos 3 cuotas de historial. Monto sugerido: A hasta 1,5× y B hasta 1,2× el último crédito. Clientes sin historial van a comité.</p>
+          <p className="text-xs mt-1">Verde 80–100 · ámbar 65–79 · naranja 50–64 · rojo &lt;50 o filtro. La cuota total no puede superar el 40 % del flujo libre. El primer crédito siempre va a comité, y el comité decide todas las aprobaciones.</p>
         </Alert>
       )}
     </div>
@@ -297,7 +298,7 @@ function TabRenovacion({ filas }: { filas: FilaRenovacion[] }) {
   return (
     <div>
       <ComoSeCalcula />
-      <p className="text-xs text-gray-500 mb-3">Créditos en sus últimas cuotas (último 20 % o dos últimas) y créditos cancelados en los últimos 90 días sin crédito nuevo.</p>
+      <p className="text-xs text-gray-500 mb-3">Alerta a 30 días: créditos que terminan en el próximo mes (sin mora mayor a 30 días) y créditos cancelados en los últimos 90 días sin crédito nuevo. La propuesta es hasta 1,5 veces el crédito anterior, ajustada a la capacidad de la última visita.</p>
       {filas.length === 0
         ? <EmptyState icon={<Repeat size={40} />} title="Sin candidatos a renovación" description="Ningún crédito está por terminar con estos filtros." />
         : (
@@ -316,12 +317,12 @@ function TabRenovacion({ filas }: { filas: FilaRenovacion[] }) {
                     <p className="text-xs text-gray-500 mb-2">
                       Último crédito {formatCOP(f.monto_desembolsado)} · {[f.zona, f.convenio, f.actividad_economica].filter(Boolean).join(' · ')}
                     </p>
-                    <ResumenScoring s={f.scoring} />
+                    <ResumenScoring s={f.scoring} montoPedido={f.scoring?.monto_pedido} />
                   </div>
                   <div className="flex sm:flex-col gap-2 sm:items-end">
                     {f.tiene_solicitud_abierta
                       ? <Badge color="blue">Ya tiene solicitud en curso</Badge>
-                      : <Button size="sm" disabled={f.scoring.preaprobacion === 'no_preaprobado'}
+                      : <Button size="sm" disabled={f.scoring?.preaprobacion === 'no_preaprobado'}
                           onClick={() => navigate(`/solicitudes/nueva?cliente=${encodeURIComponent(f.cliente_id)}`)}>Crear solicitud</Button>}
                     {f.telefono && <a href={`tel:${f.telefono}`} className="text-xs text-brand-700 flex items-center gap-1"><Phone size={12} />{f.telefono}</a>}
                   </div>
