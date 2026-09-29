@@ -1,4 +1,7 @@
+import { useEffect, useState } from 'react'
 import { createBrowserRouter, RouterProvider, Navigate, useLocation } from 'react-router-dom'
+import { BrandLogo } from '../components/BrandLogo'
+import { Spinner } from '../components/ui'
 import { useApp } from '../context/AppContext'
 import { puedeAcceder } from '../lib/permisos'
 
@@ -70,10 +73,31 @@ import MisSolicitudes          from '../pages/portal/MisSolicitudes'
 import NuevaSolicitudPortal    from '../pages/portal/NuevaSolicitudPortal'
 import DetalleSolicitudPortal  from '../pages/portal/DetalleSolicitudPortal'
 
+/**
+ * Pantalla mientras se restaura la sesión y se cargan los datos (puede tardar
+ * unos segundos). Antes era un texto gris diminuto que parecía una página en
+ * blanco; si la carga se alarga, ofrece reintentar o ir al login.
+ */
 function Cargando() {
+  const [lento, setLento] = useState(false)
+  useEffect(() => { const t = setTimeout(() => setLento(true), 12000); return () => clearTimeout(t) }, [])
   return (
-    <div className="min-h-screen flex items-center justify-center text-sm text-gray-500">
-      Cargando sesión…
+    <div className="min-h-screen flex flex-col items-center justify-center gap-5 bg-gray-50 px-4 text-center">
+      <BrandLogo framed imageClassName="w-40" />
+      <Spinner size="lg" />
+      <div>
+        <p className="text-base font-medium text-gray-800">Cargando tu información…</p>
+        <p className="text-sm text-gray-500 mt-1">Estamos trayendo tu cartera, solicitudes y créditos.</p>
+      </div>
+      {lento && (
+        <div className="max-w-sm text-sm text-gray-600 space-y-3">
+          <p>Está tardando más de lo normal. Revisa tu conexión o vuelve a intentarlo.</p>
+          <div className="flex gap-2 justify-center">
+            <button onClick={() => window.location.reload()} className="px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-medium hover:bg-brand-700">Reintentar</button>
+            <a href="/login" className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 text-sm font-medium hover:bg-white">Ir al inicio de sesión</a>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -101,13 +125,7 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 
   // Mientras se restaura la sesión (p. ej. tras el redirect de Google),
   // no redirigir a /login todavía.
-  if (cargandoSesion) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-sm text-gray-500">
-        Cargando sesión…
-      </div>
-    )
-  }
+  if (cargandoSesion) return <Cargando />
 
   if (!autenticado) return <Navigate to="/login" replace />
   if (tipoSesion === 'solicitante') return <Navigate to="/portal" replace />
