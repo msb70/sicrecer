@@ -104,7 +104,7 @@ export default function ListaSolicitudes() {
                         ) : <span className="text-gray-300">—</span>}
                       </td>
                       <td className="px-6 py-4"><Badge color={ESTADO_CONFIG[s.estado].color}>{ESTADO_CONFIG[s.estado].label}</Badge></td>
-                      <td className="px-6 py-4 text-gray-500 text-xs">{new Date(s.fecha_solicitud).toLocaleDateString('es-CO')}</td>
+                      <td className="px-6 py-4 text-gray-500 text-xs">{new Date(`${s.fecha_solicitud.slice(0, 10)}T00:00:00`).toLocaleDateString('es-CO')}</td>
                       <td className="px-6 py-4">
                         <button onClick={() => navigate(`/solicitudes/${s.id}`)} className="p-1.5 text-gray-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors">
                           <Eye size={15} />

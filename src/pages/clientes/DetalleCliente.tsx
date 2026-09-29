@@ -295,7 +295,7 @@ export default function DetalleCliente() {
                       <div key={s.id} className="flex items-center justify-between px-6 py-3">
                         <div>
                           <p className="text-sm font-medium text-gray-900">{formatCOP(s.monto_solicitado)}</p>
-                          <p className="text-xs text-gray-500">{s.producto_nombre} · {new Date(s.fecha_solicitud).toLocaleDateString('es-CO')}</p>
+                          <p className="text-xs text-gray-500">{s.producto_nombre} · {new Date(`${s.fecha_solicitud.slice(0, 10)}T00:00:00`).toLocaleDateString('es-CO')}</p>
                         </div>
                         <div className="text-right">
                           <Badge color={{ aprobada:'green', rechazada:'red', enviada:'blue', revision_comite:'yellow', desembolsada:'gray', borrador:'gray', scoring:'blue', firma:'blue' }[s.estado] as any}>

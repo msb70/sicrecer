@@ -60,8 +60,8 @@ export default function DetalleSolicitudPortal() {
             ep === 'En revisión' ? 'bg-yellow-50 border-yellow-200 text-yellow-800' : 'bg-blue-50 border-blue-200 text-blue-800'}`}>
             {ESTADO_PORTAL_UI[ep].icon}
             <div>
-              <p className="font-semibold">{ep}</p>
-              <p className="text-sm opacity-80">{MENSAJE[ep]}</p>
+              <p className="font-semibold">{solicitud.estado === 'desembolsada' ? 'Desembolsada' : ep}</p>
+              <p className="text-sm opacity-80">{solicitud.estado === 'desembolsada' ? 'Tu crédito fue desembolsado. Paga tus cuotas en las fechas acordadas con tu facilitador.' : MENSAJE[ep]}</p>
             </div>
           </div>
 
@@ -84,7 +84,7 @@ export default function DetalleSolicitudPortal() {
                 ['Producto', solicitud.producto_nombre],
                 ['Monto', formatCOP(solicitud.monto_solicitado)],
                 ['Plazo', `${solicitud.plazo} cuotas`],
-                ['Fecha', new Date(solicitud.fecha_solicitud).toLocaleDateString('es-CO', { dateStyle: 'long' })],
+                ['Fecha', new Date(`${solicitud.fecha_solicitud.slice(0, 10)}T00:00:00`).toLocaleDateString('es-CO', { dateStyle: 'long' })],
                 ['Propósito', solicitud.proposito || '—'],
                 ['Estado', <Badge key="b" color={ESTADO_PORTAL_UI[ep].color}>{ep}</Badge>],
               ].map(([k, v]) => (

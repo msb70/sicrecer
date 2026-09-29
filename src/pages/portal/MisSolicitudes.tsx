@@ -57,7 +57,7 @@ export default function MisSolicitudes() {
                   <div className="min-w-0">
                     <p className="font-semibold text-gray-900 truncate">{s.producto_nombre}</p>
                     <p className="text-xs text-gray-500">
-                      {formatCOP(s.monto_solicitado)} · {s.plazo} cuotas · {new Date(s.fecha_solicitud).toLocaleDateString('es-CO')}
+                      {formatCOP(s.monto_solicitado)} · {s.plazo} cuotas · {new Date(`${s.fecha_solicitud.slice(0, 10)}T00:00:00`).toLocaleDateString('es-CO')}
                     </p>
                     {ep === 'Aprobada' && s.monto_aprobado != null && (
                       <p className="text-xs text-green-700 mt-0.5">Aprobado: {formatCOP(Number(s.monto_aprobado))} en {s.plazo_aprobado} cuotas</p>

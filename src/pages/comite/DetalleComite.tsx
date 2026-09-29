@@ -142,7 +142,7 @@ export default function DetalleComite() {
                     ['Plazos permitidos', producto ? describirPlazos(producto) : '—'],
                     ['Servicios desarrollo empresarial', producto ? `${producto.pct_servicios ?? 0}% (${formatCOP(Math.round(solicitud.monto_solicitado * (producto.pct_servicios ?? 0) / 100))})` : '—'],
                     ['Propósito', solicitud.proposito ?? '—'],
-                    ['Fecha', new Date(solicitud.fecha_solicitud).toLocaleDateString('es-CO')],
+                    ['Fecha', new Date(`${solicitud.fecha_solicitud.slice(0, 10)}T00:00:00`).toLocaleDateString('es-CO')],
                     ['Enviada al comité', solicitud.enviada_comite_en ? new Date(solicitud.enviada_comite_en).toLocaleString('es-CO') : '—'],
                   ].map(([k, v]) => (
                     <div key={k} className="flex justify-between py-1.5 border-b border-gray-50"><span className="text-gray-500">{k}</span><span className="font-medium text-gray-900 text-right">{v}</span></div>

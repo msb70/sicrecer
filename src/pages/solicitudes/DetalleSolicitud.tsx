@@ -4,7 +4,7 @@ import { ArrowLeft, CheckCircle2, XCircle, Clock, AlertTriangle, Send, Globe } f
 import { LineaTiempo, etapasSolicitud } from '../../components/solicitud/LineaTiempo'
 import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Button, Badge, Card, CardHeader, CardBody, Alert } from '../../components/ui'
-import { SOLICITUDES, CLIENTES, PRODUCTOS, SOLICITANTES, COMITES, REQUISITOS, ACTIVIDADES_ECONOMICAS, CREDITOS, formatCOP, recargarTablas, cargarDatosDesdeNeon } from '../../mocks'
+import { SOLICITUDES, CLIENTES, PRODUCTOS, SOLICITANTES, COMITES, REQUISITOS, ACTIVIDADES_ECONOMICAS, CREDITOS, formatCOP, recargarTablas, cargarDatosDesdeNeon, USUARIOS } from '../../mocks'
 import { DesembolsoModal } from '../../components/credito/DesembolsoModal'
 import { DesgloseCredito } from '../../components/credito/DesgloseCredito'
 import { describirPlazos } from '../../lib/finanzas'
@@ -94,7 +94,7 @@ export default function DetalleSolicitud() {
       <PageContainer>
         <PageHeader
           title={`Solicitud ${solicitud.id.toUpperCase()}`}
-          subtitle={`${solicitud.cliente_nombre} · ${new Date(solicitud.fecha_solicitud).toLocaleDateString('es-CO', { dateStyle: 'long' })}`}
+          subtitle={`${solicitud.cliente_nombre} · ${new Date(`${solicitud.fecha_solicitud.slice(0, 10)}T00:00:00`).toLocaleDateString('es-CO', { dateStyle: 'long' })}`}
           actions={
             <div className="flex gap-2">
               <Button variant="ghost" onClick={() => navigate('/solicitudes')}><ArrowLeft size={16} />Volver</Button>
@@ -131,7 +131,7 @@ export default function DetalleSolicitud() {
               <Badge color={cfg.color}>{cfg.label}</Badge>
               <p className="text-sm text-gray-600">
                 {solicitud.estado === 'aprobada'        && 'Aprobada y lista para desembolso.'}
-                {solicitud.estado === 'rechazada'       && `Rechazada${solicitud.decidido_por ? ` por ${solicitud.decidido_por}` : ''}${solicitud.motivo_rechazo ? `: ${solicitud.motivo_rechazo}` : '.'}`}
+                {solicitud.estado === 'rechazada'       && `Rechazada${solicitud.decidido_por ? ` por ${USUARIOS.find(u => u.id === solicitud.decidido_por)?.nombre ?? solicitud.decidido_por}` : ''}${solicitud.motivo_rechazo ? `: ${solicitud.motivo_rechazo}` : '.'}`}
                 {solicitud.estado === 'revision_comite' && `En evaluación del comité${solicitud.enviada_comite_en ? ` desde ${new Date(solicitud.enviada_comite_en).toLocaleDateString('es-CO')}` : ''}.`}
                 {solicitud.estado === 'enviada'         && (esExterna ? 'Creada por el solicitante en el portal. Revisa sus datos, registra la visita y envíala al comité.' : 'Pendiente de visita y envío al comité.')}
                 {solicitud.estado === 'desembolsada'    && 'Crédito desembolsado.'}
@@ -169,7 +169,7 @@ export default function DetalleSolicitud() {
 
             {solicitud.estado === 'aprobada' && solicitud.monto_aprobado != null && (
               <Card className="border-green-200">
-                <CardHeader><h2 className="text-sm font-semibold text-gray-800">Condiciones aprobadas por {solicitud.decidido_por}</h2></CardHeader>
+                <CardHeader><h2 className="text-sm font-semibold text-gray-800">Condiciones aprobadas{solicitud.decidido_por ? ` por ${USUARIOS.find(u => u.id === solicitud.decidido_por)?.nombre ?? solicitud.decidido_por}` : ''}</h2></CardHeader>
                 <CardBody>
                   <div className="grid sm:grid-cols-3 gap-3 text-sm">
                     <div><p className="text-xs text-gray-500">Monto aprobado</p><p className="font-semibold">{formatCOP(Number(solicitud.monto_aprobado))}</p></div>
