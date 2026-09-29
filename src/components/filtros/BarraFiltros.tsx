@@ -11,12 +11,14 @@ interface Props {
   /** Campos a mostrar (por defecto todos). El de facilitador se oculta al propio facilitador. */
   campos?: Campo[]
   placeholder?: string
+  /** Oculta el buscador de texto (p. ej. en gráficos). */
+  sinBusqueda?: boolean
 }
 
 const cls = 'px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200 min-w-0'
 
 /** Barra de filtros común: convenio, zona, facilitador, actividad económica y producto. */
-export function BarraFiltros({ value, onChange, campos = ['convenio', 'zona', 'facilitador', 'actividad', 'producto'], placeholder = 'Buscar cliente…' }: Props) {
+export function BarraFiltros({ value, onChange, campos = ['convenio', 'zona', 'facilitador', 'actividad', 'producto'], placeholder = 'Buscar cliente…', sinBusqueda = false }: Props) {
   const { rol } = useApp()
   const set = (k: keyof FiltrosCartera, v: string) => onChange({ ...value, [k]: v })
   const ver = (c: Campo) => campos.includes(c) && !(c === 'facilitador' && rol === 'facilitador')
@@ -25,7 +27,7 @@ export function BarraFiltros({ value, onChange, campos = ['convenio', 'zona', 'f
 
   return (
     <div className="flex flex-col gap-2 mb-5">
-      <div className="relative">
+      {!sinBusqueda && <div className="relative">
         <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
         <input
           value={value.texto}
@@ -33,7 +35,7 @@ export function BarraFiltros({ value, onChange, campos = ['convenio', 'zona', 'f
           placeholder={placeholder}
           className={`${cls} w-full pl-9`}
         />
-      </div>
+      </div>}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
         {ver('convenio') && (
           <select aria-label="Convenio" value={value.convenio_id} onChange={e => set('convenio_id', e.target.value)} className={cls}>
