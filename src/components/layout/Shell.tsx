@@ -4,9 +4,9 @@ import { clsx } from 'clsx'
 import {
   LayoutDashboard, Users, FileText, CheckSquare, CreditCard,
   MapPin, BarChart2, Settings, LogOut, Menu, X, ChevronDown,
-  Calendar, Building2, Package, UserCheck, Bot, Calculator,
+  Calendar, Building2, Package, UserCheck, Calculator,
   ClipboardList, Briefcase, Banknote, FolderOpen, FilePlus,
-  Landmark, BookOpen, ChevronRight
+  Landmark, BookOpen, ChevronRight, ShieldCheck
 } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { BrandLogo } from '../BrandLogo'
@@ -14,18 +14,19 @@ import type { Rol } from '../../types'
 import { ROL_LABELS } from '../../types'
 
 // ─── TYPES ────────────────────────────────────────────────────
+// Cada entrada del menú pertenece a un módulo; se muestra si el rol del
+// usuario tiene permiso de "ver" ese módulo (tabla rol_permisos).
 interface NavItem {
   label: string
   to: string
   icon: ReactNode
-  roles: Rol[]
+  modulo: string
 }
 
 interface NavGroup {
   id: string
   label: string
   icon: ReactNode
-  roles: Rol[]
   items: NavItem[]
 }
 
@@ -34,112 +35,73 @@ type SidebarEntry =
   | { type: 'group'; data: NavGroup }
 
 // ─── NAVEGACIÓN ───────────────────────────────────────────────
-const ALL_ROLES: Rol[] = ['administrador', 'coordinador', 'facilitador', 'comite', 'auditor']
-
 const SIDEBAR_ENTRIES: SidebarEntry[] = [
-  // Dashboard — standalone
-  {
-    type: 'item',
-    data: { label: 'Dashboard', to: '/dashboard', icon: <LayoutDashboard size={18} />, roles: ALL_ROLES },
-  },
+  { type: 'item', data: { label: 'Dashboard', to: '/dashboard', icon: <LayoutDashboard size={18} />, modulo: 'dashboard' } },
+  { type: 'item', data: { label: 'Agenda',    to: '/agenda',    icon: <Calendar size={18} />,        modulo: 'agenda' } },
 
-  // Datos
   {
     type: 'group',
     data: {
-      id: 'datos',
-      label: 'Datos',
-      icon: <FolderOpen size={18} />,
-      roles: ['administrador', 'coordinador'],
+      id: 'datos', label: 'Datos', icon: <FolderOpen size={18} />,
       items: [
-        { label: 'Zonificación',    to: '/zonas',                  icon: <MapPin size={16} />,         roles: ['administrador', 'coordinador'] },
-        { label: 'Convenios',       to: '/convenios',              icon: <Building2 size={16} />,      roles: ['administrador', 'coordinador'] },
-        { label: 'Requisitos',      to: '/requisitos',             icon: <ClipboardList size={16} />,  roles: ['administrador', 'coordinador'] },
-        { label: 'Act. Económicas', to: '/actividades-economicas', icon: <Briefcase size={16} />,      roles: ['administrador', 'coordinador'] },
-        { label: 'Bancos',          to: '/bancos',                 icon: <Landmark size={16} />,       roles: ['administrador', 'coordinador'] },
+        { label: 'Zonificación',    to: '/zonas',                  icon: <MapPin size={16} />,        modulo: 'zonas' },
+        { label: 'Convenios',       to: '/convenios',              icon: <Building2 size={16} />,     modulo: 'convenios' },
+        { label: 'Requisitos',      to: '/requisitos',             icon: <ClipboardList size={16} />, modulo: 'requisitos' },
+        { label: 'Act. Económicas', to: '/actividades-economicas', icon: <Briefcase size={16} />,     modulo: 'actividades' },
+        { label: 'Bancos',          to: '/bancos',                 icon: <Landmark size={16} />,      modulo: 'bancos' },
       ],
     },
   },
 
-  // Solicitud
   {
     type: 'group',
     data: {
-      id: 'solicitud',
-      label: 'Solicitud',
-      icon: <FilePlus size={18} />,
-      roles: ['facilitador', 'coordinador', 'administrador'],
+      id: 'solicitud', label: 'Solicitud', icon: <FilePlus size={18} />,
       items: [
-        { label: 'Prospectos', to: '/prospectos', icon: <Users size={16} />, roles: ['facilitador', 'coordinador', 'administrador'] },
+        { label: 'Prospectos', to: '/prospectos', icon: <Users size={16} />, modulo: 'prospectos' },
       ],
     },
   },
 
-  // Crédito
   {
     type: 'group',
     data: {
-      id: 'credito',
-      label: 'Crédito',
-      icon: <CreditCard size={18} />,
-      roles: ['facilitador', 'coordinador', 'administrador', 'comite', 'auditor'],
+      id: 'credito', label: 'Crédito', icon: <CreditCard size={18} />,
       items: [
-        { label: 'Solicitudes',    to: '/solicitudes',    icon: <FileText size={16} />,    roles: ['facilitador', 'coordinador', 'administrador'] },
-        { label: 'Clientes',       to: '/clientes',       icon: <Users size={16} />,       roles: ['facilitador', 'coordinador', 'administrador'] },
-        { label: 'Cobranza',       to: '/cobranza',       icon: <Banknote size={16} />,    roles: ['facilitador', 'coordinador', 'administrador'] },
-        { label: 'Comité',         to: '/comite',         icon: <CheckSquare size={16} />, roles: ['comite', 'administrador'] },
-        { label: 'Cartera',        to: '/cartera',        icon: <CreditCard size={16} />,  roles: ['facilitador', 'coordinador', 'administrador', 'auditor'] },
-        { label: 'Productos',      to: '/productos',      icon: <Package size={16} />,     roles: ['administrador', 'coordinador'] },
-        { label: 'Cierre mensual', to: '/cierre-mensual', icon: <BookOpen size={16} />,    roles: ['administrador', 'coordinador', 'auditor'] },
+        { label: 'Solicitudes',    to: '/solicitudes',    icon: <FileText size={16} />,    modulo: 'solicitudes' },
+        { label: 'Clientes',       to: '/clientes',       icon: <Users size={16} />,       modulo: 'clientes' },
+        { label: 'Cobranza',       to: '/cobranza',       icon: <Banknote size={16} />,    modulo: 'cobranza' },
+        { label: 'Comité',         to: '/comite',         icon: <CheckSquare size={16} />, modulo: 'comite' },
+        { label: 'Cartera',        to: '/cartera',        icon: <CreditCard size={16} />,  modulo: 'cartera' },
+        { label: 'Productos',      to: '/productos',      icon: <Package size={16} />,     modulo: 'productos' },
+        { label: 'Cierre mensual', to: '/cierre-mensual', icon: <BookOpen size={16} />,    modulo: 'cierre' },
       ],
     },
   },
 
-  // Calculadora — standalone
-  {
-    type: 'item',
-    data: { label: 'Calculadora', to: '/calculadora', icon: <Calculator size={18} />, roles: ['facilitador', 'coordinador', 'administrador'] },
-  },
+  { type: 'item', data: { label: 'Calculadora', to: '/calculadora', icon: <Calculator size={18} />, modulo: 'calculadora' } },
+  { type: 'item', data: { label: 'Reportes',    to: '/reportes',    icon: <BarChart2 size={18} />,  modulo: 'reportes' } },
 
-  // Reportes — standalone
-  {
-    type: 'item',
-    data: { label: 'Reportes', to: '/reportes', icon: <BarChart2 size={18} />, roles: ['administrador', 'coordinador', 'auditor'] },
-  },
-
-  // Configuración
   {
     type: 'group',
     data: {
-      id: 'configuracion',
-      label: 'Configuración',
-      icon: <Settings size={18} />,
-      roles: ['administrador'],
+      id: 'configuracion', label: 'Configuración', icon: <Settings size={18} />,
       items: [
-        { label: 'Usuarios',      to: '/usuarios',      icon: <UserCheck size={16} />, roles: ['administrador'] },
-        { label: 'Comités',       to: '/comites',       icon: <CheckSquare size={16} />, roles: ['administrador'] },
-        { label: 'Configuración', to: '/configuracion', icon: <Settings size={16} />,  roles: ['administrador'] },
+        { label: 'Usuarios',         to: '/usuarios',      icon: <UserCheck size={16} />,   modulo: 'usuarios' },
+        { label: 'Roles y permisos', to: '/roles',         icon: <ShieldCheck size={16} />, modulo: 'roles' },
+        { label: 'Comités',          to: '/comites',       icon: <CheckSquare size={16} />, modulo: 'comites' },
+        { label: 'Configuración',    to: '/configuracion', icon: <Settings size={16} />,    modulo: 'configuracion' },
       ],
     },
-  },
-
-  // Agenda — standalone
-  {
-    type: 'item',
-    data: { label: 'Agenda', to: '/agenda', icon: <Calendar size={18} />, roles: ['facilitador', 'coordinador', 'administrador'] },
-  },
-
-  // Asistente IA — standalone
-  {
-    type: 'item',
-    data: { label: 'Asistente IA', to: '/asistente', icon: <Bot size={18} />, roles: ['facilitador', 'coordinador'] },
   },
 ]
+
+const activo = (path: string, to: string) => path === to || path.startsWith(to + '/')
 
 function groupForPath(path: string): string | null {
   for (const entry of SIDEBAR_ENTRIES) {
     if (entry.type === 'group') {
-      if (entry.data.items.some(i => path.startsWith(i.to))) {
+      if (entry.data.items.some(i => activo(path, i.to))) {
         return entry.data.id
       }
     }
@@ -157,7 +119,7 @@ const ROL_COLORS: Record<Rol, string> = {
 
 // ─── SIDEBAR ─────────────────────────────────────────────────
 function Sidebar({ onClose }: { onClose?: () => void }) {
-  const { rol, setRol, usuario, organizacion, logout, modo } = useApp()
+  const { rol, setRol, usuario, organizacion, logout, modo, puede, rolConfig } = useApp()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -240,7 +202,7 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
           <p className="text-xs text-gray-500 uppercase tracking-wider">Tu rol</p>
         )}
         <span className={clsx('mt-2 inline-flex px-2 py-0.5 rounded-full text-xs font-medium', ROL_COLORS[rol])}>
-          {ROL_LABELS[rol]}
+          {rolConfig?.nombre ?? ROL_LABELS[rol]}
         </span>
       </div>
 
@@ -249,7 +211,7 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
         {SIDEBAR_ENTRIES.map((entry, idx) => {
           if (entry.type === 'item') {
             const item = entry.data
-            if (!item.roles.includes(rol)) return null
+            if (!puede(item.modulo)) return null
             return (
               <NavLink
                 key={item.to}
@@ -265,12 +227,11 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
 
           // Group
           const group = entry.data
-          const visibleItems = group.items.filter(i => i.roles.includes(rol))
+          const visibleItems = group.items.filter(i => puede(i.modulo))
           if (visibleItems.length === 0) return null
-          if (!group.roles.some(r => r === rol || group.items.some(i => i.roles.includes(rol)))) return null
 
           const isOpen = openGroups.has(group.id)
-          const isGroupActive = visibleItems.some(i => location.pathname.startsWith(i.to))
+          const isGroupActive = visibleItems.some(i => activo(location.pathname, i.to))
 
           return (
             <div key={group.id}>

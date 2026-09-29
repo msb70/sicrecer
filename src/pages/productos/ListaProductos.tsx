@@ -5,11 +5,13 @@ import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Button, Badge, Card, EmptyState } from '../../components/ui'
 import { PRODUCTOS, CONVENIOS, formatCOP } from '../../mocks'
 import { describirCobertura } from '../../lib/ubicaciones'
+import { usePermiso } from '../../context/AppContext'
 
 const METODO_LABEL = { flat: 'Flat', declining_balance: 'Saldo decreciente' }
 const FREQ_LABEL   = { semanal: 'Semanal', quincenal: 'Quincenal', mensual: 'Mensual' }
 
 export default function ListaProductos() {
+  const permiso = usePermiso('productos')
   const navigate = useNavigate()
   const [filtroConvenio, setFiltroConvenio] = useState('todos')
 
@@ -23,7 +25,7 @@ export default function ListaProductos() {
         <PageHeader
           title="Productos crediticios"
           subtitle="Líneas de crédito disponibles por convenio"
-          actions={<Button onClick={() => navigate('/productos/nuevo')}><Plus size={16}/>Nuevo producto</Button>}
+          actions={permiso.editar && (<Button onClick={() => navigate('/productos/nuevo')}><Plus size={16}/>Nuevo producto</Button>)}
         />
 
         {/* Filtro por convenio */}
@@ -51,7 +53,7 @@ export default function ListaProductos() {
               icon={<Plus size={36}/>}
               title="Sin productos"
               description="Crea el primer producto crediticio vinculado a un convenio."
-              action={<Button onClick={() => navigate('/productos/nuevo')}><Plus size={16}/>Nuevo producto</Button>}
+              action={permiso.editar && (<Button onClick={() => navigate('/productos/nuevo')}><Plus size={16}/>Nuevo producto</Button>)}
             />
           </Card>
         ) : (
@@ -95,12 +97,12 @@ export default function ListaProductos() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2 ml-4 flex-shrink-0">
-                        <button
+                        {permiso.editar && (<button
                           onClick={e => { e.stopPropagation(); navigate(`/productos/${prod.id}/editar`) }}
                           className="p-1.5 text-gray-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
                         >
                           <Edit size={15}/>
-                        </button>
+                        </button>)}
                         <ChevronRight size={16} className="text-gray-300"/>
                       </div>
                     </div>

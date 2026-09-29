@@ -6,6 +6,7 @@ import { Button, Badge, Card, StatCard, EmptyState } from '../../components/ui'
 import { CONVENIOS, formatCOP, formatUVC } from '../../mocks'
 import type { EstadoConvenio } from '../../types'
 import { clsx } from 'clsx'
+import { usePermiso } from '../../context/AppContext'
 
 const ESTADO_COLOR: Record<EstadoConvenio, 'green' | 'gray' | 'red'> = {
   activo:     'green',
@@ -16,6 +17,7 @@ const ESTADO_COLOR: Record<EstadoConvenio, 'green' | 'gray' | 'red'> = {
 const PAIS_FLAG: Record<string, string> = { CO: '🇨🇴', VE: '🇻🇪' }
 
 export default function ListaConvenios() {
+  const permiso = usePermiso('convenios')
   const navigate = useNavigate()
   const [filtro, setFiltro] = useState<EstadoConvenio | 'todos'>('todos')
 
@@ -31,7 +33,7 @@ export default function ListaConvenios() {
         <PageHeader
           title="Convenios"
           subtitle="Fondos de cooperantes disponibles para colocación"
-          actions={<Button onClick={() => navigate('/convenios/nuevo')}><Plus size={16} />Nuevo convenio</Button>}
+          actions={permiso.editar && (<Button onClick={() => navigate('/convenios/nuevo')}><Plus size={16} />Nuevo convenio</Button>)}
         />
 
         {/* KPIs */}
@@ -61,7 +63,7 @@ export default function ListaConvenios() {
         {/* Cards de convenios */}
         <div className="space-y-4">
           {filtrados.length === 0 ? (
-            <Card><EmptyState icon={<Plus size={36} />} title="Sin convenios" action={<Button onClick={() => navigate('/convenios/nuevo')}><Plus size={16} />Nuevo convenio</Button>} /></Card>
+            <Card><EmptyState icon={<Plus size={36} />} title="Sin convenios" action={permiso.editar && (<Button onClick={() => navigate('/convenios/nuevo')}><Plus size={16} />Nuevo convenio</Button>)} /></Card>
           ) : filtrados.map(conv => {
             const usado  = conv.monto_total - conv.saldo_disponible
             const pct    = (usado / conv.monto_total) * 100

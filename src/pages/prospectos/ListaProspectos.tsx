@@ -6,6 +6,7 @@ import { Button, Badge, Card, EmptyState } from '../../components/ui'
 import { PROSPECTOS } from '../../mocks'
 import type { EstadoProspecto } from '../../types'
 import { clsx } from 'clsx'
+import { usePermiso } from '../../context/AppContext'
 
 const ESTADO_COLOR: Record<EstadoProspecto, 'blue' | 'yellow' | 'green' | 'gray'> = {
   nuevo:      'blue',
@@ -22,6 +23,7 @@ const ESTADO_LABEL: Record<EstadoProspecto, string> = {
 }
 
 export default function ListaProspectos() {
+  const permiso = usePermiso('prospectos')
   const navigate = useNavigate()
   const [busqueda, setBusqueda] = useState('')
   const [filtroEstado, setFiltroEstado] = useState<EstadoProspecto | 'todos'>('todos')
@@ -40,9 +42,9 @@ export default function ListaProspectos() {
           title="Prospectos"
           subtitle={`${PROSPECTOS.length} registrados en tu zona`}
           actions={
-            <Button onClick={() => navigate('/prospectos/nuevo')}>
+            permiso.editar && (<Button onClick={() => navigate('/prospectos/nuevo')}>
               <Plus size={16} /> Nuevo prospecto
-            </Button>
+            </Button>)
           }
         />
 
@@ -82,7 +84,7 @@ export default function ListaProspectos() {
               icon={<UserPlus size={40} />}
               title="Sin prospectos"
               description="Registra tu primer prospecto para comenzar."
-              action={<Button onClick={() => navigate('/prospectos/nuevo')}><Plus size={16} />Nuevo prospecto</Button>}
+              action={permiso.editar && (<Button onClick={() => navigate('/prospectos/nuevo')}><Plus size={16} />Nuevo prospecto</Button>)}
             />
           ) : (
             <div className="overflow-x-auto">
@@ -124,13 +126,13 @@ export default function ListaProspectos() {
                           >
                             <Eye size={15} />
                           </button>
-                          <button
+                          {permiso.editar && (<button
                             onClick={() => navigate(`/prospectos/${p.id}/editar`)}
                             className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
                             title="Editar"
                           >
                             <Pencil size={15} />
-                          </button>
+                          </button>)}
                           {p.estado !== 'convertido' && !p.solicitante_id && (
                             <button
                               onClick={() => navigate(`/clientes/nuevo?prospecto=${p.id}`)}

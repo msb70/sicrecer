@@ -4,12 +4,13 @@ import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Button, Card, Input, Alert } from '../../components/ui'
 import { REQUISITOS } from '../../mocks'
 import { guardarCatalogo, eliminarCatalogo } from '../../lib/catalogos'
-import { useApp } from '../../context/AppContext'
+import { useApp, usePermiso } from '../../context/AppContext'
 import type { Requisito } from '../../types'
 
 const EMPTY_FORM = { nombre: '', descripcion: '', obligatorio: false }
 
 export default function ListaRequisitos() {
+  const permiso = usePermiso('requisitos')
   const { modo: modoSesion } = useApp()
   const [items, setItems]       = useState<Requisito[]>([...REQUISITOS])
   const [error, setError]       = useState('')
@@ -60,7 +61,7 @@ export default function ListaRequisitos() {
         <PageHeader
           title="Requisitos"
           subtitle="Documentos y condiciones exigidos en los productos crediticios"
-          actions={<Button onClick={abrirNuevo}><Plus size={16}/>Nuevo requisito</Button>}
+          actions={permiso.editar && (<Button onClick={abrirNuevo}><Plus size={16}/>Nuevo requisito</Button>)}
         />
 
         {error && <Alert type="error" className="mb-4">{error}</Alert>}
@@ -128,12 +129,12 @@ export default function ListaRequisitos() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1">
-                        <button
+                        {permiso.editar && (<button
                           onClick={() => abrirEditar(r)}
                           className="p-1.5 text-gray-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
                         >
                           <Edit2 size={14}/>
-                        </button>
+                        </button>)}
                         {confirmar === r.id ? (
                           <span className="flex items-center gap-1.5 text-xs text-red-600 ml-1">
                             ¿Eliminar?
@@ -141,12 +142,12 @@ export default function ListaRequisitos() {
                             <button onClick={() => setConfirmar(null)} className="text-gray-400 hover:underline">No</button>
                           </span>
                         ) : (
-                          <button
+                          permiso.borrar && (<button
                             onClick={() => setConfirmar(r.id)}
                             className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                           >
                             <Trash2 size={14}/>
-                          </button>
+                          </button>)
                         )}
                       </div>
                     </td>
@@ -172,8 +173,8 @@ export default function ListaRequisitos() {
                     </div>
                   </div>
                   <div className="flex gap-1 ml-2 shrink-0">
-                    <button onClick={() => abrirEditar(r)} className="p-2 text-gray-400 hover:text-brand-600 rounded-lg"><Edit2 size={14}/></button>
-                    <button onClick={() => setConfirmar(confirmar === r.id ? null : r.id)} className="p-2 text-gray-400 hover:text-red-500 rounded-lg"><Trash2 size={14}/></button>
+                    {permiso.editar && (<button onClick={() => abrirEditar(r)} className="p-2 text-gray-400 hover:text-brand-600 rounded-lg"><Edit2 size={14}/></button>)}
+                    {permiso.borrar && (<button onClick={() => setConfirmar(confirmar === r.id ? null : r.id)} className="p-2 text-gray-400 hover:text-red-500 rounded-lg"><Trash2 size={14}/></button>)}
                   </div>
                 </div>
                 {confirmar === r.id && (
@@ -190,7 +191,7 @@ export default function ListaRequisitos() {
             <div className="text-center py-12">
               <ClipboardList size={36} className="mx-auto text-gray-200 mb-3"/>
               <p className="text-gray-400 text-sm">No hay requisitos configurados</p>
-              <button onClick={abrirNuevo} className="mt-2 text-xs text-brand-600 hover:underline">Agregar el primero</button>
+              {permiso.editar && (<button onClick={abrirNuevo} className="mt-2 text-xs text-brand-600 hover:underline">Agregar el primero</button>)}
             </div>
           )}
         </Card>

@@ -5,6 +5,7 @@ import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Button, Badge, Card, CardBody, EmptyState } from '../../components/ui'
 import { CLIENTES } from '../../mocks'
 import { clsx } from 'clsx'
+import { usePermiso } from '../../context/AppContext'
 
 // Mock de grupos solidarios
 const GRUPOS = [
@@ -19,6 +20,7 @@ const GRUPOS = [
 ]
 
 export default function GruposSolidarios() {
+  const permisoSol = usePermiso('solicitudes')
   const navigate = useNavigate()
   const [expandido, setExpandido] = useState<string | null>('grp-01')
 
@@ -103,9 +105,9 @@ export default function GruposSolidarios() {
 
                       <div className="flex gap-2">
                         <Button variant="secondary" size="sm">+ Agregar socio</Button>
-                        <Button size="sm" onClick={() => navigate(`/solicitudes/nueva?grupo=${grupo.id}`)}>
+                        {permisoSol.editar && (<Button size="sm" onClick={() => navigate(`/solicitudes/nueva?grupo=${grupo.id}`)}>
                           <Plus size={14} /> Solicitar crédito grupal
-                        </Button>
+                        </Button>)}
                       </div>
                     </CardBody>
                   )}

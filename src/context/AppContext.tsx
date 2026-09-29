@@ -1,10 +1,11 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import type { Rol, Organizacion, Usuario, Solicitante } from '../types'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import type { Rol, Organizacion, Usuario, Solicitante, AccionPermiso, RolConfig } from '../types'
+import { MATRIZ_BASE, matrizDesdeFilas, tienePermiso, type MatrizPermisos } from '../lib/permisos'
 import { neon } from '../lib/neon'
 import { obtenerSolicitante } from '../lib/portal'
 import {
-  ORGANIZACIONES, USUARIOS,
-  cargarDatosDesdeNeon, restaurarDatosDemo,
+  ORGANIZACIONES, USUARIOS, ROLES, ROL_PERMISOS,
+  cargarDatosDesdeNeon, recargarTablas, restaurarDatosDemo,
 } from '../mocks'
 
 type ModoSesion = 'ninguno' | 'demo' | 'google'
@@ -36,6 +37,11 @@ interface AppContextValue {
   verificarOtp: (email: string, otp: string) => Promise<void>
   reenviarOtp: (email: string) => Promise<void>
   restaurarSesion: () => Promise<void>
+  // Roles y permisos
+  rolConfig: RolConfig | null
+  permisos: MatrizPermisos
+  puede: (modulo: string, accion?: AccionPermiso) => boolean
+  refrescarPermisos: () => Promise<void>
 }
 
 const AppContext = createContext<AppContextValue | null>(null)
@@ -52,6 +58,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [emailSesion, setEmailSesion] = useState('')
   const [emailVerificado, setEmailVerificado] = useState(false)
   const [solicitante, setSolicitante] = useState<Solicitante | null>(null)
+  const [versionPermisos, setVersionPermisos] = useState(0)
+
+  // Rol configurable del usuario (usuarios.rol_id); sin él, el rol del sistema de su perfil.
+  const rolId = (modo === 'google' ? usuario.rol_id : null) ?? `rol-${rol}`
+  const rolConfig = useMemo(() => ROLES.find(r => r.id === rolId) ?? null, [rolId, versionPermisos]) // eslint-disable-line react-hooks/exhaustive-deps
+  const permisos = useMemo<MatrizPermisos>(() => {
+    const filas = ROL_PERMISOS.filter(p => p.rol_id === rolId)
+    if (rolConfig && !rolConfig.activo) return { dashboard: { ver: true, editar: false, borrar: false } }
+    return filas.length ? matrizDesdeFilas(filas) : MATRIZ_BASE[rol]
+  }, [rolId, rol, rolConfig, versionPermisos])
+  const puede = useCallback((modulo: string, accion: AccionPermiso = 'ver') => tienePermiso(permisos, modulo, accion), [permisos])
+  const refrescarPermisos = async () => {
+    if (modo === 'google') await recargarTablas('roles', 'usuarios')
+    setVersionPermisos(v => v + 1)
+  }
 
   const setRol = (r: Rol) => {
     // En sesión real el rol viene de la whitelist; no se puede simular.
@@ -95,6 +116,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
         setUsuario(u)
         setRolState(u.rol)
+        setVersionPermisos(v => v + 1)
         setOrganizacion(org)
         setModo('google')
         setTipoSesion('interno')
@@ -204,6 +226,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       login, loginGoogle, logout,
       tipoSesion, emailSesion, emailVerificado, solicitante, setSolicitante,
       loginEmail, registroEmail, verificarOtp, reenviarOtp, restaurarSesion,
+      rolConfig, permisos, puede, refrescarPermisos,
     }}>
       {children}
     </AppContext.Provider>
@@ -214,4 +237,10 @@ export function useApp() {
   const ctx = useContext(AppContext)
   if (!ctx) throw new Error('useApp debe usarse dentro de AppProvider')
   return ctx
+}
+
+/** Permisos del usuario actual sobre un módulo: { ver, editar, borrar }. */
+export function usePermiso(modulo: string) {
+  const { puede } = useApp()
+  return { ver: puede(modulo, 'ver'), editar: puede(modulo, 'editar'), borrar: puede(modulo, 'borrar') }
 }

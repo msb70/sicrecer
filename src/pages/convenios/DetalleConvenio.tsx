@@ -3,10 +3,12 @@ import { ArrowLeft, Edit, AlertTriangle, Package } from 'lucide-react'
 import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Button, Badge, Card, CardHeader, CardBody, StatCard, Alert } from '../../components/ui'
 import { CONVENIOS, PRODUCTOS, formatCOP, formatUVC } from '../../mocks'
+import { usePermiso } from '../../context/AppContext'
 
 const PAIS_FLAG: Record<string, string> = { CO: '🇨🇴', VE: '🇻🇪' }
 
 export default function DetalleConvenio() {
+  const permiso = usePermiso('convenios')
   const navigate = useNavigate()
   const { id } = useParams()
   const conv = CONVENIOS.find(c => c.id === id)
@@ -37,7 +39,7 @@ export default function DetalleConvenio() {
           actions={
             <div className="flex gap-2">
               <Button variant="ghost" onClick={() => navigate('/convenios')}><ArrowLeft size={16}/>Volver</Button>
-              <Button variant="secondary" onClick={() => navigate(`/convenios/${conv.id}/editar`)}><Edit size={16}/>Editar</Button>
+              {permiso.editar && (<Button variant="secondary" onClick={() => navigate(`/convenios/${conv.id}/editar`)}><Edit size={16}/>Editar</Button>)}
             </div>
           }
         />

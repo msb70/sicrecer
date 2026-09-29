@@ -6,7 +6,7 @@ import { Badge, Card, EmptyState } from '../../components/ui'
 import { CLIENTES, formatCOP } from '../../mocks'
 import { BarraFiltros } from '../../components/filtros/BarraFiltros'
 import { FILTROS_VACIOS, coincide, filaDeCliente, type FiltrosCartera } from '../../lib/filtros'
-import { useApp } from '../../context/AppContext'
+import { useApp, usePermiso } from '../../context/AppContext'
 import type { EstadoCliente } from '../../types'
 import { clsx } from 'clsx'
 
@@ -25,6 +25,7 @@ const ESTADO_LABEL: Record<EstadoCliente, string> = {
 }
 
 export default function ListaClientes() {
+  const permisoSol = usePermiso('solicitudes')
   const navigate = useNavigate()
   const [filtros, setFiltros] = useState<FiltrosCartera>(FILTROS_VACIOS)
   const { rol } = useApp()
@@ -141,9 +142,9 @@ export default function ListaClientes() {
                           <button onClick={() => navigate(`/clientes/${c.id}`)} className="p-1.5 text-gray-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors" title="Ver ficha">
                             <Eye size={15} />
                           </button>
-                          <button onClick={() => navigate(`/solicitudes/nueva?cliente=${c.id}`)} className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="Nueva solicitud">
+                          {permisoSol.editar && (<button onClick={() => navigate(`/solicitudes/nueva?cliente=${c.id}`)} className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="Nueva solicitud">
                             <FileText size={15} />
-                          </button>
+                          </button>)}
                         </div>
                       </td>
                     </tr>

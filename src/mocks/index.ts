@@ -10,7 +10,9 @@ import type {
   Prospecto, Cliente, Solicitud, Credito,
   Requisito, ActividadEconomica, Cobranza, Banco, ActividadCRM,
   Comite, ComiteMiembro, ComiteVoto, Solicitante, Zona,
+  RolConfig, PermisoRol, Modulo, Rol,
 } from '../types'
+import { MATRIZ_BASE, MODULOS_BASE } from '../lib/permisos'
 import { neon } from '../lib/neon'
 import * as demo from './fallback'
 import { PAGOS, VISITAS, KPI_REPORTES, cargarExtrasDemo, type Pago, type Visita } from './extra'
@@ -36,6 +38,23 @@ export const COMITE_MIEMBROS: ComiteMiembro[] = []
 export const COMITE_VOTOS: ComiteVoto[] = []
 export const SOLICITANTES: Solicitante[] = []
 export const ZONAS: Zona[] = [...demo.ZONAS_DEMO]
+
+// Roles y permisos (0015). En modo demo se derivan de la matriz base.
+const NOMBRES_ROL: Record<Rol, string> = {
+  administrador: 'Administrador', coordinador: 'Coordinador', facilitador: 'Facilitador', comite: 'Comité', auditor: 'Auditor',
+}
+function rolesDemo(): RolConfig[] {
+  return (Object.keys(NOMBRES_ROL) as Rol[]).map(r => ({
+    id: `rol-${r}`, nombre: NOMBRES_ROL[r], descripcion: null, perfil: r, es_sistema: true, activo: true,
+  }))
+}
+function permisosDemo(): PermisoRol[] {
+  return (Object.keys(MATRIZ_BASE) as Rol[]).flatMap(r =>
+    Object.entries(MATRIZ_BASE[r]).map(([modulo, p]) => ({ rol_id: `rol-${r}`, modulo, ...p! })))
+}
+export const ROLES: RolConfig[] = rolesDemo()
+export const ROL_PERMISOS: PermisoRol[] = permisosDemo()
+export const MODULOS: Modulo[] = [...MODULOS_BASE]
 
 function reemplazar<T>(destino: T[], filas: T[]) {
   destino.splice(0, destino.length, ...filas)
@@ -95,6 +114,7 @@ async function cargarUnaVez(): Promise<boolean> {
     actividades, productos, prospectos, crm, clientes,
     solicitudes, creditos, cobranzas, pagos, visitas, kpis,
     comites, comiteMiembros, comiteVotos, solicitantes, zonas,
+    roles, rolPermisos, modulos,
   ] = await Promise.all([
     tabla<Convenio>('convenios'),
     tabla<Banco>('bancos'),
@@ -118,6 +138,9 @@ async function cargarUnaVez(): Promise<boolean> {
     tabla<ComiteVoto>('comite_votos'),
     tabla<Solicitante>('solicitantes'),
     tablaOpcional<Zona>('zonas', 'nombre'),
+    tablaOpcional<RolConfig>('roles', 'nombre'),
+    tablaOpcional<PermisoRol>('rol_permisos', 'rol_id'),
+    tablaOpcional<Modulo>('modulos', 'orden'),
   ])
 
   reemplazar(ORGANIZACIONES, organizaciones)
@@ -140,6 +163,10 @@ async function cargarUnaVez(): Promise<boolean> {
   reemplazar(COMITE_VOTOS, comiteVotos)
   reemplazar(SOLICITANTES, solicitantes)
   reemplazar(ZONAS, zonas)
+  // Si el Data API aún no expone las tablas de roles, se conserva la matriz base.
+  if (roles.length) reemplazar(ROLES, roles)
+  if (rolPermisos.length) reemplazar(ROL_PERMISOS, rolPermisos)
+  if (modulos.length) reemplazar(MODULOS, modulos)
   if (kpis[0]) Object.assign(KPI_REPORTES, kpis[0].datos)
   return true
 }
@@ -147,7 +174,7 @@ async function cargarUnaVez(): Promise<boolean> {
 /** Recarga selectiva tras una escritura (solicitudes, votos, comités…). */
 export type TablaRecargable = 'solicitudes' | 'comite_votos' | 'comites' | 'comite_miembros' | 'clientes' | 'solicitantes' | 'productos_credito'
   | 'convenios' | 'bancos' | 'requisitos' | 'actividades_economicas'
-  | 'usuarios' | 'organizaciones' | 'prospectos' | 'actividades_crm' | 'visitas' | 'zonas'
+  | 'usuarios' | 'organizaciones' | 'prospectos' | 'actividades_crm' | 'visitas' | 'zonas' | 'roles'
 
 export async function recargarTablas(...nombres: TablaRecargable[]): Promise<void> {
   await Promise.all(nombres.map(async n => {
@@ -169,6 +196,12 @@ export async function recargarTablas(...nombres: TablaRecargable[]): Promise<voi
       case 'actividades_crm':  reemplazar(ACTIVIDADES_CRM, await tabla<ActividadCRM>('actividades_crm')); break
       case 'visitas':          reemplazar(VISITAS, await tabla<Visita>('visitas')); break
       case 'zonas':            reemplazar(ZONAS, await tablaOpcional<Zona>('zonas', 'nombre')); break
+      case 'roles': {
+        const [r, p] = await Promise.all([tablaOpcional<RolConfig>('roles', 'nombre'), tablaOpcional<PermisoRol>('rol_permisos', 'rol_id')])
+        if (r.length) reemplazar(ROLES, r)
+        if (p.length) reemplazar(ROL_PERMISOS, p)
+        break
+      }
     }
   }))
 }
@@ -190,6 +223,7 @@ export function restaurarDatosDemo(): void {
   reemplazar(COBRANZAS, [...demo.COBRANZAS_DEMO])
   reemplazar(COMITES, []); reemplazar(COMITE_MIEMBROS, []); reemplazar(COMITE_VOTOS, []); reemplazar(SOLICITANTES, [])
   reemplazar(ZONAS, [...demo.ZONAS_DEMO])
+  reemplazar(ROLES, rolesDemo()); reemplazar(ROL_PERMISOS, permisosDemo()); reemplazar(MODULOS, [...MODULOS_BASE])
   cargarExtrasDemo()
 }
 

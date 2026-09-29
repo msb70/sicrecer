@@ -6,6 +6,7 @@ import { Button, Badge, Card, CardHeader, CardBody, Alert, StatCard } from '../.
 import { CLIENTES, CREDITOS, SOLICITUDES, formatCOP } from '../../mocks'
 import type { Credito } from '../../types'
 import { TarjetaUbicacion } from '../../components/ubicacion/TarjetaUbicacion'
+import { usePermiso } from '../../context/AppContext'
 
 const ESTADO_LABEL = { activo: 'Activo', al_dia: 'Al día', moroso: 'En mora', inactivo: 'Inactivo' }
 
@@ -163,6 +164,7 @@ function CuotasPanel({ credito }: { credito: Credito }) {
 
 // ─── DETALLE CLIENTE ─────────────────────────────────────────
 export default function DetalleCliente() {
+  const permisoSol = usePermiso('solicitudes')
   const navigate = useNavigate()
   const { id } = useParams()
   const cliente = CLIENTES.find(c => c.id === id)
@@ -192,9 +194,9 @@ export default function DetalleCliente() {
           actions={
             <div className="flex gap-2">
               <Button variant="ghost" onClick={() => navigate('/clientes')}><ArrowLeft size={16} />Volver</Button>
-              <Button onClick={() => navigate(`/solicitudes/nueva?cliente=${id}`)}>
+              {permisoSol.editar && (<Button onClick={() => navigate(`/solicitudes/nueva?cliente=${id}`)}>
                 <FileText size={16} />Nueva solicitud
-              </Button>
+              </Button>)}
             </div>
           }
         />
@@ -329,9 +331,9 @@ export default function DetalleCliente() {
             <Card>
               <CardHeader><h2 className="text-sm font-semibold text-gray-800">Acciones</h2></CardHeader>
               <CardBody className="space-y-2">
-                <Button className="w-full" size="sm" onClick={() => navigate(`/solicitudes/nueva?cliente=${id}`)}>
+                {permisoSol.editar && (<Button className="w-full" size="sm" onClick={() => navigate(`/solicitudes/nueva?cliente=${id}`)}>
                   <CreditCard size={14} /> Nueva solicitud
-                </Button>
+                </Button>)}
                 <Button variant="secondary" className="w-full" size="sm">
                   <Calendar size={14} /> Agendar visita
                 </Button>

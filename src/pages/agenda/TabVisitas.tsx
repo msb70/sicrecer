@@ -3,7 +3,7 @@ import { MapPin, Clock, CheckCircle2, AlertTriangle, RefreshCw, Plus, Calendar }
 import { Button, Badge, Card, StatCard, Alert } from '../../components/ui'
 import { VISITAS } from '../../mocks/extra'
 import { CLIENTES, PROSPECTOS, ZONAS } from '../../mocks'
-import { useApp } from '../../context/AppContext'
+import { useApp, usePermiso } from '../../context/AppContext'
 import { guardarCatalogo } from '../../lib/catalogos'
 import type { Visita, TipoVisita, EstadoVisita } from '../../mocks/extra'
 import { clsx } from 'clsx'
@@ -38,6 +38,7 @@ function fechaLocal(desplazamiento = 0): string {
 const fechaLarga = (f: string) => new Date(`${f}T00:00:00`).toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' })
 
 export default function TabVisitas() {
+  const permiso = usePermiso('agenda')
   const { modo, usuario } = useApp()
   const [visitas, setVisitas] = useState<Visita[]>([...VISITAS])
   const [error, setError] = useState('')
@@ -77,7 +78,7 @@ export default function TabVisitas() {
   return (
     <div>
         <div className="flex justify-end mb-4">
-          <Button onClick={() => setMostrarNuevaVisita(true)}><Plus size={16}/>Nueva visita</Button>
+          {permiso.editar && (<Button onClick={() => setMostrarNuevaVisita(true)}><Plus size={16}/>Nueva visita</Button>)}
         </div>
 
         {/* KPIs del día */}

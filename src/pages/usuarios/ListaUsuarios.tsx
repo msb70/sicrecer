@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { Plus, Edit, Shield } from 'lucide-react'
 import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Button, Badge, Card, StatCard } from '../../components/ui'
-import { USUARIOS, ORGANIZACIONES } from '../../mocks'
+import { USUARIOS, ORGANIZACIONES, ROLES } from '../../mocks'
+import { usePermiso } from '../../context/AppContext'
 import { ROL_LABELS } from '../../types'
 import type { Rol } from '../../types'
 import { clsx } from 'clsx'
@@ -16,8 +17,12 @@ const ROL_COLOR: Record<Rol, 'green' | 'blue' | 'yellow' | 'orange' | 'gray'> = 
   auditor:       'gray',
 }
 
+const nombreRol = (u: { rol: Rol; rol_id?: string | null }) =>
+  ROLES.find(r => r.id === (u.rol_id ?? `rol-${u.rol}`))?.nombre ?? ROL_LABELS[u.rol]
+
 export default function ListaUsuarios() {
   const navigate = useNavigate()
+  const permiso = usePermiso('usuarios')
   const [filtroRol, setFiltroRol] = useState<Rol | 'todos'>('todos')
   const [busqueda, setBusqueda] = useState('')
 
@@ -33,7 +38,7 @@ export default function ListaUsuarios() {
         <PageHeader
           title="Usuarios y roles"
           subtitle="Gestión de acceso al sistema"
-          actions={<Button onClick={() => navigate('/usuarios/nuevo')}><Plus size={16}/>Nuevo usuario</Button>}
+          actions={permiso.editar && <Button onClick={() => navigate('/usuarios/nuevo')}><Plus size={16}/>Nuevo usuario</Button>}
         />
 
         {/* KPIs */}
@@ -99,15 +104,15 @@ export default function ListaUsuarios() {
                     </td>
                     <td className="px-4 py-3 text-gray-500">{user.email}</td>
                     <td className="px-4 py-3 text-gray-500 text-xs">{ORGANIZACIONES.find(o => o.id === user.organizacion_id)?.nombre ?? '—'}</td>
-                    <td className="px-4 py-3"><Badge color={ROL_COLOR[user.rol]}>{ROL_LABELS[user.rol]}</Badge></td>
+                    <td className="px-4 py-3"><Badge color={ROL_COLOR[user.rol]}>{nombreRol(user)}</Badge></td>
                     <td className="px-4 py-3 text-gray-500">{user.zona ?? '—'}</td>
                     <td className="px-4 py-3">
-                      <button
+                      {permiso.editar && <button
                         onClick={() => navigate(`/usuarios/${user.id}/editar`)}
                         className="p-1.5 text-gray-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
                       >
                         <Edit size={15}/>
-                      </button>
+                      </button>}
                     </td>
                   </tr>
                 ))}
@@ -129,12 +134,12 @@ export default function ListaUsuarios() {
                       <p className="text-xs text-gray-400">{user.email}</p>
                     </div>
                   </div>
-                  <button onClick={() => navigate(`/usuarios/${user.id}/editar`)} className="p-2 text-gray-400 hover:text-brand-600">
+                  {permiso.editar && <button onClick={() => navigate(`/usuarios/${user.id}/editar`)} className="p-2 text-gray-400 hover:text-brand-600">
                     <Edit size={16}/>
-                  </button>
+                  </button>}
                 </div>
                 <div className="flex gap-2 mt-3">
-                  <Badge color={ROL_COLOR[user.rol]}>{ROL_LABELS[user.rol]}</Badge>
+                  <Badge color={ROL_COLOR[user.rol]}>{nombreRol(user)}</Badge>
                   {user.zona && <span className="text-xs text-gray-500 self-center">{user.zona}</span>}
                   {user.primer_acceso && <Badge color="yellow">Sin activar</Badge>}
                 </div>

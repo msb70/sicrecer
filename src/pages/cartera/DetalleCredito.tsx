@@ -4,7 +4,7 @@ import { ArrowLeft, DollarSign, CheckCircle2, Clock, AlertTriangle, RefreshCw } 
 import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Button, Badge, Card, CardHeader, CardBody, StatCard, Alert, Spinner } from '../../components/ui'
 import { CREDITOS, CLIENTES, PRODUCTOS, BANCOS, formatCOP, cargarDatosDesdeNeon } from '../../mocks'
-import { useApp } from '../../context/AppContext'
+import { useApp, usePermiso } from '../../context/AppContext'
 import { generarPlan } from '../../lib/finanzas'
 import { obtenerEstadoCuenta, aplicarPago } from '../../lib/creditos'
 import { DistribucionPago } from '../../components/credito/DistribucionPago'
@@ -59,9 +59,10 @@ function estadoDemo(credito: Credito): EstadoCuenta {
 }
 
 export default function DetalleCredito() {
+  const permiso = usePermiso('cobranza')
   const navigate = useNavigate()
   const { id } = useParams()
-  const { modo, rol } = useApp()
+  const { modo, puede } = useApp()
   const creditoMem = CREDITOS.find(c => c.id === id)
 
   const [estado, setEstado] = useState<EstadoCuenta | null>(null)
@@ -90,7 +91,7 @@ export default function DetalleCredito() {
 
   const credito = estado?.credito ?? creditoMem
   const cliente = CLIENTES.find(c => c.id === credito?.cliente_id)
-  const puedeCobrar = ['administrador', 'coordinador', 'facilitador'].includes(rol)
+  const puedeCobrar = puede('cobranza', 'editar')
   const cargosPendientes = useMemo(() => (estado?.cargos ?? []).filter(c => c.estado === 'pendiente'), [estado])
 
   if (!credito) {
@@ -124,7 +125,7 @@ export default function DetalleCredito() {
               <Button variant="ghost" onClick={() => navigate('/cartera')}><ArrowLeft size={16}/>Volver</Button>
               <Button variant="secondary" onClick={() => void cargar()} disabled={cargando}><RefreshCw size={15}/>Actualizar</Button>
               {activo && puedeCobrar && (
-                <Button onClick={() => setMostrarRegistro(true)}><DollarSign size={16}/>Registrar pago</Button>
+                permiso.editar && (<Button onClick={() => setMostrarRegistro(true)}><DollarSign size={16}/>Registrar pago</Button>)
               )}
             </div>
           }

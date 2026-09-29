@@ -6,7 +6,7 @@ import { SelectorCobertura } from '../../components/ubicacion/SelectorCobertura'
 import { USUARIOS, CLIENTES, CREDITOS, ZONAS, formatCOP, recargarTablas } from '../../mocks'
 import { guardarCatalogo } from '../../lib/catalogos'
 import { describirCobertura } from '../../lib/ubicaciones'
-import { useApp } from '../../context/AppContext'
+import { useApp, usePermiso } from '../../context/AppContext'
 import type { Zona } from '../../types'
 
 /**
@@ -16,6 +16,7 @@ import type { Zona } from '../../types'
  * en la zona que cubre su ciudad/localidad.
  */
 export default function Zonificacion() {
+  const permiso = usePermiso('zonas')
   const { modo, organizacion } = useApp()
   const [, refrescar] = useState(0)
   const [editando, setEditando] = useState<Zona | 'nueva' | null>(null)
@@ -62,7 +63,7 @@ export default function Zonificacion() {
         <PageHeader
           title="Zonas y facilitadores"
           subtitle="Cada zona tiene un facilitador, que lleva la cartera de los clientes de esa zona"
-          actions={<Button onClick={() => setEditando('nueva')}><Plus size={16} />Nueva zona</Button>}
+          actions={permiso.editar && (<Button onClick={() => setEditando('nueva')}><Plus size={16} />Nueva zona</Button>)}
         />
 
         {error && <Alert type="error" className="mb-4">{error}</Alert>}
@@ -91,7 +92,7 @@ export default function Zonificacion() {
                     <div className="flex items-center gap-2">
                       {!zona.activo && <Badge color="gray">Inactiva</Badge>}
                       {fac ? <Badge color="green">{fac.nombre}</Badge> : <Badge color="red">Sin facilitador</Badge>}
-                      <button onClick={() => setEditando(zona)} className="p-1 text-gray-400 hover:text-gray-700" title="Editar zona"><Pencil size={14} /></button>
+                      {permiso.editar && (<button onClick={() => setEditando(zona)} className="p-1 text-gray-400 hover:text-gray-700" title="Editar zona"><Pencil size={14} /></button>)}
                     </div>
                   </div>
                 </CardHeader>
@@ -108,7 +109,7 @@ export default function Zonificacion() {
                   <label className="text-xs font-medium text-gray-700 block mb-1">Facilitador de la zona</label>
                   <select
                     value={zona.facilitador_id ?? ''}
-                    disabled={guardandoId === zona.id}
+                    disabled={guardandoId === zona.id || !permiso.editar}
                     onChange={e => void guardar(zona.id, { facilitador_id: e.target.value || null })}
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white outline-none focus:border-brand-500"
                   >

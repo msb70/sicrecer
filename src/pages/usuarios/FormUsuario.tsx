@@ -3,10 +3,9 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Save, Trash2, Info } from 'lucide-react'
 import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Button, Input, Select, Card, CardHeader, CardBody, Alert } from '../../components/ui'
-import { USUARIOS, ORGANIZACIONES, ZONAS } from '../../mocks'
-import { useApp } from '../../context/AppContext'
+import { USUARIOS, ORGANIZACIONES, ZONAS, ROLES } from '../../mocks'
+import { useApp, usePermiso } from '../../context/AppContext'
 import { guardarCatalogo, eliminarCatalogo } from '../../lib/catalogos'
-import { ROL_LABELS } from '../../types'
 import type { Rol } from '../../types'
 
 const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -21,6 +20,7 @@ export default function FormUsuario() {
   const navigate = useNavigate()
   const { id } = useParams()
   const { modo, usuario: yo, organizacion } = useApp()
+  const permiso = usePermiso('usuarios')
   const usuario = id ? USUARIOS.find(u => u.id === id) : null
   const esEdicion = Boolean(usuario)
   const esYoMismo = Boolean(usuario && yo && usuario.id === yo.id)
@@ -28,7 +28,7 @@ export default function FormUsuario() {
   const [form, setForm] = useState({
     nombre:          usuario?.nombre          ?? '',
     email:           usuario?.email           ?? '',
-    rol:             usuario?.rol             ?? 'facilitador' as Rol,
+    rol_id:          usuario?.rol_id ?? (usuario ? `rol-${usuario.rol}` : 'rol-facilitador'),
     zona:            usuario?.zona            ?? '',
     organizacion_id: usuario?.organizacion_id ?? organizacion?.id ?? '',
   })
@@ -39,28 +39,32 @@ export default function FormUsuario() {
 
   const campo = (k: string, v: string) => setForm(prev => ({ ...prev, [k]: v }))
 
+  const rolSel = ROLES.find(r => r.id === form.rol_id)
+  const perfil: Rol = rolSel?.perfil ?? usuario?.rol ?? 'facilitador'
   const rolesTienenZona: Rol[] = ['facilitador', 'coordinador']
-  const necesitaZona = rolesTienenZona.includes(form.rol as Rol)
+  const necesitaZona = rolesTienenZona.includes(perfil)
   const email = form.email.trim().toLowerCase()
 
   const guardar = async () => {
     setError('')
     if (!EMAIL_OK.test(email)) { setError('Correo electrónico inválido'); return }
     if (!esEdicion && USUARIOS.some(u => u.email.toLowerCase() === email)) { setError('Ya existe un usuario con ese correo'); return }
-    if (esYoMismo && form.rol !== usuario!.rol) { setError('No puedes cambiar tu propio rol'); return }
+    if (esYoMismo && form.rol_id !== (usuario!.rol_id ?? `rol-${usuario!.rol}`)) { setError('No puedes cambiar tu propio rol'); return }
+    if (!rolSel) { setError('Selecciona un rol'); return }
     if (modo !== 'google') { setError('En modo demo no se guardan cambios.'); return }
     setGuardando(true)
     try {
       const fila = {
         nombre: form.nombre.trim(),
         email,
-        rol: form.rol,
+        rol: perfil,
+        rol_id: form.rol_id,
         zona: necesitaZona ? (form.zona || null) : null,
         organizacion_id: form.organizacion_id,
       }
       const idUsuario = await guardarCatalogo('usuarios', esEdicion ? fila : { ...fila, primer_acceso: true }, usuario?.id ?? null, 'u')
       // El facilitador es por zona: la zona elegida pasa a ser suya (y con ella su cartera).
-      const zona = form.rol === 'facilitador' && form.zona ? ZONAS.find(z => z.nombre === form.zona) : undefined
+      const zona = perfil === 'facilitador' && form.zona ? ZONAS.find(z => z.nombre === form.zona) : undefined
       if (zona && zona.facilitador_id !== idUsuario) {
         await guardarCatalogo('zonas', { facilitador_id: idUsuario }, zona.id)
       }
@@ -133,13 +137,18 @@ export default function FormUsuario() {
                 ]}
               />
 
-              <Select
-                label="Rol"
-                value={form.rol}
-                onChange={e => campo('rol', e.target.value)}
-                disabled={esYoMismo}
-                options={(Object.keys(ROL_LABELS) as Rol[]).map(r => ({ value: r, label: ROL_LABELS[r] }))}
-              />
+              <div>
+                <Select
+                  label="Rol"
+                  value={form.rol_id}
+                  onChange={e => campo('rol_id', e.target.value)}
+                  disabled={esYoMismo}
+                  options={ROLES.filter(r => r.activo || r.id === form.rol_id).map(r => ({ value: r.id, label: r.nombre }))}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  {rolSel?.descripcion ?? ''} Los permisos de cada rol se configuran en Configuración → Roles y permisos.
+                </p>
+              </div>
 
               {necesitaZona && (
                 <Select
@@ -164,7 +173,7 @@ export default function FormUsuario() {
 
               <div className="flex justify-between gap-3 pt-2">
                 <div>
-                  {esEdicion && !esYoMismo && (
+                  {esEdicion && !esYoMismo && permiso.borrar && (
                     confirmarEliminar ? (
                       <div className="flex gap-2">
                         <Button variant="ghost" onClick={() => setConfirmarEliminar(false)}>No</Button>

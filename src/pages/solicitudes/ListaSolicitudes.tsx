@@ -9,6 +9,7 @@ import { BarraFiltros } from '../../components/filtros/BarraFiltros'
 import { FILTROS_VACIOS, coincide, filaDeSolicitud, type FiltrosCartera } from '../../lib/filtros'
 import type { EstadoSolicitud } from '../../types'
 import { clsx } from 'clsx'
+import { usePermiso } from '../../context/AppContext'
 
 const ESTADO_CONFIG: Record<EstadoSolicitud, { label: string; color: 'blue'|'yellow'|'green'|'red'|'gray'|'purple' }> = {
   borrador:        { label: 'Borrador',        color: 'gray'   },
@@ -26,6 +27,7 @@ const BANDA_COLOR: Record<string, 'green'|'blue'|'yellow'|'orange'|'red'> = {
 }
 
 export default function ListaSolicitudes() {
+  const permiso = usePermiso('solicitudes')
   const navigate = useNavigate()
   const [filtros, setFiltros] = useState<FiltrosCartera>(FILTROS_VACIOS)
   const [filtroEstado, setFiltroEstado] = useState<EstadoSolicitud | 'todos'>('todos')
@@ -45,9 +47,9 @@ export default function ListaSolicitudes() {
           title="Solicitudes de crédito"
           subtitle={`${SOLICITUDES.length} solicitudes registradas${pendientesPortal ? ` · ${pendientesPortal} del portal pendientes de revisión` : ''}`}
           actions={
-            <Button onClick={() => navigate('/solicitudes/nueva')}>
+            permiso.editar && (<Button onClick={() => navigate('/solicitudes/nueva')}>
               <Plus size={16} />Nueva solicitud
-            </Button>
+            </Button>)
           }
         />
 
@@ -65,7 +67,7 @@ export default function ListaSolicitudes() {
 
         <Card>
           {filtrados.length === 0 ? (
-            <EmptyState icon={<FileText size={40} />} title="Sin solicitudes" action={<Button onClick={() => navigate('/solicitudes/nueva')}><Plus size={16} />Nueva solicitud</Button>} />
+            <EmptyState icon={<FileText size={40} />} title="Sin solicitudes" action={permiso.editar && (<Button onClick={() => navigate('/solicitudes/nueva')}><Plus size={16} />Nueva solicitud</Button>)} />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">

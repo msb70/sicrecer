@@ -10,7 +10,7 @@ export type TablaCatalogo = Extract<TablaRecargable,
   'convenios' | 'bancos' | 'requisitos' | 'actividades_economicas'
   | 'usuarios' | 'organizaciones' | 'prospectos' | 'actividades_crm' | 'visitas' | 'clientes' | 'solicitudes' | 'zonas'>
 
-function mensaje(err: { message?: string; code?: string } | null): string {
+export function mensaje(err: { message?: string; code?: string } | null): string {
   const m = err?.message ?? 'Error desconocido'
   if (err?.code === '42501' || /row-level security|permission denied/i.test(m)) {
     return 'Tu rol no tiene permiso para esta operación.'
@@ -32,7 +32,7 @@ const esRls = (err: { message?: string; code?: string } | null) =>
  * Ejecuta una escritura reintentando cuando la RLS la rechaza: el Data API a
  * veces resuelve la petición sin identidad (ver cargarDatosDesdeNeon).
  */
-async function conReintento<R extends { error: { message?: string; code?: string } | null }>(op: () => PromiseLike<R>): Promise<R> {
+export async function conReintento<R extends { error: { message?: string; code?: string } | null }>(op: () => PromiseLike<R>): Promise<R> {
   let r = await op()
   for (let i = 1; i <= 2 && esRls(r.error); i++) {
     await esperar(400 * i)

@@ -3,7 +3,7 @@ import { createBrowserRouter, RouterProvider, Navigate, useLocation } from 'reac
 import { BrandLogo } from '../components/BrandLogo'
 import { Spinner } from '../components/ui'
 import { useApp } from '../context/AppContext'
-import { puedeAcceder } from '../lib/permisos'
+import { puedeAccederCon } from '../lib/permisos'
 
 // Auth
 import Login             from '../pages/auth/Login'
@@ -25,7 +25,6 @@ import AgendaFacilitador from '../pages/agenda/AgendaFacilitador'
 import Reportes          from '../pages/reportes/Reportes'
 
 // Sprint 8 — Asistente IA y Configuración
-import AsistenteIA       from '../pages/asistente/AsistenteIA'
 import Configuracion     from '../pages/configuracion/Configuracion'
 
 // Calculadora
@@ -65,6 +64,10 @@ import DetalleSolicitud  from '../pages/solicitudes/DetalleSolicitud'
 import ListaComites      from '../pages/comites/ListaComites'
 import FormComite        from '../pages/comites/FormComite'
 
+// Roles y permisos
+import ListaRoles        from '../pages/roles/ListaRoles'
+import FormRol           from '../pages/roles/FormRol'
+
 // Portal de solicitantes
 import Registro                from '../pages/portal/Registro'
 import Verificar               from '../pages/portal/Verificar'
@@ -102,6 +105,19 @@ function Cargando() {
   )
 }
 
+/** Rol sin permiso ni al dashboard (p. ej. rol desactivado mal configurado). */
+function SinAcceso() {
+  const { logout } = useApp()
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-gray-50 px-4 text-center">
+      <BrandLogo framed imageClassName="w-40" />
+      <p className="text-base font-medium text-gray-800">Tu rol no tiene pantallas habilitadas.</p>
+      <p className="text-sm text-gray-500">Pide al administrador que revise tus permisos en Configuración → Roles.</p>
+      <button onClick={logout} className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 text-sm font-medium hover:bg-white">Cerrar sesión</button>
+    </div>
+  )
+}
+
 /** Raíz: decide a dónde va cada tipo de sesión. */
 function Inicio() {
   const { autenticado, cargandoSesion, tipoSesion } = useApp()
@@ -120,7 +136,7 @@ function PortalRoute({ children }: { children: React.ReactNode }) {
 }
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
-  const { autenticado, cargandoSesion, rol, tipoSesion } = useApp()
+  const { autenticado, cargandoSesion, permisos, tipoSesion } = useApp()
   const { pathname } = useLocation()
 
   // Mientras se restaura la sesión (p. ej. tras el redirect de Google),
@@ -130,9 +146,11 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
   if (!autenticado) return <Navigate to="/login" replace />
   if (tipoSesion === 'solicitante') return <Navigate to="/portal" replace />
 
-  // Guarda por rol: si la ruta no está permitida para el rol actual,
-  // volver al dashboard. (La barrera real de datos es RLS en la BD.)
-  if (!puedeAcceder(rol, pathname)) return <Navigate to="/dashboard" replace />
+  // Guarda por permisos del rol (ver / editar según la ruta): si no está
+  // permitida, volver al dashboard. (La barrera real de datos es RLS en la BD.)
+  if (!puedeAccederCon(permisos, pathname)) {
+    return pathname === '/dashboard' ? <SinAcceso /> : <Navigate to="/dashboard" replace />
+  }
 
   return <>{children}</>
 }
@@ -174,6 +192,11 @@ const router = createBrowserRouter([
   { path: '/usuarios/nuevo',       element: <PrivateRoute><FormUsuario /></PrivateRoute> },
   { path: '/usuarios/:id/editar',  element: <PrivateRoute><FormUsuario /></PrivateRoute> },
 
+  // Roles y permisos
+  { path: '/roles',             element: <PrivateRoute><ListaRoles /></PrivateRoute> },
+  { path: '/roles/nuevo',       element: <PrivateRoute><FormRol /></PrivateRoute> },
+  { path: '/roles/:id/editar',  element: <PrivateRoute><FormRol /></PrivateRoute> },
+
   // Sprint 3 — Prospectos
   { path: '/prospectos',              element: <PrivateRoute><ListaProspectos /></PrivateRoute> },
   { path: '/prospectos/nuevo',        element: <PrivateRoute><FormProspecto /></PrivateRoute> },
@@ -210,7 +233,6 @@ const router = createBrowserRouter([
   // Sprint 7 — Reportes
   { path: '/reportes',      element: <PrivateRoute><Reportes /></PrivateRoute> },
   // Sprint 8 — Asistente IA y Configuración
-  { path: '/asistente',     element: <PrivateRoute><AsistenteIA /></PrivateRoute> },
   { path: '/configuracion', element: <PrivateRoute><Configuracion /></PrivateRoute> },
 
   // Calculadora

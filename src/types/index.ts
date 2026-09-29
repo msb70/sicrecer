@@ -38,6 +38,37 @@ export interface Usuario {
   zona?: string
   organizacion_id: string
   primer_acceso?: boolean
+  /** Rol configurable (tabla roles). `rol` es el perfil base que usa la RLS. */
+  rol_id?: string | null
+}
+
+// ─── ROLES Y PERMISOS ─────────────────────────────────────────
+export type AccionPermiso = 'ver' | 'editar' | 'borrar'
+
+export interface Modulo {
+  id: string
+  nombre: string
+  grupo: string
+  orden: number
+  acciones: AccionPermiso[]
+}
+
+export interface RolConfig {
+  id: string
+  nombre: string
+  descripcion?: string | null
+  /** Perfil base: define el alcance de datos (cartera propia vs. toda la cartera). */
+  perfil: Rol
+  es_sistema: boolean
+  activo: boolean
+}
+
+export interface PermisoRol {
+  rol_id: string
+  modulo: string
+  ver: boolean
+  editar: boolean
+  borrar: boolean
 }
 
 // ─── CONVENIO ─────────────────────────────────────────────────

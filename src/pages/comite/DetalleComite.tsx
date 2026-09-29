@@ -22,7 +22,7 @@ type Decision = 'aprobado' | 'rechazado'
 export default function DetalleComite() {
   const navigate = useNavigate()
   const { id } = useParams()
-  const { usuario, rol } = useApp()
+  const { usuario, rol, puede } = useApp()
   const [, setTick] = useState(0)
 
   const solicitud  = SOLICITUDES.find(s => s.id === id)
@@ -33,7 +33,7 @@ export default function DetalleComite() {
   const miembros   = COMITE_MIEMBROS.filter(m => m.comite_id === solicitud?.comite_id)
   const votos      = COMITE_VOTOS.filter(v => v.solicitud_id === solicitud?.id)
   const miVoto     = votos.find(v => v.usuario_id === usuario.id)
-  const soyMiembro = miembros.some(m => m.usuario_id === usuario.id) || rol === 'administrador'
+  const soyMiembro = (miembros.some(m => m.usuario_id === usuario.id) || rol === 'administrador') && puede('comite', 'editar')
 
   const [decision, setDecision] = useState<Decision | null>(miVoto?.decision ?? null)
   const [comentario, setComentario] = useState(miVoto?.comentario ?? '')
@@ -235,7 +235,7 @@ export default function DetalleComite() {
               <CardHeader><h2 className="text-sm font-semibold text-gray-800">{miVoto ? 'Cambiar mi voto' : 'Mi voto'}</h2></CardHeader>
               <CardBody className="space-y-3">
                 {!enComite && <p className="text-sm text-gray-500">La solicitud ya está resuelta.</p>}
-                {enComite && !soyMiembro && <p className="text-sm text-gray-500">No eres miembro de este comité.</p>}
+                {enComite && !soyMiembro && <p className="text-sm text-gray-500">No eres miembro de este comité o tu rol no permite votar.</p>}
                 {enComite && soyMiembro && (
                   <>
                     <div className="grid grid-cols-2 gap-2">

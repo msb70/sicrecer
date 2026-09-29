@@ -4,10 +4,11 @@ import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Button, Input, Card, CardBody, EmptyState, Badge, Alert } from '../../components/ui'
 import { BANCOS } from '../../mocks'
 import { guardarCatalogo, eliminarCatalogo } from '../../lib/catalogos'
-import { useApp } from '../../context/AppContext'
+import { useApp, usePermiso } from '../../context/AppContext'
 import type { Banco } from '../../types'
 
 export default function ListaBancos() {
+  const permiso = usePermiso('bancos')
   const { modo } = useApp()
   const [bancos, setBancos] = useState<Banco[]>([...BANCOS])
   const [error, setError] = useState('')
@@ -61,7 +62,7 @@ export default function ListaBancos() {
           title="Bancos"
           subtitle={`${bancos.length} bancos registrados · Catálogo usado en cobranza`}
           actions={
-            <Button onClick={abrirNuevo}><Plus size={16} />Nuevo banco</Button>
+            permiso.editar && (<Button onClick={abrirNuevo}><Plus size={16} />Nuevo banco</Button>)
           }
         />
 
@@ -117,7 +118,7 @@ export default function ListaBancos() {
             <EmptyState
               icon={<Landmark size={40} />}
               title="Sin bancos registrados"
-              action={<Button onClick={abrirNuevo}><Plus size={16} />Nuevo banco</Button>}
+              action={permiso.editar && (<Button onClick={abrirNuevo}><Plus size={16} />Nuevo banco</Button>)}
             />
           ) : (
             <div className="overflow-x-auto">
@@ -164,18 +165,18 @@ export default function ListaBancos() {
                           </div>
                         ) : (
                           <div className="flex items-center gap-1">
-                            <button
+                            {permiso.editar && (<button
                               onClick={() => abrirEditar(b)}
                               className="p-1.5 text-gray-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
                             >
                               <Pencil size={14} />
-                            </button>
-                            <button
+                            </button>)}
+                            {permiso.borrar && (<button
                               onClick={() => setConfirmarEliminar(b.id)}
                               className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                             >
                               <Trash2 size={14} />
-                            </button>
+                            </button>)}
                           </div>
                         )}
                       </td>

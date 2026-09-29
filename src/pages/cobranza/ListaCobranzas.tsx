@@ -5,8 +5,10 @@ import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Button, Card, Badge, StatCard } from '../../components/ui'
 import { COBRANZAS, CLIENTES, CREDITOS, formatCOP } from '../../mocks'
 import type { Cobranza } from '../../types'
+import { usePermiso } from '../../context/AppContext'
 
 export default function ListaCobranzas() {
+  const permiso = usePermiso('cobranza')
   const navigate = useNavigate()
   const [items]        = useState<Cobranza[]>(COBRANZAS)
   const [clienteFiltro, setClienteFiltro] = useState('')
@@ -26,7 +28,7 @@ export default function ListaCobranzas() {
         <PageHeader
           title="Cobranza"
           subtitle="Registro de depósitos y aplicación de cuotas"
-          actions={<Button onClick={() => navigate('/cobranza/nueva')}><Plus size={16}/>Nueva cobranza</Button>}
+          actions={permiso.editar && (<Button onClick={() => navigate('/cobranza/nueva')}><Plus size={16}/>Nueva cobranza</Button>)}
         />
 
         {/* KPIs */}
@@ -133,9 +135,9 @@ export default function ListaCobranzas() {
             <div className="text-center py-12">
               <Banknote size={36} className="mx-auto text-gray-200 mb-3"/>
               <p className="text-gray-400 text-sm">No hay cobranzas registradas</p>
-              <button onClick={() => navigate('/cobranza/nueva')} className="mt-2 text-xs text-brand-600 hover:underline">
+              {permiso.editar && (<button onClick={() => navigate('/cobranza/nueva')} className="mt-2 text-xs text-brand-600 hover:underline">
                 Registrar primera cobranza
-              </button>
+              </button>)}
             </div>
           )}
         </Card>

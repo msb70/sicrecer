@@ -8,7 +8,7 @@ import {
 import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Button, Badge, Card, CardHeader, CardBody, Alert } from '../../components/ui'
 import { PROSPECTOS, ACTIVIDADES_CRM } from '../../mocks'
-import { useApp } from '../../context/AppContext'
+import { useApp, usePermiso } from '../../context/AppContext'
 import { guardarCatalogo } from '../../lib/catalogos'
 import type { ActividadCRM, TipoActividadCRM } from '../../types'
 import { describirUbicacion, etiquetaLocalidad } from '../../lib/ubicaciones'
@@ -42,6 +42,7 @@ const TIPO_CONFIG: Record<TipoActividadCRM, { label: string; icon: React.ReactNo
 const ordenar = (xs: ActividadCRM[]) => [...xs].sort((a, b) => b.fecha.localeCompare(a.fecha))
 
 export default function DetalleProspecto() {
+  const permiso = usePermiso('prospectos')
   const navigate = useNavigate()
   const { id } = useParams()
   const prospecto = PROSPECTOS.find(p => p.id === id)
@@ -114,7 +115,7 @@ export default function DetalleProspecto() {
           actions={
             <div className="flex gap-2">
               <Button variant="ghost" onClick={() => navigate('/prospectos')}><ArrowLeft size={16} />Volver</Button>
-              <Button variant="secondary" onClick={() => navigate(`/prospectos/${id}/editar`)}><Pencil size={16} />Editar</Button>
+              {permiso.editar && (<Button variant="secondary" onClick={() => navigate(`/prospectos/${id}/editar`)}><Pencil size={16} />Editar</Button>)}
               {prospecto.estado !== 'convertido' && !prospecto.solicitante_id && (
                 <Button onClick={() => navigate(`/clientes/nuevo?prospecto=${id}`)}>
                   <UserPlus size={16} />Convertir a cliente
@@ -344,9 +345,9 @@ export default function DetalleProspecto() {
             <Card>
               <CardHeader><h2 className="text-sm font-semibold text-gray-800">Acciones rápidas</h2></CardHeader>
               <CardBody className="space-y-2">
-                <Button variant="secondary" className="w-full" size="sm" onClick={() => navigate(`/prospectos/${id}/editar`)}>
+                {permiso.editar && (<Button variant="secondary" className="w-full" size="sm" onClick={() => navigate(`/prospectos/${id}/editar`)}>
                   <Pencil size={14} /> Editar datos
-                </Button>
+                </Button>)}
                 {prospecto.solicitante_id && prospecto.estado !== 'convertido' && (
                   <Alert type="info">
                     Viene del portal: se convierte en cliente automáticamente cuando el comité aprueba su solicitud.{' '}

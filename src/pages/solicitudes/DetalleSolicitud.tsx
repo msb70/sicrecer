@@ -30,7 +30,7 @@ const ESTADO_CONFIG = {
 export default function DetalleSolicitud() {
   const navigate = useNavigate()
   const { id } = useParams()
-  const { rol } = useApp()
+  const { rol, puede } = useApp()
   const [, setTick] = useState(0)
   const solicitud = SOLICITUDES.find(s => s.id === id)
   const cliente  = CLIENTES.find(c => c.id === solicitud?.cliente_id)
@@ -45,7 +45,7 @@ export default function DetalleSolicitud() {
   const [mostrarDesembolso, setMostrarDesembolso] = useState(false)
   const [recarga, setRecarga] = useState(0)
   const creditoGenerado = CREDITOS.find(c => c.solicitud_id === solicitud?.id)
-  const puedeDesembolsar = ['administrador', 'coordinador'].includes(rol)
+  const puedeDesembolsar = puede('desembolsos', 'editar')
     && solicitud && ['aprobada', 'firma'].includes(solicitud.estado) && !creditoGenerado && Boolean(producto)
 
   useEffect(() => {
@@ -55,7 +55,7 @@ export default function DetalleSolicitud() {
       .catch(() => {})
   }, [solicitante?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const puedeEnviar = ['administrador', 'coordinador', 'facilitador'].includes(rol)
+  const puedeEnviar = puede('solicitudes', 'editar')
     && solicitud && ['enviada', 'scoring'].includes(solicitud.estado)
 
   const enviarAComite = async () => {
@@ -228,7 +228,7 @@ export default function DetalleSolicitud() {
             {/* Scoring FEM: visita del asesor + preanálisis */}
             <FormEvaluacion
               solicitudId={solicitud.id}
-              editable={['administrador', 'coordinador', 'facilitador'].includes(rol) && !['desembolsada', 'rechazada'].includes(solicitud.estado)}
+              editable={puede('solicitudes', 'editar') && !['desembolsada', 'rechazada'].includes(solicitud.estado)}
               onGuardado={() => { setRecarga(r => r + 1); void recargarTablas('solicitudes') }}
             />
             <Preanalisis solicitudId={solicitud.id} inicial={solicitud.scoring as ScoringFEM | null} recarga={recarga} />

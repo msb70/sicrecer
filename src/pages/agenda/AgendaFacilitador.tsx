@@ -4,7 +4,7 @@ import { AlertTriangle, Phone, RefreshCw, ChevronRight, Info, CalendarClock, Rep
 import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Badge, Button, Card, StatCard, Alert, Spinner, EmptyState } from '../../components/ui'
 import { BarraFiltros } from '../../components/filtros/BarraFiltros'
-import { useApp } from '../../context/AppContext'
+import { useApp, usePermiso } from '../../context/AppContext'
 import { formatCOP } from '../../mocks'
 import { FILTROS_VACIOS, coincide, type FiltrosCartera } from '../../lib/filtros'
 import {
@@ -116,6 +116,7 @@ function TabCobranza({ vencidos, porVencer, horizonte, setHorizonte }: {
   vencidos: FilaCobranza[]; porVencer: FilaCobranza[]; horizonte: number; setHorizonte: (n: number) => void
 }) {
   const navigate = useNavigate()
+  const puedeCobrar = usePermiso('cobranza').editar
   const fila = (f: FilaCobranza) => {
     const vencido = f.prioridad === 'vencido'
     const monto = vencido ? f.total_vencido : f.proxima_monto
@@ -147,7 +148,7 @@ function TabCobranza({ vencidos, porVencer, horizonte, setHorizonte }: {
                 <Phone size={15} />
               </a>
             )}
-            <Button size="sm" onClick={() => navigate(`/cobranza/nueva?credito=${encodeURIComponent(f.credito_id)}`)}>Registrar pago</Button>
+            {puedeCobrar && (<Button size="sm" onClick={() => navigate(`/cobranza/nueva?credito=${encodeURIComponent(f.credito_id)}`)}>Registrar pago</Button>)}
             <button onClick={() => navigate(`/cartera/${f.credito_id}`)} className="p-2 text-gray-400 hover:text-gray-600" title="Ver crédito">
               <ChevronRight size={16} />
             </button>
@@ -294,6 +295,7 @@ function ComoSeCalcula() {
 
 // ─── Renovación ───────────────────────────────────────────────
 function TabRenovacion({ filas }: { filas: FilaRenovacion[] }) {
+  const puedeSolicitar = usePermiso('solicitudes').editar
   const navigate = useNavigate()
   return (
     <div>
@@ -322,7 +324,7 @@ function TabRenovacion({ filas }: { filas: FilaRenovacion[] }) {
                   <div className="flex sm:flex-col gap-2 sm:items-end">
                     {f.tiene_solicitud_abierta
                       ? <Badge color="blue">Ya tiene solicitud en curso</Badge>
-                      : <Button size="sm" disabled={f.scoring?.preaprobacion === 'no_preaprobado'}
+                      : puedeSolicitar && <Button size="sm" disabled={f.scoring?.preaprobacion === 'no_preaprobado'}
                           onClick={() => navigate(`/solicitudes/nueva?cliente=${encodeURIComponent(f.cliente_id)}`)}>Crear solicitud</Button>}
                     {f.telefono && <a href={`tel:${f.telefono}`} className="text-xs text-brand-700 flex items-center gap-1"><Phone size={12} />{f.telefono}</a>}
                   </div>
