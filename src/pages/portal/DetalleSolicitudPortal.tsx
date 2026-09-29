@@ -10,6 +10,7 @@ import { DesgloseCredito } from '../../components/credito/DesgloseCredito'
 import { formatCOP } from '../../mocks'
 import type { Solicitud } from '../../types'
 import { ESTADO_PORTAL_UI } from './MisSolicitudes'
+import { LineaTiempo, etapasSolicitud } from '../../components/solicitud/LineaTiempo'
 
 const MENSAJE: Record<ReturnType<typeof estadoPortal>, string> = {
   'Enviada':     'Recibimos tu solicitud. Un facilitador la revisará pronto.',
@@ -63,6 +64,11 @@ export default function DetalleSolicitudPortal() {
               <p className="text-sm opacity-80">{MENSAJE[ep]}</p>
             </div>
           </div>
+
+          <Card>
+            <CardHeader><h2 className="text-sm font-semibold text-gray-800">¿En qué va mi solicitud?</h2></CardHeader>
+            <CardBody><LineaTiempo etapas={etapasSolicitud(solicitud, null, true)} /></CardBody>
+          </Card>
 
           {ep === 'No aprobada' && (
             <Card className="border-red-200">

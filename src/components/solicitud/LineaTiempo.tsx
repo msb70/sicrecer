@@ -8,7 +8,7 @@ export interface Etapa { id: string; titulo: string; detalle?: string; estado: E
 const f = (x?: string | null) => x ? new Date(x.length <= 10 ? `${x}T00:00:00` : x).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' }) : undefined
 
 /** Etapas del crédito: creada → evaluación → comité → decisión → desembolso → pago. */
-export function etapasSolicitud(s: Solicitud, credito?: Credito | null): Etapa[] {
+export function etapasSolicitud(s: Solicitud, credito?: Credito | null, publico = false): Etapa[] {
   const orden: Record<string, number> = { borrador: 0, enviada: 1, scoring: 2, revision_comite: 3, aprobada: 4, firma: 4, rechazada: 4, desembolsada: 5 }
   const n = orden[s.estado] ?? 1
   const rechazada = s.estado === 'rechazada'
@@ -35,6 +35,19 @@ export function etapasSolicitud(s: Solicitud, credito?: Credito | null): Etapa[]
       estado: rechazada ? 'omitida' : !credito ? 'pendiente' : credito.estado === 'cancelado' ? 'hecha' : 'actual',
     },
   ]
+  if (publico) {
+    // Vista del solicitante: lenguaje simple, sin puntajes internos
+    etapas[0].titulo = 'Solicitud enviada'
+    etapas[1].titulo = 'Visita del facilitador'
+    etapas[1].detalle = evaluada ? (sc.fecha_visita ? `realizada ${f(sc.fecha_visita)}` : 'realizada') : undefined
+    etapas[2].titulo = 'Comité de crédito'
+    etapas[2].detalle = undefined
+    etapas[3].titulo = rechazada ? 'No aprobada' : 'Aprobada'
+    etapas[4].titulo = 'Desembolso'
+    etapas[5].titulo = 'Pago de cuotas'
+    if (s.estado === 'desembolsada' && !credito) etapas[5].estado = 'actual'
+    etapas[5].detalle = undefined
+  }
   // Evaluación: si la solicitud aún está en 'enviada' pero ya tiene visita, la visita cuenta como hecha
   const ev = etapas[1]
   if (evaluada) ev.estado = 'hecha'
