@@ -10,6 +10,18 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // Si la aplicación no arranca (script bloqueado o sin conexión), no dejar la página en blanco.
+      setTimeout(function () {
+        var r = document.getElementById('root')
+        if (r && !r.hasChildNodes()) {
+          r.innerHTML = '<div id="sicrecer-arranque" style="font-family:system-ui,sans-serif;max-width:420px;margin:15vh auto;padding:24px;text-align:center;color:#374151">'
+            + '<p style="font-size:18px;font-weight:600">SiCrecer no terminó de cargar</p>'
+            + '<p>Revisa tu conexión y recarga la página sin caché: <b>Cmd + Shift + R</b> en Mac o <b>Ctrl + F5</b> en Windows.</p>'
+            + '<p><a href="/login" style="color:#15803d">Ir al inicio de sesión</a></p></div>'
+        }
+      }, 15000)
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
