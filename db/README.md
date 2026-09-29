@@ -22,6 +22,7 @@ aplicado en la rama `production`; este directorio es la fuente de verdad version
 | `0012_comite_plazo_y_saldo_convenio.sql` | Comité valida plazo con `fn_plazo_valido` (1..máximo); desembolso exige convenio activo con saldo y descuenta el monto del crédito de `saldo_disponible` |
 | `0013_cartera_por_zona_y_agenda.sql` | Tabla `zonas` (un facilitador por zona, cobertura por ciudad/localidad); `clientes.zona_id`/`prospectos.zona_id` y `clientes.actividad_economica_id`; el facilitador del cliente sale de su zona (triggers `trg_asignar_zona`, `trg_propagar_zona`); RLS por cartera (el facilitador solo ve clientes, créditos, cuotas, pagos, cobranzas, solicitudes, solicitantes, prospectos y visitas de sus zonas; admin/coordinador/auditor/comité ven todo); guarda en `estado_cuenta` y en cobranzas; `fn_scoring_cliente` (scoring provisional 0–1000 y preaprobación); vistas `v_cartera`, `v_cola_cobranza`, `v_renovacion`, `v_solicitudes_pendientes` |
 | `0014_scoring_fem.sql` | Scoring FEM (100 pts: capacidad 50 = cobertura 30 + estabilidad 20, experiencia 30, voluntad 20 = veracidad 12 + compromisos 8; semáforo verde/ámbar/naranja/rojo; cuota ≤ 40 % del flujo libre). Tabla `evaluaciones` (visita del asesor), `solicitudes.semaforo/scoring/monto_sugerido`, `fn_scoring_fem`, `fn_scoring_fem_renovacion` (alerta T-30, propuesta hasta 1,5×), `fn_recalcular_scoring` y triggers; `v_renovacion` y `v_solicitudes_pendientes` con el scoring FEM |
+| `0015_roles_permisos_y_serie.sql` | Roles configurables: `modulos` (pantallas), `roles` (con perfil de datos base), `rol_permisos` (ver / editar / borrar por módulo), `usuarios.rol_id`; `fn_permiso_actual(modulo, accion)`; la RLS de catálogos y tablas operativas exige el permiso (y el alcance de cartera del perfil); `aplicar_pago`, `desembolsar_solicitud`, `enviar_a_comite` y el voto del comité validan permiso; roles del sistema protegidos y el Administrador no pierde Usuarios/Roles. Vista `v_serie_mensual` (12 meses × crédito: saldo, mora, esperado, recaudado, desembolsado) para el dashboard |
 | `0004_portal_solicitantes.sql` | Portal de autoservicio: `solicitantes` + fotos (`solicitante_documentos`, bytea), productos con `paises`/`publico`, `comites` (uno activo por producto) + `comite_miembros` + `comite_votos`, outbox `notificaciones`, RLS del solicitante (solo lo suyo), trigger de validación de solicitudes externas, funciones `enviar_a_comite` y `votar_solicitud` (mayoría simple; al aprobar convierte solicitante→cliente). Endurece la identidad: exige `emailVerified` en Neon Auth |
 
 ## Cómo aplicar en un entorno nuevo
@@ -42,6 +43,7 @@ psql "$DATABASE_URL" -f db/migrations/0011_bloqueo_conversion_portal.sql
 psql "$DATABASE_URL" -f db/migrations/0012_comite_plazo_y_saldo_convenio.sql
 psql "$DATABASE_URL" -f db/migrations/0013_cartera_por_zona_y_agenda.sql
 psql "$DATABASE_URL" -f db/migrations/0014_scoring_fem.sql
+psql "$DATABASE_URL" -f db/migrations/0015_roles_permisos_y_serie.sql
 ```
 
 Tras crear tablas **o columnas** nuevas hay que refrescar la caché de esquema del Data API (Consola → Data API →
