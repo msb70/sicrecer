@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight, Download } from 'lucide-react'
 import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Button, Card, CardHeader, CardBody, StatCard, Badge, Alert } from '../../components/ui'
@@ -10,6 +10,13 @@ import {
   solicitudesPorProducto, descargarCSV, type Granularidad,
 } from '../../lib/reportes'
 import { clsx } from 'clsx'
+import { CREDITOS } from '../../mocks'
+import { useApp } from '../../context/AppContext'
+import { cargarSerie, type FilaSerie } from '../../lib/dashboard'
+import {
+  cargarCronograma, recaudoEnRango, calidadFacilitadores, fichasConvenio, analisisSolicitudes, composicion, type CuotaCron,
+} from '../../lib/reportesExtra'
+import { ResumenExtra, FacilitadoresExtra, ConveniosExtra, SolicitudesExtra } from './SeccionesExtra'
 
 type Tab = 'resumen' | 'facilitadores' | 'convenios' | 'solicitudes'
 
@@ -49,14 +56,45 @@ export default function Reportes() {
   const convs = useMemo(() => porConvenio(d.creditos, d.cobranzas, d.solicitudes, r), [d, r.desde])  // eslint-disable-line react-hooks/exhaustive-deps
   const prods = useMemo(() => solicitudesPorProducto(d.solicitudes, r), [d, r.desde])  // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Serie mensual (esperado vs recaudado) y primeras cuotas (mora temprana)
+  const { modo } = useApp()
+  const [serieM, setSerieM] = useState<FilaSerie[]>([])
+  const [cron, setCron] = useState<CuotaCron[]>([])
+  const [cargandoExtra, setCargandoExtra] = useState(false)
+  const [errorExtra, setErrorExtra] = useState('')
+  useEffect(() => {
+    if (modo !== 'google') return
+    setCargandoExtra(true)
+    Promise.all([cargarSerie(), cargarCronograma()])
+      .then(([sm, cr]) => { setSerieM(sm); setCron(cr) })
+      .catch(e => setErrorExtra(e instanceof Error ? e.message : 'No se pudieron cargar los datos históricos'))
+      .finally(() => setCargandoExtra(false))
+  }, [modo])
+  const idsCred = useMemo(() => new Set(d.creditos.map(c => c.id)), [d])
+  const recaudo = useMemo(() => recaudoEnRango(serieM, idsCred, r), [serieM, idsCred, r.desde])  // eslint-disable-line react-hooks/exhaustive-deps
+  const comp = useMemo(() => composicion(d.creditos, CREDITOS, r), [d, r.desde])  // eslint-disable-line react-hooks/exhaustive-deps
+  const calidad = useMemo(() => calidadFacilitadores(d.creditos, CREDITOS, d.solicitudes, serieM, cron, r), [d, serieM, cron, r.desde])  // eslint-disable-line react-hooks/exhaustive-deps
+  const fichas = useMemo(() => fichasConvenio(d.creditos, CREDITOS, serieM, r), [d, serieM, r.desde])  // eslint-disable-line react-hooks/exhaustive-deps
+  const analisis = useMemo(() => analisisSolicitudes(d.solicitudes, CREDITOS, r), [d, r.desde])  // eslint-disable-line react-hooks/exhaustive-deps
+
   const exportar = () => {
     const sufijo = `${tab}_${r.desde}_${r.hasta}`
     if (tab === 'resumen') descargarCSV(`sicrecer_resumen_${sufijo}`, puntos.map(p => ({
       periodo: p.b.etiqueta, desde: p.b.desde, hasta: p.b.hasta, desembolsado: p.desembolsado, desembolsos: p.nDesembolsos, recaudado: p.recaudado, pagos: p.nPagos })))
-    if (tab === 'facilitadores') descargarCSV(`sicrecer_${sufijo}`, facs.map(f => ({
-      facilitador: f.nombre, zonas: f.zonas, clientes: f.clientes, creditos_activos: f.activos, cartera: f.saldo,
-      en_mora: f.enMora, par30_pct: Number(f.par30.toFixed(2)), desembolsado: f.desembolsado, recaudado: f.recaudado,
-      solicitudes: f.solicitudes, aprobadas: f.aprobadas })))
+    if (tab === 'facilitadores') descargarCSV(`sicrecer_${sufijo}`, facs.map(f => {
+      const q = calidad.find(x => x.id === f.id)
+      return {
+        facilitador: f.nombre, zonas: f.zonas, clientes: f.clientes, creditos_activos: f.activos, cartera: f.saldo,
+        en_mora: f.enMora, par30_pct: Number(f.par30.toFixed(2)), desembolsado: f.desembolsado, recaudado: f.recaudado,
+        solicitudes: f.solicitudes, aprobadas: f.aprobadas,
+        recaudo_pct: q?.recaudo.pct == null ? null : Number(q.recaudo.pct.toFixed(1)),
+        mora_temprana_pct: q?.moraTemprana.pct == null ? null : Number(q.moraTemprana.pct.toFixed(1)),
+        retencion_pct: q?.retencion.pct == null ? null : Number(q.retencion.pct.toFixed(1)),
+        visitas_realizadas: q?.visitas.realizadas ?? 0, visitas_programadas: q?.visitas.programadas ?? 0,
+        dias_a_desembolso: q?.diasADesembolso == null ? null : Number(q.diasADesembolso.toFixed(1)),
+        nuevos: q?.nuevos ?? 0, renovaciones: q?.renovaciones ?? 0,
+      }
+    }))
     if (tab === 'convenios') descargarCSV(`sicrecer_${sufijo}`, convs.map(c => ({
       convenio: c.cooperante, moneda: c.moneda, fondo: c.fondo, disponible: c.disponible, colocado_pct: Number(c.colocadoPct.toFixed(2)),
       creditos_activos: c.activos, cartera: c.saldo, par30_pct: Number(c.par30.toFixed(2)), desembolsado: c.desembolsado,
@@ -96,6 +134,7 @@ export default function Reportes() {
         />
 
         <BarraFiltros value={filtros} onChange={setFiltros} />
+        {errorExtra && <Alert type="error" className="mb-4">{errorExtra}</Alert>}
 
         <div className="flex gap-1 mb-5 overflow-x-auto border-b border-gray-200">
           {([['resumen', 'Resumen'], ['facilitadores', 'Facilitadores'], ['convenios', 'Convenios'], ['solicitudes', 'Solicitudes']] as [Tab, string][]).map(([id, label]) => (
@@ -153,9 +192,11 @@ export default function Reportes() {
               <StatCard label="Tasa de aprobación" value={pct(sol.tasaAprobacion, 0)} sub={`${sol.rechazadas} rechazadas`} color="gray" />
               <StatCard label="Días hasta la decisión" value={sol.diasDecision == null ? '—' : sol.diasDecision.toFixed(1).replace('.', ',')} sub="promedio de las decididas" color="gray" />
             </div>
+            <ResumenExtra comp={comp} recaudo={recaudo} etiqueta={r.etiqueta} cargandoSerie={cargandoExtra} />
           </div>
         )}
 
+        {tab === 'facilitadores' && <div className="mb-6"><FacilitadoresExtra filas={calidad} etiqueta={r.etiqueta} cargando={cargandoExtra} /></div>}
         {tab === 'facilitadores' && (
           <Tabla
             nota={`Cartera = foto de hoy. Desembolsos, recaudo y solicitudes = ${r.etiqueta}. El crédito cuenta para el facilitador de la zona del cliente.`}
@@ -169,6 +210,7 @@ export default function Reportes() {
           />
         )}
 
+        {tab === 'convenios' && <div className="mb-6"><ConveniosExtra fichas={fichas} etiqueta={r.etiqueta} /></div>}
         {tab === 'convenios' && (
           <Tabla
             nota={`Fondo y disponible = estado actual del convenio. Desembolsos, recaudo y solicitudes = ${r.etiqueta}.`}
@@ -216,6 +258,7 @@ export default function Reportes() {
                 </div>
               </CardBody>
             </Card>
+            <SolicitudesExtra a={analisis} etiqueta={r.etiqueta} />
             <Tabla
               nota="Por producto. Portal = solicitudes hechas por el propio emprendedor."
               cabeceras={['Producto', 'Recibidas', 'Del portal', 'Aprobadas', 'Rechazadas', 'Monto solicitado', 'Monto aprobado']}

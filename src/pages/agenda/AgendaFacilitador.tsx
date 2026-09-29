@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AlertTriangle, Phone, RefreshCw, ChevronRight, Info, CalendarClock, Repeat, FileCheck, Wallet, MapPin } from 'lucide-react'
+import { AlertTriangle, Phone, RefreshCw, ChevronRight, Info, CalendarClock, Repeat, FileCheck, Wallet, MapPin, CalendarDays } from 'lucide-react'
 import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Badge, Button, Card, StatCard, Alert, Spinner, EmptyState } from '../../components/ui'
 import { BarraFiltros } from '../../components/filtros/BarraFiltros'
@@ -12,10 +12,11 @@ import {
   type FilaSolicitudPendiente, type Scoring,
 } from '../../lib/agenda'
 import TabVisitas from './TabVisitas'
+import TabCalendario from './TabCalendario'
 import { SEMAFORO } from '../../lib/scoring'
 import { clsx } from 'clsx'
 
-type Tab = 'cobranza' | 'cartera' | 'renovacion' | 'solicitudes' | 'visitas'
+type Tab = 'calendario' | 'cobranza' | 'cartera' | 'renovacion' | 'solicitudes' | 'visitas'
 
 const fecha = (f?: string | null) => f ? new Date(`${f.slice(0, 10)}T00:00:00`).toLocaleDateString('es-CO', { day: 'numeric', month: 'short' }) : '—'
 const hoyLargo = () => new Date().toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
@@ -29,7 +30,7 @@ export default function AgendaFacilitador() {
   const [datos, setDatos] = useState<DatosAgenda | null>(null)
   const [cargando, setCargando] = useState(false)
   const [error, setError] = useState('')
-  const [tab, setTab] = useState<Tab>('cobranza')
+  const [tab, setTab] = useState<Tab>('calendario')
   const [filtros, setFiltros] = useState<FiltrosCartera>(FILTROS_VACIOS)
   const [horizonte, setHorizonte] = useState(7)
 
@@ -56,6 +57,7 @@ export default function AgendaFacilitador() {
   }
 
   const TABS: { id: Tab; label: string; n?: number; icon: React.ReactNode }[] = [
+    { id: 'calendario', label: 'Calendario', icon: <CalendarDays size={14} /> },
     { id: 'cobranza', label: 'Cobranza', n: vencidos.length + porVencer.length, icon: <Wallet size={14} /> },
     { id: 'cartera', label: 'Cartera', n: cobranza.length, icon: <CalendarClock size={14} /> },
     { id: 'renovacion', label: 'Renovación', n: renovacion.length, icon: <Repeat size={14} /> },
@@ -99,6 +101,7 @@ export default function AgendaFacilitador() {
 
         {cargando && !datos && <div className="flex justify-center py-12"><Spinner /></div>}
 
+        {tab === 'calendario' && <TabCalendario filtros={filtros} renovacion={renovacion} />}
         {tab === 'cobranza' && datos && (
           <TabCobranza vencidos={vencidos} porVencer={porVencer} horizonte={horizonte} setHorizonte={setHorizonte} />
         )}

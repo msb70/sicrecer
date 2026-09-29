@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, CheckCircle2, XCircle, Clock, AlertTriangle, Send, Globe } from 'lucide-react'
+import { LineaTiempo, etapasSolicitud } from '../../components/solicitud/LineaTiempo'
 import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Button, Badge, Card, CardHeader, CardBody, Alert } from '../../components/ui'
 import { SOLICITUDES, CLIENTES, PRODUCTOS, SOLICITANTES, COMITES, REQUISITOS, ACTIVIDADES_ECONOMICAS, CREDITOS, formatCOP, recargarTablas, cargarDatosDesdeNeon } from '../../mocks'
@@ -122,24 +123,23 @@ export default function DetalleSolicitud() {
           />
         )}
 
-        {/* Estado banner */}
-        <div className={`flex items-center gap-3 px-5 py-4 rounded-xl border mb-6 ${
-          solicitud.estado === 'aprobada'   ? 'bg-green-50 border-green-200 text-green-800' :
-          solicitud.estado === 'rechazada'  ? 'bg-red-50 border-red-200 text-red-800' :
-          solicitud.estado === 'revision_comite' ? 'bg-yellow-50 border-yellow-200 text-yellow-800' :
-          'bg-blue-50 border-blue-200 text-blue-800'
-        }`}>
-          {cfg.icon}
-          <div>
-            <p className="font-semibold">{cfg.label}</p>
-            <p className="text-sm opacity-80">
-              {solicitud.estado === 'aprobada'        && 'Esta solicitud fue aprobada y está lista para desembolso.'}
-              {solicitud.estado === 'rechazada'       && `Rechazada${solicitud.decidido_por ? ` por ${solicitud.decidido_por}` : ''}${solicitud.motivo_rechazo ? `: ${solicitud.motivo_rechazo}` : '.'}`}
-              {solicitud.estado === 'revision_comite' && `En evaluación del comité${solicitud.enviada_comite_en ? ` desde ${new Date(solicitud.enviada_comite_en).toLocaleDateString('es-CO')}` : ''}.`}
-              {solicitud.estado === 'enviada'         && (esExterna ? 'Solicitud creada por el solicitante en el portal. Revisa sus datos y envíala al comité.' : 'La solicitud fue enviada y está pendiente de evaluación.')}
-            </p>
-          </div>
-        </div>
+        {/* Etapas del crédito + estado */}
+        <Card className="mb-6">
+          <CardBody>
+            <div className="flex flex-wrap items-center gap-2 mb-5">
+              <span className="text-xs uppercase tracking-wide text-gray-500">Estado</span>
+              <Badge color={cfg.color}>{cfg.label}</Badge>
+              <p className="text-sm text-gray-600">
+                {solicitud.estado === 'aprobada'        && 'Aprobada y lista para desembolso.'}
+                {solicitud.estado === 'rechazada'       && `Rechazada${solicitud.decidido_por ? ` por ${solicitud.decidido_por}` : ''}${solicitud.motivo_rechazo ? `: ${solicitud.motivo_rechazo}` : '.'}`}
+                {solicitud.estado === 'revision_comite' && `En evaluación del comité${solicitud.enviada_comite_en ? ` desde ${new Date(solicitud.enviada_comite_en).toLocaleDateString('es-CO')}` : ''}.`}
+                {solicitud.estado === 'enviada'         && (esExterna ? 'Creada por el solicitante en el portal. Revisa sus datos, registra la visita y envíala al comité.' : 'Pendiente de visita y envío al comité.')}
+                {solicitud.estado === 'desembolsada'    && 'Crédito desembolsado.'}
+              </p>
+            </div>
+            <LineaTiempo etapas={etapasSolicitud(solicitud, creditoGenerado)} />
+          </CardBody>
+        </Card>
 
         <div className="grid lg:grid-cols-3 gap-5">
           <div className="lg:col-span-2 space-y-5">
