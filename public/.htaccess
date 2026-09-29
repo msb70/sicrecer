@@ -1,7 +1,27 @@
+# SiCrecer — SPA en Hostinger
+# 1) index.html nunca se cachea: siempre apunta al bundle vigente.
+# 2) /assets/* lleva hash en el nombre: caché larga e inmutable.
+# 3) Un asset inexistente devuelve 404 (no index.html), para que un
+#    bundle viejo no se interprete como HTML y deje la pantalla en blanco.
+<IfModule mod_headers.c>
+  <FilesMatch "\.html$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+  </FilesMatch>
+  <If "%{REQUEST_URI} =~ m#^/assets/#">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </If>
+</IfModule>
+
+DirectoryIndex index.html
+
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
   RewriteRule ^index\.html$ - [L]
+  # Assets inexistentes: 404 real
+  RewriteRule ^assets/ - [L]
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
   RewriteRule . /index.html [L]

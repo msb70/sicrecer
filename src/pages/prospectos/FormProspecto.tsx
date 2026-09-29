@@ -5,7 +5,7 @@ import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Button, Input, Select, Alert, Card, CardBody, CardHeader } from '../../components/ui'
 import { SelectorUbicacion } from '../../components/ubicacion/SelectorUbicacion'
 import { validarUbicacion, type Ubicacion } from '../../lib/ubicaciones'
-import { PROSPECTOS } from '../../mocks'
+import { PROSPECTOS, ZONAS } from '../../mocks'
 import { useApp } from '../../context/AppContext'
 import { guardarCatalogo } from '../../lib/catalogos'
 
@@ -22,7 +22,7 @@ export default function FormProspecto() {
     telefono:        prospecto?.telefono        ?? '',
     email:           prospecto?.email           ?? '',
     sexo:            prospecto?.sexo            ?? '',
-    zona:            prospecto?.zona            ?? 'Zona Norte',
+    zona:            prospecto?.zona            ?? '',
     pais:            prospecto?.pais            ?? organizacion?.pais ?? 'CO',
     ciudad:          prospecto?.ciudad          ?? '',
     localidad:       prospecto?.localidad       ?? '',
@@ -223,10 +223,8 @@ export default function FormProspecto() {
                     value={form.zona}
                     onChange={e => set('zona', e.target.value)}
                   >
-                    <option>Zona Norte</option>
-                    <option>Zona Sur</option>
-                    <option>Zona Centro</option>
-                    <option>Zona Oriente</option>
+                    <option value="">Automática (según la dirección)</option>
+                    {ZONAS.filter(z => z.activo).map(z => <option key={z.id} value={z.nombre}>{z.nombre}</option>)}
                   </Select>
                   <div className="grid grid-cols-2 gap-3">
                     <Input label="Latitud (GPS)" value={form.lat} onChange={e => set('lat', e.target.value)} />

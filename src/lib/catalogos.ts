@@ -8,7 +8,7 @@ import { recargarTablas, type TablaRecargable } from '../mocks'
 
 export type TablaCatalogo = Extract<TablaRecargable,
   'convenios' | 'bancos' | 'requisitos' | 'actividades_economicas'
-  | 'usuarios' | 'organizaciones' | 'prospectos' | 'actividades_crm' | 'visitas' | 'clientes' | 'solicitudes'>
+  | 'usuarios' | 'organizaciones' | 'prospectos' | 'actividades_crm' | 'visitas' | 'clientes' | 'solicitudes' | 'zonas'>
 
 function mensaje(err: { message?: string; code?: string } | null): string {
   const m = err?.message ?? 'Error desconocido'

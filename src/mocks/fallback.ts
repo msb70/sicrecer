@@ -6,8 +6,7 @@
 import type {
   Organizacion, Usuario, Convenio, ProductoCredito,
   Prospecto, Cliente, Solicitud, Credito,
-  Requisito, ActividadEconomica, Cobranza, Banco, ActividadCRM,
-} from '../types'
+  Requisito, ActividadEconomica, Cobranza, Banco, ActividadCRM, Zona } from '../types'
 import type { Pago, Visita } from './extra'
 
 export const ORGANIZACIONES_DEMO: Organizacion[] = [
@@ -171,6 +170,11 @@ export const ACTIVIDADES_CRM_DEMO: ActividadCRM[] = [
     fecha: '2026-06-01', facilitador_id: 'u-03',
     descripcion: 'Envió fotos del taller y confirmó que mañana manda los documentos.',
   },
+]
+
+export const ZONAS_DEMO: Zona[] = [
+  { id: 'zona-zona-norte', nombre: 'Zona Norte', organizacion_id: 'org-co-01', facilitador_id: 'u-03', cobertura: [], activo: true },
+  { id: 'zona-zona-sur',   nombre: 'Zona Sur',   organizacion_id: 'org-co-01', facilitador_id: null,   cobertura: [], activo: true },
 ]
 
 export const CLIENTES_DEMO: Cliente[] = [

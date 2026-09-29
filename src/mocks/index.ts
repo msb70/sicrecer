@@ -9,7 +9,7 @@ import type {
   Organizacion, Usuario, Convenio, ProductoCredito,
   Prospecto, Cliente, Solicitud, Credito,
   Requisito, ActividadEconomica, Cobranza, Banco, ActividadCRM,
-  Comite, ComiteMiembro, ComiteVoto, Solicitante,
+  Comite, ComiteMiembro, ComiteVoto, Solicitante, Zona,
 } from '../types'
 import { neon } from '../lib/neon'
 import * as demo from './fallback'
@@ -35,6 +35,7 @@ export const COMITES: Comite[] = []
 export const COMITE_MIEMBROS: ComiteMiembro[] = []
 export const COMITE_VOTOS: ComiteVoto[] = []
 export const SOLICITANTES: Solicitante[] = []
+export const ZONAS: Zona[] = [...demo.ZONAS_DEMO]
 
 function reemplazar<T>(destino: T[], filas: T[]) {
   destino.splice(0, destino.length, ...filas)
@@ -75,6 +76,12 @@ export async function cargarDatosDesdeNeon(): Promise<void> {
   throw new Error('No se pudieron cargar los datos de tu organización. Recarga la página en unos segundos.')
 }
 
+/** Como `tabla`, pero una tabla nueva que el Data API aún no conoce no rompe la carga. */
+async function tablaOpcional<T>(nombre: string, orden = 'id'): Promise<T[]> {
+  try { return await tabla<T>(nombre, orden) }
+  catch (e) { console.warn(`[datos] ${nombre} no disponible:`, e); return [] }
+}
+
 async function cargarUnaVez(): Promise<boolean> {
   // Primero lo que define la identidad/organización (pocas consultas),
   // luego el resto en paralelo.
@@ -87,7 +94,7 @@ async function cargarUnaVez(): Promise<boolean> {
     convenios, bancos, requisitos,
     actividades, productos, prospectos, crm, clientes,
     solicitudes, creditos, cobranzas, pagos, visitas, kpis,
-    comites, comiteMiembros, comiteVotos, solicitantes,
+    comites, comiteMiembros, comiteVotos, solicitantes, zonas,
   ] = await Promise.all([
     tabla<Convenio>('convenios'),
     tabla<Banco>('bancos'),
@@ -110,6 +117,7 @@ async function cargarUnaVez(): Promise<boolean> {
     tabla<ComiteMiembro>('comite_miembros', 'comite_id'),
     tabla<ComiteVoto>('comite_votos'),
     tabla<Solicitante>('solicitantes'),
+    tablaOpcional<Zona>('zonas', 'nombre'),
   ])
 
   reemplazar(ORGANIZACIONES, organizaciones)
@@ -131,6 +139,7 @@ async function cargarUnaVez(): Promise<boolean> {
   reemplazar(COMITE_MIEMBROS, comiteMiembros)
   reemplazar(COMITE_VOTOS, comiteVotos)
   reemplazar(SOLICITANTES, solicitantes)
+  reemplazar(ZONAS, zonas)
   if (kpis[0]) Object.assign(KPI_REPORTES, kpis[0].datos)
   return true
 }
@@ -138,7 +147,7 @@ async function cargarUnaVez(): Promise<boolean> {
 /** Recarga selectiva tras una escritura (solicitudes, votos, comités…). */
 export type TablaRecargable = 'solicitudes' | 'comite_votos' | 'comites' | 'comite_miembros' | 'clientes' | 'solicitantes' | 'productos_credito'
   | 'convenios' | 'bancos' | 'requisitos' | 'actividades_economicas'
-  | 'usuarios' | 'organizaciones' | 'prospectos' | 'actividades_crm' | 'visitas'
+  | 'usuarios' | 'organizaciones' | 'prospectos' | 'actividades_crm' | 'visitas' | 'zonas'
 
 export async function recargarTablas(...nombres: TablaRecargable[]): Promise<void> {
   await Promise.all(nombres.map(async n => {
@@ -159,6 +168,7 @@ export async function recargarTablas(...nombres: TablaRecargable[]): Promise<voi
       case 'prospectos':       reemplazar(PROSPECTOS, await tabla<Prospecto>('prospectos')); break
       case 'actividades_crm':  reemplazar(ACTIVIDADES_CRM, await tabla<ActividadCRM>('actividades_crm')); break
       case 'visitas':          reemplazar(VISITAS, await tabla<Visita>('visitas')); break
+      case 'zonas':            reemplazar(ZONAS, await tablaOpcional<Zona>('zonas', 'nombre')); break
     }
   }))
 }
@@ -179,6 +189,7 @@ export function restaurarDatosDemo(): void {
   reemplazar(CREDITOS, [...demo.CREDITOS_DEMO])
   reemplazar(COBRANZAS, [...demo.COBRANZAS_DEMO])
   reemplazar(COMITES, []); reemplazar(COMITE_MIEMBROS, []); reemplazar(COMITE_VOTOS, []); reemplazar(SOLICITANTES, [])
+  reemplazar(ZONAS, [...demo.ZONAS_DEMO])
   cargarExtrasDemo()
 }
 

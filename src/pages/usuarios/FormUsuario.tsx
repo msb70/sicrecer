@@ -3,13 +3,12 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Save, Trash2, Info } from 'lucide-react'
 import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Button, Input, Select, Card, CardHeader, CardBody, Alert } from '../../components/ui'
-import { USUARIOS, ORGANIZACIONES } from '../../mocks'
+import { USUARIOS, ORGANIZACIONES, ZONAS } from '../../mocks'
 import { useApp } from '../../context/AppContext'
 import { guardarCatalogo, eliminarCatalogo } from '../../lib/catalogos'
 import { ROL_LABELS } from '../../types'
 import type { Rol } from '../../types'
 
-const ZONAS_DISPONIBLES = ['Zona Norte', 'Zona Centro', 'Zona Sur', 'UVC Caracas']
 const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 /**
@@ -59,7 +58,12 @@ export default function FormUsuario() {
         zona: necesitaZona ? (form.zona || null) : null,
         organizacion_id: form.organizacion_id,
       }
-      await guardarCatalogo('usuarios', esEdicion ? fila : { ...fila, primer_acceso: true }, usuario?.id ?? null, 'u')
+      const idUsuario = await guardarCatalogo('usuarios', esEdicion ? fila : { ...fila, primer_acceso: true }, usuario?.id ?? null, 'u')
+      // El facilitador es por zona: la zona elegida pasa a ser suya (y con ella su cartera).
+      const zona = form.rol === 'facilitador' && form.zona ? ZONAS.find(z => z.nombre === form.zona) : undefined
+      if (zona && zona.facilitador_id !== idUsuario) {
+        await guardarCatalogo('zonas', { facilitador_id: idUsuario }, zona.id)
+      }
       setGuardado(true)
       setTimeout(() => navigate('/usuarios'), 900)
     } catch (err) {
@@ -144,7 +148,7 @@ export default function FormUsuario() {
                   onChange={e => campo('zona', e.target.value)}
                   options={[
                     { value: '', label: 'Selecciona zona…' },
-                    ...ZONAS_DISPONIBLES.map(z => ({ value: z, label: z })),
+                    ...ZONAS.map(z => ({ value: z.nombre, label: z.nombre })),
                   ]}
                 />
               )}

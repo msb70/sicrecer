@@ -126,7 +126,7 @@ const SIDEBAR_ENTRIES: SidebarEntry[] = [
   // Agenda — standalone
   {
     type: 'item',
-    data: { label: 'Agenda', to: '/agenda', icon: <Calendar size={18} />, roles: ['facilitador', 'coordinador'] },
+    data: { label: 'Agenda', to: '/agenda', icon: <Calendar size={18} />, roles: ['facilitador', 'coordinador', 'administrador'] },
   },
 
   // Asistente IA — standalone

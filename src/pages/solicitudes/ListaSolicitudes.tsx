@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, Eye, FileText } from 'lucide-react'
+import { Plus, Eye, FileText } from 'lucide-react'
 import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Button, Badge, Card, EmptyState } from '../../components/ui'
 import { SOLICITUDES, formatCOP } from '../../mocks'
+import { BarraFiltros } from '../../components/filtros/BarraFiltros'
+import { FILTROS_VACIOS, coincide, filaDeSolicitud, type FiltrosCartera } from '../../lib/filtros'
 import type { EstadoSolicitud } from '../../types'
 import { clsx } from 'clsx'
 
@@ -24,13 +26,13 @@ const BANDA_COLOR: Record<string, 'green'|'blue'|'yellow'|'orange'|'red'> = {
 
 export default function ListaSolicitudes() {
   const navigate = useNavigate()
-  const [busqueda, setBusqueda] = useState('')
+  const [filtros, setFiltros] = useState<FiltrosCartera>(FILTROS_VACIOS)
   const [filtroEstado, setFiltroEstado] = useState<EstadoSolicitud | 'todos'>('todos')
 
   const pendientesPortal = SOLICITUDES.filter(s => s.origen === 'externo' && s.estado === 'enviada').length
 
   const filtrados = [...SOLICITUDES].sort((a, b) => (b.fecha_solicitud ?? '').localeCompare(a.fecha_solicitud ?? '')).filter(s => {
-    const matchBusqueda = s.cliente_nombre.toLowerCase().includes(busqueda.toLowerCase())
+    const matchBusqueda = coincide(filaDeSolicitud(s), filtros, s.cliente_nombre ?? '')
     const matchEstado = filtroEstado === 'todos' || s.estado === filtroEstado
     return matchBusqueda && matchEstado
   })
@@ -48,16 +50,8 @@ export default function ListaSolicitudes() {
           }
         />
 
+        <BarraFiltros value={filtros} onChange={setFiltros} />
         <div className="flex flex-col sm:flex-row gap-3 mb-5">
-          <div className="relative flex-1">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              placeholder="Buscar por cliente…"
-              value={busqueda}
-              onChange={e => setBusqueda(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200"
-            />
-          </div>
           <div className="flex gap-1.5 flex-wrap">
             <button onClick={() => setFiltroEstado('todos')} className={clsx('px-3 py-1.5 rounded-lg text-xs font-medium transition-colors', filtroEstado==='todos' ? 'bg-brand-600 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50')}>Todos</button>
             {(Object.keys(ESTADO_CONFIG) as EstadoSolicitud[]).map(e => (

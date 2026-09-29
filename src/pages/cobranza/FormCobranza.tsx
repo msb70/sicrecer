@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, CheckCircle2, AlertCircle } from 'lucide-react'
 import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Button, Card, CardHeader, CardBody, Input, Alert } from '../../components/ui'
@@ -19,8 +19,9 @@ export default function FormCobranza() {
   const navigate = useNavigate()
   const { modo, usuario } = useApp()
 
-  const [clienteId,   setClienteId]   = useState('')
-  const [creditoId,   setCreditoId]   = useState('')
+  const [params] = useSearchParams()
+  const [clienteId,   setClienteId]   = useState(() => CREDITOS.find(cr => cr.id === params.get('credito'))?.cliente_id ?? '')
+  const [creditoId,   setCreditoId]   = useState(() => params.get('credito') ?? '')
   const [fecha,       setFecha]       = useState(new Date().toISOString().slice(0, 10))
   const [banco,       setBanco]       = useState('')
   const [numDeposito, setNumDeposito] = useState('')

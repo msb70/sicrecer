@@ -1,9 +1,12 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Eye, FileText, Users } from 'lucide-react'
+import { Eye, FileText, Users } from 'lucide-react'
 import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Badge, Card, EmptyState } from '../../components/ui'
 import { CLIENTES, formatCOP } from '../../mocks'
+import { BarraFiltros } from '../../components/filtros/BarraFiltros'
+import { FILTROS_VACIOS, coincide, filaDeCliente, type FiltrosCartera } from '../../lib/filtros'
+import { useApp } from '../../context/AppContext'
 import type { EstadoCliente } from '../../types'
 import { clsx } from 'clsx'
 
@@ -23,13 +26,12 @@ const ESTADO_LABEL: Record<EstadoCliente, string> = {
 
 export default function ListaClientes() {
   const navigate = useNavigate()
-  const [busqueda, setBusqueda] = useState('')
+  const [filtros, setFiltros] = useState<FiltrosCartera>(FILTROS_VACIOS)
+  const { rol } = useApp()
   const [filtroEstado, setFiltroEstado] = useState<EstadoCliente | 'todos'>('todos')
 
   const filtrados = CLIENTES.filter(c => {
-    const matchBusqueda =
-      c.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
-      c.documento.includes(busqueda)
+    const matchBusqueda = coincide(filaDeCliente(c), filtros, `${c.nombre} ${c.documento}`)
     const matchEstado = filtroEstado === 'todos' || c.estado === filtroEstado
     return matchBusqueda && matchEstado
   })
@@ -39,7 +41,7 @@ export default function ListaClientes() {
       <PageContainer>
         <PageHeader
           title="Clientes"
-          subtitle={`${CLIENTES.length} clientes en tu zona`}
+          subtitle={rol === 'facilitador' ? `${CLIENTES.length} clientes en tus zonas` : `${CLIENTES.length} clientes`}
           actions={
             <button
               onClick={() => navigate('/clientes/grupos')}
@@ -51,16 +53,8 @@ export default function ListaClientes() {
         />
 
         {/* Filtros */}
+        <BarraFiltros value={filtros} onChange={setFiltros} placeholder="Buscar por nombre o documento…" />
         <div className="flex flex-col sm:flex-row gap-3 mb-5">
-          <div className="relative flex-1">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              placeholder="Buscar por nombre o documento…"
-              value={busqueda}
-              onChange={e => setBusqueda(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200"
-            />
-          </div>
           <div className="flex gap-1.5">
             {(['todos', 'activo', 'al_dia', 'moroso'] as const).map(e => (
               <button

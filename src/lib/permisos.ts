@@ -36,7 +36,7 @@ export const PERMISOS_RUTA: Record<string, Rol[]> = {
   '/usuarios':                ['administrador'],
   '/configuracion':           ['administrador'],
 
-  '/agenda':                  ['facilitador', 'coordinador'],
+  '/agenda':                  ['facilitador', 'coordinador', 'administrador'],
   '/asistente':               ['facilitador', 'coordinador'],
 }
 

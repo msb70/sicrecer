@@ -20,6 +20,7 @@ aplicado en la rama `production`; este directorio es la fuente de verdad version
 | `0010_prospecto_desde_portal.sql` | Cada registro del portal crea/actualiza su prospecto (`prospectos.solicitante_id`, canal `portal`); pasa a `convertido` al volverse cliente |
 | `0011_bloqueo_conversion_portal.sql` | Impide convertir a mano un prospecto del portal (solo al aprobarse su solicitud en comité) |
 | `0012_comite_plazo_y_saldo_convenio.sql` | Comité valida plazo con `fn_plazo_valido` (1..máximo); desembolso exige convenio activo con saldo y descuenta el monto del crédito de `saldo_disponible` |
+| `0013_cartera_por_zona_y_agenda.sql` | Tabla `zonas` (un facilitador por zona, cobertura por ciudad/localidad); `clientes.zona_id`/`prospectos.zona_id` y `clientes.actividad_economica_id`; el facilitador del cliente sale de su zona (triggers `trg_asignar_zona`, `trg_propagar_zona`); RLS por cartera (el facilitador solo ve clientes, créditos, cuotas, pagos, cobranzas, solicitudes, solicitantes, prospectos y visitas de sus zonas; admin/coordinador/auditor/comité ven todo); guarda en `estado_cuenta` y en cobranzas; `fn_scoring_cliente` (scoring provisional 0–1000 y preaprobación); vistas `v_cartera`, `v_cola_cobranza`, `v_renovacion`, `v_solicitudes_pendientes` |
 | `0004_portal_solicitantes.sql` | Portal de autoservicio: `solicitantes` + fotos (`solicitante_documentos`, bytea), productos con `paises`/`publico`, `comites` (uno activo por producto) + `comite_miembros` + `comite_votos`, outbox `notificaciones`, RLS del solicitante (solo lo suyo), trigger de validación de solicitudes externas, funciones `enviar_a_comite` y `votar_solicitud` (mayoría simple; al aprobar convierte solicitante→cliente). Endurece la identidad: exige `emailVerified` en Neon Auth |
 
 ## Cómo aplicar en un entorno nuevo
@@ -38,6 +39,7 @@ psql "$DATABASE_URL" -f db/migrations/0009_ubicaciones.sql
 psql "$DATABASE_URL" -f db/migrations/0010_prospecto_desde_portal.sql
 psql "$DATABASE_URL" -f db/migrations/0011_bloqueo_conversion_portal.sql
 psql "$DATABASE_URL" -f db/migrations/0012_comite_plazo_y_saldo_convenio.sql
+psql "$DATABASE_URL" -f db/migrations/0013_cartera_por_zona_y_agenda.sql
 ```
 
 Tras crear tablas **o columnas** nuevas hay que refrescar la caché de esquema del Data API (Consola → Data API →
@@ -50,7 +52,8 @@ Requisitos previos: Neon Auth y Data API provisionados en la rama (crean el esqu
 
 ## Modelo de seguridad
 
-- **Lectura**: cualquier usuario autenticado presente en la whitelist `usuarios`.
+- **Lectura**: cualquier usuario autenticado presente en la whitelist `usuarios`; desde 0013 el
+  **facilitador** solo lee la cartera de sus zonas (`fn_mis_zonas`, `fn_mis_clientes`, `fn_mis_creditos`).
   `organizaciones`, `usuarios` y `convenios` además se filtran por organización.
 - **Escritura de catálogos** (organizaciones, bancos, requisitos, actividades,
   convenios, productos, usuarios): solo rol `administrador`.

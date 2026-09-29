@@ -169,7 +169,23 @@ export interface Cliente {
   estado: EstadoCliente
   creditos_activos: number
   total_prestado: number
-  facilitador_id: string
+  /** Lo fija la base de datos a partir de la zona (regla: el facilitador es por zona). */
+  facilitador_id: string | null
+  zona_id?: string | null
+  actividad_economica_id?: string | null
+}
+
+// ─── ZONA ─────────────────────────────────────────────────────
+/** Zona de trabajo: un facilitador lleva la cartera de los clientes de su zona. */
+export interface Zona {
+  id: string
+  nombre: string
+  organizacion_id: string | null
+  facilitador_id: string | null
+  /** Mismo formato que productos_credito.cobertura ('Bogotá', 'Bogotá|Usme', '*otras'). */
+  cobertura: string[]
+  descripcion?: string | null
+  activo: boolean
 }
 
 // ─── SOLICITUD ────────────────────────────────────────────────

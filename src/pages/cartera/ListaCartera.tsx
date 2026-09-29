@@ -4,6 +4,8 @@ import { AlertTriangle, ChevronRight, TrendingDown } from 'lucide-react'
 import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Badge, Card, StatCard } from '../../components/ui'
 import { CREDITOS, formatCOP } from '../../mocks'
+import { BarraFiltros } from '../../components/filtros/BarraFiltros'
+import { FILTROS_VACIOS, coincide, filaDeCredito, type FiltrosCartera } from '../../lib/filtros'
 import { KPI_REPORTES } from '../../mocks/extra'
 import type { EstadoCredito } from '../../types'
 import { clsx } from 'clsx'
@@ -29,14 +31,14 @@ type FiltroEstado = EstadoCredito | 'todos'
 export default function ListaCartera() {
   const navigate = useNavigate()
   const [filtro, setFiltro] = useState<FiltroEstado>('todos')
-  const [busqueda, setBusqueda] = useState('')
+  const [filtros, setFiltros] = useState<FiltrosCartera>(FILTROS_VACIOS)
 
   const filtrados = CREDITOS
     .filter(c => filtro === 'todos' || c.estado === filtro)
-    .filter(c => c.cliente_nombre.toLowerCase().includes(busqueda.toLowerCase()))
+    .filter(c => coincide(filaDeCredito(c), filtros, c.cliente_nombre))
 
-  const enMora    = CREDITOS.filter(c => c.estado === 'en_mora')
-  const totalSaldo = CREDITOS.reduce((s, c) => s + c.saldo_capital, 0)
+  const enMora    = filtrados.filter(c => c.estado === 'en_mora')
+  const totalSaldo = filtrados.reduce((s, c) => s + c.saldo_capital, 0)
 
   return (
     <Shell>
@@ -70,14 +72,8 @@ export default function ListaCartera() {
         )}
 
         {/* Filtros */}
+        <BarraFiltros value={filtros} onChange={setFiltros} />
         <div className="flex flex-col sm:flex-row gap-3 mb-5">
-          <input
-            type="text"
-            placeholder="Buscar cliente…"
-            value={busqueda}
-            onChange={e => setBusqueda(e.target.value)}
-            className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none"
-          />
           <div className="flex gap-1.5 flex-wrap">
             {(['todos', 'al_dia', 'activo', 'en_mora'] as FiltroEstado[]).map(f => (
               <button

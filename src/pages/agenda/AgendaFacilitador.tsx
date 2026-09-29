@@ -1,359 +1,372 @@
-import { useState } from 'react'
-import { MapPin, Clock, CheckCircle2, AlertTriangle, RefreshCw, Plus, Calendar } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { AlertTriangle, Phone, RefreshCw, ChevronRight, Info, CalendarClock, Repeat, FileCheck, Wallet, MapPin } from 'lucide-react'
 import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
-import { Button, Badge, Card, CardHeader, CardBody, StatCard, Alert } from '../../components/ui'
-import { VISITAS } from '../../mocks/extra'
-import { CLIENTES, PROSPECTOS } from '../../mocks'
+import { Badge, Button, Card, StatCard, Alert, Spinner, EmptyState } from '../../components/ui'
+import { BarraFiltros } from '../../components/filtros/BarraFiltros'
 import { useApp } from '../../context/AppContext'
-import { guardarCatalogo } from '../../lib/catalogos'
-import type { Visita, TipoVisita, EstadoVisita } from '../../mocks/extra'
+import { formatCOP } from '../../mocks'
+import { FILTROS_VACIOS, coincide, type FiltrosCartera } from '../../lib/filtros'
+import {
+  cargarAgenda, ETIQUETA_PRE, type DatosAgenda, type FilaCobranza, type FilaRenovacion,
+  type FilaSolicitudPendiente, type Scoring,
+} from '../../lib/agenda'
+import TabVisitas from './TabVisitas'
 import { clsx } from 'clsx'
 
-const TIPO_CONFIG: Record<TipoVisita, { label: string; color: 'red' | 'blue' | 'green' | 'yellow'; dot: string }> = {
-  cobranza:    { label: 'Cobranza',    color: 'red',    dot: 'bg-red-500'    },
-  seguimiento: { label: 'Seguimiento', color: 'blue',   dot: 'bg-blue-500'   },
-  prospecto:   { label: 'Prospecto',   color: 'green',  dot: 'bg-green-500'  },
-  grupo:       { label: 'Grupo',       color: 'yellow', dot: 'bg-yellow-500' },
-}
+type Tab = 'cobranza' | 'cartera' | 'renovacion' | 'solicitudes' | 'visitas'
 
-const ESTADO_CONFIG: Record<EstadoVisita, { label: string; icon: React.ReactNode; color: string }> = {
-  pendiente:    { label: 'Pendiente',    icon: <Clock size={13}/>,       color: 'text-yellow-600' },
-  realizada:    { label: 'Realizada',    icon: <CheckCircle2 size={13}/>,color: 'text-green-600'  },
-  reprogramada: { label: 'Reprogramada',icon: <RefreshCw size={13}/>,   color: 'text-gray-500'   },
-}
+const fecha = (f?: string | null) => f ? new Date(`${f.slice(0, 10)}T00:00:00`).toLocaleDateString('es-CO', { day: 'numeric', month: 'short' }) : '—'
+const hoyLargo = () => new Date().toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 
-// Agrupar visitas por fecha
-function agrupar(visitas: Visita[]): Record<string, Visita[]> {
-  return visitas.reduce((acc, v) => {
-    acc[v.fecha] = [...(acc[v.fecha] ?? []), v]
-    return acc
-  }, {} as Record<string, Visita[]>)
+const TRAMO_COLOR: Record<string, 'green' | 'yellow' | 'orange' | 'red'> = {
+  vigente: 'green', '1-30': 'yellow', '31-60': 'orange', '61-90': 'red', '>90': 'red',
 }
-
-/** Fecha local YYYY-MM-DD (no UTC), con desplazamiento opcional en días. */
-function fechaLocal(desplazamiento = 0): string {
-  const d = new Date()
-  d.setDate(d.getDate() + desplazamiento)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-const fechaLarga = (f: string) => new Date(`${f}T00:00:00`).toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' })
 
 export default function AgendaFacilitador() {
-  const { modo, usuario } = useApp()
-  const [visitas, setVisitas] = useState<Visita[]>([...VISITAS])
+  const { modo, usuario, rol } = useApp()
+  const [datos, setDatos] = useState<DatosAgenda | null>(null)
+  const [cargando, setCargando] = useState(false)
   const [error, setError] = useState('')
-  const [verPasadas, setVerPasadas] = useState(false)
-  const [filtroTipo, setFiltroTipo] = useState<TipoVisita | 'todos'>('todos')
-  const [mostrarFormNota, setMostrarFormNota] = useState<string | null>(null)
-  const [nota, setNota] = useState('')
-  const [mostrarNuevaVisita, setMostrarNuevaVisita] = useState(false)
+  const [tab, setTab] = useState<Tab>('cobranza')
+  const [filtros, setFiltros] = useState<FiltrosCartera>(FILTROS_VACIOS)
+  const [horizonte, setHorizonte] = useState(7)
 
-  const hoy = fechaLocal()
-  const FECHAS_LABELS: Record<string, string> = { [hoy]: 'Hoy', [fechaLocal(1)]: 'Mañana', [fechaLocal(-1)]: 'Ayer' }
-  // Por defecto: pendientes de días anteriores + hoy en adelante
-  const filtradas = visitas.filter(v =>
-    (filtroTipo === 'todos' || v.tipo === filtroTipo) &&
-    (verPasadas || v.fecha >= hoy || v.estado === 'pendiente'))
-  const agrupadas = agrupar(filtradas)
-  const fechas    = Object.keys(agrupadas).sort()
-
-  const pendientesHoy  = visitas.filter(v => v.fecha === hoy && v.estado === 'pendiente').length
-  const realizadasHoy  = visitas.filter(v => v.fecha === hoy && v.estado === 'realizada').length
-  const cobranzasHoy   = visitas.filter(v => v.fecha === hoy && v.tipo === 'cobranza').length
-
-  const marcarRealizada = async (id: string) => {
-    if (!nota.trim()) return
-    setError('')
-    if (modo !== 'google') { setError('En modo demo no se guardan cambios.'); return }
-    try {
-      await guardarCatalogo('visitas', { estado: 'realizada', nota: nota.trim() }, id)
-      setVisitas([...VISITAS])
-      setMostrarFormNota(null)
-      setNota('')
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo actualizar la visita')
-    }
+  const cargar = async () => {
+    if (modo !== 'google') { setError('La agenda consulta la base de datos: inicia sesión con Google.'); return }
+    setCargando(true); setError('')
+    try { setDatos(await cargarAgenda()) }
+    catch (e) { setError(e instanceof Error ? e.message : 'No se pudo cargar la agenda') }
+    finally { setCargando(false) }
   }
+  useEffect(() => { void cargar() }, [modo])  // eslint-disable-line react-hooks/exhaustive-deps
+
+  const cobranza = useMemo(() => (datos?.cobranza ?? []).filter(f => coincide(f, filtros, `${f.cliente_nombre} ${f.documento ?? ''}`)), [datos, filtros])
+  const renovacion = useMemo(() => (datos?.renovacion ?? []).filter(f => coincide(f, filtros, f.cliente_nombre)), [datos, filtros])
+  const solicitudes = useMemo(() => (datos?.solicitudes ?? []).filter(f => coincide(f, filtros, f.nombre)), [datos, filtros])
+
+  const vencidos = cobranza.filter(f => f.prioridad === 'vencido')
+  const porVencer = cobranza.filter(f => f.prioridad !== 'vencido' && f.dias_para_vencer != null && f.dias_para_vencer <= horizonte)
+  const kpi = {
+    saldo: cobranza.reduce((s, f) => s + f.saldo_capital, 0),
+    vencido: vencidos.reduce((s, f) => s + f.total_vencido, 0),
+    porVencer: porVencer.reduce((s, f) => s + f.proxima_monto, 0),
+    preaprobados: renovacion.filter(r => r.scoring.preaprobacion === 'preaprobado' && !r.tiene_solicitud_abierta).length,
+  }
+
+  const TABS: { id: Tab; label: string; n?: number; icon: React.ReactNode }[] = [
+    { id: 'cobranza', label: 'Cobranza', n: vencidos.length + porVencer.length, icon: <Wallet size={14} /> },
+    { id: 'cartera', label: 'Cartera', n: cobranza.length, icon: <CalendarClock size={14} /> },
+    { id: 'renovacion', label: 'Renovación', n: renovacion.length, icon: <Repeat size={14} /> },
+    { id: 'solicitudes', label: 'Por aprobar', n: solicitudes.length, icon: <FileCheck size={14} /> },
+    { id: 'visitas', label: 'Visitas', icon: <MapPin size={14} /> },
+  ]
 
   return (
     <Shell>
       <PageContainer>
         <PageHeader
-          title="Agenda de campo"
-          subtitle={fechaLarga(hoy)}
-          actions={
-            <Button onClick={() => setMostrarNuevaVisita(true)}><Plus size={16}/>Nueva visita</Button>
-          }
+          title={rol === 'facilitador' ? `Agenda de ${usuario?.nombre?.split(' ')[0] ?? 'hoy'}` : 'Agenda de facilitadores'}
+          subtitle={hoyLargo()}
+          actions={<Button variant="secondary" onClick={cargar} loading={cargando}><RefreshCw size={15} />Actualizar</Button>}
         />
-
-        {/* KPIs del día */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
-          <StatCard label="Pendientes hoy" value={String(pendientesHoy)} color="yellow" />
-          <StatCard label="Realizadas hoy"  value={String(realizadasHoy)} color="green"  />
-          <StatCard label="Cobranzas hoy"   value={String(cobranzasHoy)}  color="red"    />
-        </div>
 
         {error && <Alert type="error" className="mb-4">{error}</Alert>}
 
-        {/* Alerta cobranzas urgentes */}
-        {cobranzasHoy > 0 && (
-          <Alert type="warning" className="mb-5">
-            <AlertTriangle size={14} className="inline mr-1.5"/>
-            Tienes {cobranzasHoy} visita{cobranzasHoy > 1 ? 's' : ''} de cobranza programada{cobranzasHoy > 1 ? 's' : ''} hoy. Prioriza estas primero.
-          </Alert>
-        )}
+        <BarraFiltros value={filtros} onChange={setFiltros} />
 
-        {/* Filtros de tipo */}
-        <div className="flex gap-2 mb-5 flex-wrap">
-          {(['todos', 'cobranza', 'seguimiento', 'prospecto', 'grupo'] as const).map(t => (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+          <StatCard label="Cartera vigente" value={formatCOP(kpi.saldo)} sub={`${cobranza.length} créditos`} color="blue" />
+          <StatCard label="Vencido a cobrar" value={formatCOP(kpi.vencido)} sub={`${vencidos.length} créditos en mora`} color="red" />
+          <StatCard label={`Vence en ${horizonte} días`} value={formatCOP(kpi.porVencer)} sub={`${porVencer.length} cuotas`} color="yellow" />
+          <StatCard label="Renovaciones preaprobadas" value={String(kpi.preaprobados)} sub={`${solicitudes.length} solicitudes por aprobar`} color="green" />
+        </div>
+
+        <div className="flex gap-1 mb-5 overflow-x-auto border-b border-gray-200">
+          {TABS.map(t => (
             <button
-              key={t}
-              onClick={() => setFiltroTipo(t)}
-              className={clsx(
-                'px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
-                filtroTipo === t ? 'bg-brand-600 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-              )}
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={clsx('flex items-center gap-1.5 px-3 py-2 text-sm font-medium whitespace-nowrap border-b-2 -mb-px transition-colors',
+                tab === t.id ? 'border-brand-600 text-brand-700' : 'border-transparent text-gray-500 hover:text-gray-700')}
             >
-              {t === 'todos' ? 'Todas' : TIPO_CONFIG[t as TipoVisita].label}
+              {t.icon}{t.label}
+              {t.n != null && <span className="text-xs bg-gray-100 text-gray-600 rounded-full px-1.5">{t.n}</span>}
             </button>
           ))}
-          <label className="flex items-center gap-1.5 text-xs text-gray-500 ml-auto">
-            <input type="checkbox" checked={verPasadas} onChange={e => setVerPasadas(e.target.checked)} />
-            Ver visitas pasadas ya cerradas
-          </label>
         </div>
 
-        {/* Visitas agrupadas por fecha */}
-        <div className="space-y-6">
-          {fechas.map(fecha => (
-            <div key={fecha}>
-              {/* Header de fecha */}
-              <div className="flex items-center gap-3 mb-3">
-                <Calendar size={15} className="text-brand-500"/>
-                <h3 className="text-sm font-semibold text-gray-800">
-                  {FECHAS_LABELS[fecha] ?? fechaLarga(fecha)}
-                </h3>
-                <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
-                  {agrupadas[fecha].length} visitas
-                </span>
-              </div>
+        {cargando && !datos && <div className="flex justify-center py-12"><Spinner /></div>}
 
-              {/* Cards de visitas */}
-              <div className="space-y-3">
-                {agrupadas[fecha]
-                  .sort((a, b) => a.hora.localeCompare(b.hora))
-                  .map(visita => {
-                    const tipoCfg   = TIPO_CONFIG[visita.tipo]
-                    const estadoCfg = ESTADO_CONFIG[visita.estado]
-                    const formularioAbierto = mostrarFormNota === visita.id
-
-                    return (
-                      <Card
-                        key={visita.id}
-                        className={clsx(
-                          'transition-all',
-                          visita.estado === 'realizada' && 'opacity-70',
-                          visita.tipo === 'cobranza' && visita.estado === 'pendiente' && 'border-red-200'
-                        )}
-                      >
-                        <div className="p-4">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="flex items-start gap-3 flex-1">
-                              {/* Dot tipo */}
-                              <div className="flex flex-col items-center gap-1 pt-1">
-                                <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${tipoCfg.dot}`}/>
-                                <div className="w-px flex-1 bg-gray-100" style={{ minHeight: '20px' }}/>
-                              </div>
-
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                  <span className="text-xs font-semibold text-gray-500 flex items-center gap-1">
-                                    <Clock size={11}/>{visita.hora}
-                                  </span>
-                                  <Badge color={tipoCfg.color}>{tipoCfg.label}</Badge>
-                                  <span className={clsx('flex items-center gap-1 text-xs font-medium', estadoCfg.color)}>
-                                    {estadoCfg.icon}{estadoCfg.label}
-                                  </span>
-                                </div>
-
-                                <p className="text-sm font-semibold text-gray-900 truncate">{visita.cliente_nombre}</p>
-
-                                <div className="flex items-center gap-1 text-xs text-gray-400 mt-0.5">
-                                  <MapPin size={11}/>{visita.zona}
-                                </div>
-
-                                <p className="text-xs text-gray-500 mt-1.5">{visita.motivo}</p>
-
-                                {visita.nota && (
-                                  <div className="mt-2 px-3 py-2 bg-green-50 rounded-lg border border-green-100">
-                                    <p className="text-xs text-green-700 font-medium mb-0.5">Nota de visita:</p>
-                                    <p className="text-xs text-green-600 italic">"{visita.nota}"</p>
-                                  </div>
-                                )}
-
-                                {/* Formulario de nota inline */}
-                                {formularioAbierto && (
-                                  <div className="mt-3 space-y-2">
-                                    <textarea
-                                      rows={2}
-                                      value={nota}
-                                      onChange={e => setNota(e.target.value)}
-                                      placeholder="Describe el resultado de la visita…"
-                                      className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg outline-none resize-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200"
-                                      autoFocus
-                                    />
-                                    <div className="flex gap-2">
-                                      <Button size="sm" onClick={() => marcarRealizada(visita.id)} disabled={!nota.trim()}>
-                                        <CheckCircle2 size={13}/>Confirmar visita
-                                      </Button>
-                                      <Button size="sm" variant="ghost" onClick={() => { setMostrarFormNota(null); setNota('') }}>
-                                        Cancelar
-                                      </Button>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Acciones */}
-                            {visita.estado === 'pendiente' && !formularioAbierto && (
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                className="flex-shrink-0"
-                                onClick={() => setMostrarFormNota(visita.id)}
-                              >
-                                <CheckCircle2 size={13}/>Registrar
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      </Card>
-                    )
-                  })}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Modal nueva visita */}
-        {mostrarNuevaVisita && (
-          <NuevaVisitaModal
-            hoy={hoy}
-            demo={modo !== 'google'}
-            facilitadorId={usuario?.id ?? null}
-            onClose={() => setMostrarNuevaVisita(false)}
-            onSaved={() => { setVisitas([...VISITAS]); setMostrarNuevaVisita(false) }}
-          />
+        {tab === 'cobranza' && datos && (
+          <TabCobranza vencidos={vencidos} porVencer={porVencer} horizonte={horizonte} setHorizonte={setHorizonte} />
         )}
+        {tab === 'cartera' && datos && <TabCartera filas={cobranza} />}
+        {tab === 'renovacion' && datos && <TabRenovacion filas={renovacion} />}
+        {tab === 'solicitudes' && datos && <TabSolicitudes filas={solicitudes} />}
+        {tab === 'visitas' && <TabVisitas />}
       </PageContainer>
     </Shell>
   )
 }
 
-// Modal nueva visita
-function NuevaVisitaModal({ hoy, demo, facilitadorId, onClose, onSaved }: {
-  hoy: string; demo: boolean; facilitadorId: string | null; onClose: () => void; onSaved: () => void
+// ─── Cobranza: vencido primero, luego lo que vence pronto ─────
+function TabCobranza({ vencidos, porVencer, horizonte, setHorizonte }: {
+  vencidos: FilaCobranza[]; porVencer: FilaCobranza[]; horizonte: number; setHorizonte: (n: number) => void
 }) {
-  const [form, setForm] = useState({
-    cliente_nombre: '', tipo: 'seguimiento' as TipoVisita,
-    fecha: hoy, hora: '09:00', zona: 'Zona Norte', motivo: '',
-  })
-  const [guardado, setGuardado] = useState(false)
-  const [guardando, setGuardando] = useState(false)
-  const [errorModal, setErrorModal] = useState('')
-  // Nombres conocidos (clientes y prospectos) para vincular la visita
-  const opciones = [
-    ...CLIENTES.map(c => ({ nombre: c.nombre, cliente_id: c.id as string | null, zona: c.zona })),
-    ...PROSPECTOS.filter(p => p.estado !== 'convertido').map(p => ({ nombre: p.nombre, cliente_id: null, zona: p.zona })),
-  ]
-
-  const guardar = async () => {
-    if (!form.cliente_nombre || !form.motivo) return
-    setErrorModal('')
-    if (demo) { setErrorModal('En modo demo no se guardan cambios.'); return }
-    setGuardando(true)
-    try {
-      const match = opciones.find(o => o.nombre.toLowerCase() === form.cliente_nombre.trim().toLowerCase())
-      await guardarCatalogo('visitas', {
-        cliente_id: match?.cliente_id ?? null,
-        cliente_nombre: form.cliente_nombre.trim(),
-        tipo: form.tipo, fecha: form.fecha, hora: form.hora, zona: form.zona,
-        estado: 'pendiente', motivo: form.motivo.trim(), facilitador_id: facilitadorId,
-      }, null, 'vis')
-      setGuardado(true)
-      setTimeout(onSaved, 700)
-    } catch (err) {
-      setErrorModal(err instanceof Error ? err.message : 'No se pudo agendar la visita')
-    } finally {
-      setGuardando(false)
-    }
+  const navigate = useNavigate()
+  const fila = (f: FilaCobranza) => {
+    const vencido = f.prioridad === 'vencido'
+    const monto = vencido ? f.total_vencido : f.proxima_monto
+    return (
+      <Card key={f.credito_id} className={clsx(vencido && 'border-red-200')}>
+        <div className="p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-sm font-semibold text-gray-900">{f.cliente_nombre}</p>
+              {vencido
+                ? <Badge color="red">{f.dias_mora} días de mora · {f.cuotas_vencidas} cuota{f.cuotas_vencidas === 1 ? '' : 's'}</Badge>
+                : <Badge color="yellow">{f.dias_para_vencer === 0 ? 'Vence hoy' : `Vence en ${f.dias_para_vencer} días`} · {fecha(f.proxima_fecha)}</Badge>}
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              {[f.zona, f.convenio, f.producto_nombre, f.actividad_economica].filter(Boolean).join(' · ')}
+              {f.facilitador_nombre && <> · <span className="text-gray-400">{f.facilitador_nombre}</span></>}
+            </p>
+            {vencido && f.cargos_pendientes > 0 && (
+              <p className="text-xs text-red-600 mt-0.5">Incluye {formatCOP(f.cargos_pendientes)} de mora y gastos</p>
+            )}
+          </div>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="text-right mr-1">
+              <p className={clsx('text-base font-bold', vencido ? 'text-red-600' : 'text-gray-900')}>{formatCOP(monto)}</p>
+              <p className="text-xs text-gray-400">{vencido ? 'para ponerse al día' : `cuota ${f.proxima_cuota_num ?? ''}`}</p>
+            </div>
+            {f.telefono && (
+              <a href={`tel:${f.telefono}`} className="p-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50" title={f.telefono}>
+                <Phone size={15} />
+              </a>
+            )}
+            <Button size="sm" onClick={() => navigate(`/cobranza/nueva?credito=${encodeURIComponent(f.credito_id)}`)}>Registrar pago</Button>
+            <button onClick={() => navigate(`/cartera/${f.credito_id}`)} className="p-2 text-gray-400 hover:text-gray-600" title="Ver crédito">
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
+      </Card>
+    )
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose}/>
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
-        <h2 className="text-base font-semibold text-gray-900 mb-5">Nueva visita de campo</h2>
-        {guardado ? (
-          <Alert type="success"><CheckCircle2 size={14} className="inline mr-1.5"/>Visita agendada.</Alert>
-        ) : (
-          <div className="space-y-4">
-            {errorModal && <Alert type="error">{errorModal}</Alert>}
-            <div>
-              <label className="text-sm font-medium text-gray-700 block mb-1">Cliente / Prospecto</label>
-              <input list="lista-contactos" value={form.cliente_nombre} onChange={e => setForm(f => ({ ...f, cliente_nombre: e.target.value }))}
-                placeholder="Nombre del cliente" className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg outline-none focus:border-brand-500"/>
-              <datalist id="lista-contactos">
-                {opciones.map(o => <option key={`${o.cliente_id ?? 'p'}-${o.nombre}`} value={o.nombre} />)}
-              </datalist>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-sm font-medium text-gray-700 block mb-1">Tipo</label>
-                <select value={form.tipo} onChange={e => setForm(f => ({ ...f, tipo: e.target.value as TipoVisita }))}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg outline-none bg-white focus:border-brand-500">
-                  <option value="cobranza">Cobranza</option>
-                  <option value="seguimiento">Seguimiento</option>
-                  <option value="prospecto">Prospecto</option>
-                  <option value="grupo">Grupo solidario</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-700 block mb-1">Zona</label>
-                <select value={form.zona} onChange={e => setForm(f => ({ ...f, zona: e.target.value }))}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg outline-none bg-white focus:border-brand-500">
-                  {['Zona Norte', 'Zona Centro', 'Zona Sur', 'UVC Caracas'].map(z =>
-                    <option key={z} value={z}>{z}</option>
-                  )}
-                </select>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-700 block mb-1">Fecha</label>
-                <input type="date" value={form.fecha} onChange={e => setForm(f => ({ ...f, fecha: e.target.value }))}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg outline-none focus:border-brand-500"/>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-700 block mb-1">Hora</label>
-                <input type="time" value={form.hora} onChange={e => setForm(f => ({ ...f, hora: e.target.value }))}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg outline-none focus:border-brand-500"/>
-              </div>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-gray-700 block mb-1">Motivo</label>
-              <textarea rows={2} value={form.motivo} onChange={e => setForm(f => ({ ...f, motivo: e.target.value }))}
-                placeholder="Describe el objetivo de la visita…"
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg outline-none resize-none focus:border-brand-500"/>
-            </div>
-            <div className="flex gap-3 pt-2">
-              <Button variant="ghost" className="flex-1" onClick={onClose}>Cancelar</Button>
-              <Button className="flex-1" onClick={guardar} loading={guardando} disabled={!form.cliente_nombre || !form.motivo}>
-                <Plus size={15}/>Agendar visita
-              </Button>
-            </div>
+    <div className="space-y-6">
+      <section>
+        <h3 className="text-sm font-semibold text-red-700 mb-3 flex items-center gap-1.5">
+          <AlertTriangle size={15} /> Vencido ({vencidos.length}) — de más a menos días de mora
+        </h3>
+        {vencidos.length === 0
+          ? <p className="text-sm text-gray-400">Sin créditos vencidos.</p>
+          : <div className="space-y-2">{vencidos.map(fila)}</div>}
+      </section>
+      <section>
+        <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
+          <h3 className="text-sm font-semibold text-gray-800">Próximo a vencer ({porVencer.length})</h3>
+          <div className="flex gap-1">
+            {[7, 15, 30].map(d => (
+              <button key={d} onClick={() => setHorizonte(d)}
+                className={clsx('px-2.5 py-1 rounded-lg text-xs font-medium', horizonte === d ? 'bg-brand-600 text-white' : 'bg-white border border-gray-200 text-gray-600')}>
+                {d} días
+              </button>
+            ))}
           </div>
+        </div>
+        {porVencer.length === 0
+          ? <p className="text-sm text-gray-400">Ninguna cuota vence en los próximos {horizonte} días.</p>
+          : <div className="space-y-2">{porVencer.map(fila)}</div>}
+      </section>
+    </div>
+  )
+}
+
+// ─── Cartera vigente y vencida ────────────────────────────────
+function TabCartera({ filas }: { filas: FilaCobranza[] }) {
+  const navigate = useNavigate()
+  const tramos = ['vigente', '1-30', '31-60', '61-90', '>90'] as const
+  const resumen = tramos.map(t => {
+    const fs = filas.filter(f => f.tramo_mora === t)
+    return { t, n: fs.length, saldo: fs.reduce((s, f) => s + f.saldo_capital, 0) }
+  })
+  const total = resumen.reduce((s, r) => s + r.saldo, 0) || 1
+
+  if (filas.length === 0) return <EmptyState icon={<CalendarClock size={40} />} title="Sin cartera" description="No hay créditos activos con estos filtros." />
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <div className="p-4 grid grid-cols-2 sm:grid-cols-5 gap-3">
+          {resumen.map(r => (
+            <div key={r.t}>
+              <p className="text-xs text-gray-500">{r.t === 'vigente' ? 'Al día' : `Mora ${r.t} días`}</p>
+              <p className="text-sm font-semibold text-gray-900">{formatCOP(r.saldo)}</p>
+              <p className="text-xs text-gray-400">{r.n} créditos · {Math.round((r.saldo / total) * 100)}%</p>
+            </div>
+          ))}
+        </div>
+      </Card>
+      <Card>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-100">
+                {['Cliente', 'Zona', 'Convenio / producto', 'Saldo', 'Cuotas', 'Vencido', 'Estado', ''].map(h => (
+                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {[...filas].sort((a, b) => b.dias_mora - a.dias_mora).map(f => (
+                <tr key={f.credito_id} className="hover:bg-gray-50 cursor-pointer" onClick={() => navigate(`/cartera/${f.credito_id}`)}>
+                  <td className="px-4 py-3">
+                    <p className="font-medium text-gray-900">{f.cliente_nombre}</p>
+                    <p className="text-xs text-gray-400">{f.actividad_economica ?? '—'}</p>
+                  </td>
+                  <td className="px-4 py-3 text-xs text-gray-600">{f.zona ?? '—'}<br /><span className="text-gray-400">{f.facilitador_nombre ?? 'Sin facilitador'}</span></td>
+                  <td className="px-4 py-3 text-xs text-gray-600">{f.convenio ?? '—'}<br /><span className="text-gray-400">{f.producto_nombre}</span></td>
+                  <td className="px-4 py-3 font-semibold text-gray-900 whitespace-nowrap">{formatCOP(f.saldo_capital)}</td>
+                  <td className="px-4 py-3 text-xs text-gray-500">{f.cuotas_pagadas}/{f.cuotas_total}</td>
+                  <td className="px-4 py-3 text-xs whitespace-nowrap">{f.total_vencido > 0 ? <span className="text-red-600 font-semibold">{formatCOP(f.total_vencido)}</span> : '—'}</td>
+                  <td className="px-4 py-3"><Badge color={TRAMO_COLOR[f.tramo_mora]}>{f.tramo_mora === 'vigente' ? 'Al día' : `${f.dias_mora} d`}</Badge></td>
+                  <td className="px-4 py-3"><ChevronRight size={15} className="text-gray-300" /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
+  )
+}
+
+// ─── Scoring (común a renovación y solicitudes) ───────────────
+function ResumenScoring({ s, montoPedido }: { s: Scoring; montoPedido?: number }) {
+  const et = ETIQUETA_PRE[s.preaprobacion]
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-2 flex-wrap">
+        <Badge color={et.color}>{et.texto}</Badge>
+        {s.score != null && <span className="text-xs text-gray-600">Score <strong>{s.score}</strong> · banda <strong>{s.banda}</strong></span>}
+        {s.monto_sugerido != null && (
+          <span className="text-xs text-green-700">
+            Monto sugerido hasta <strong>{formatCOP(s.monto_sugerido)}</strong>
+            {montoPedido != null && montoPedido > s.monto_sugerido && <span className="text-orange-600"> (pide {formatCOP(montoPedido)})</span>}
+          </span>
         )}
       </div>
+      <ul className="text-xs text-gray-500 list-disc pl-4 space-y-0.5">
+        {s.razones.map((r, i) => <li key={i}>{r}</li>)}
+      </ul>
+    </div>
+  )
+}
+
+function ComoSeCalcula() {
+  const [abierto, setAbierto] = useState(false)
+  return (
+    <div className="mb-4">
+      <button onClick={() => setAbierto(!abierto)} className="flex items-center gap-1.5 text-xs text-brand-700 hover:underline">
+        <Info size={13} /> ¿Cómo se calcula la preaprobación?
+      </button>
+      {abierto && (
+        <Alert type="info" className="mt-2">
+          <p className="text-xs mb-1"><strong>Scoring provisional (0–1000)</strong> con el historial de pagos del cliente en SiCrecer:</p>
+          <ul className="text-xs list-disc pl-4 space-y-0.5">
+            <li>Puntualidad (350): % de cuotas pagadas dentro de los días de gracia.</li>
+            <li>Peor atraso (200): 0 días = 200; hasta 7 = 170; 15 = 130; 30 = 80; 60 = 30; más = 0.</li>
+            <li>Situación actual (200): sin cuotas vencidas hoy = 200.</li>
+            <li>Experiencia (150): créditos cancelados en SiCrecer (0 = 60, 1 = 110, 2+ = 150).</li>
+            <li>Incremento (100): monto pedido frente al último desembolsado.</li>
+          </ul>
+          <p className="text-xs mt-1">Bandas: A ≥ 850 · B ≥ 700 · C ≥ 550 · D ≥ 400 · E. <strong>Preaprobado</strong> = banda A o B, sin cuotas vencidas, peor atraso ≤ 30 días y al menos 3 cuotas de historial. Monto sugerido: A hasta 1,5× y B hasta 1,2× el último crédito. Clientes sin historial van a comité.</p>
+        </Alert>
+      )}
+    </div>
+  )
+}
+
+// ─── Renovación ───────────────────────────────────────────────
+function TabRenovacion({ filas }: { filas: FilaRenovacion[] }) {
+  const navigate = useNavigate()
+  return (
+    <div>
+      <ComoSeCalcula />
+      <p className="text-xs text-gray-500 mb-3">Créditos en sus últimas cuotas (último 20 % o dos últimas) y créditos cancelados en los últimos 90 días sin crédito nuevo.</p>
+      {filas.length === 0
+        ? <EmptyState icon={<Repeat size={40} />} title="Sin candidatos a renovación" description="Ningún crédito está por terminar con estos filtros." />
+        : (
+          <div className="space-y-2">
+            {filas.map(f => (
+              <Card key={f.credito_id}>
+                <div className="p-4 flex flex-col sm:flex-row gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <p className="text-sm font-semibold text-gray-900">{f.cliente_nombre}</p>
+                      <span className="text-xs text-gray-500">
+                        {f.motivo === 'cancelado_reciente' ? 'Crédito cancelado' : `Le quedan ${f.cuotas_restantes} de ${f.cuotas_total} cuotas`}
+                        {f.fecha_fin && ` · termina ${fecha(f.fecha_fin)}`}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 mb-2">
+                      Último crédito {formatCOP(f.monto_desembolsado)} · {[f.zona, f.convenio, f.actividad_economica].filter(Boolean).join(' · ')}
+                    </p>
+                    <ResumenScoring s={f.scoring} />
+                  </div>
+                  <div className="flex sm:flex-col gap-2 sm:items-end">
+                    {f.tiene_solicitud_abierta
+                      ? <Badge color="blue">Ya tiene solicitud en curso</Badge>
+                      : <Button size="sm" disabled={f.scoring.preaprobacion === 'no_preaprobado'}
+                          onClick={() => navigate(`/solicitudes/nueva?cliente=${encodeURIComponent(f.cliente_id)}`)}>Crear solicitud</Button>}
+                    {f.telefono && <a href={`tel:${f.telefono}`} className="text-xs text-brand-700 flex items-center gap-1"><Phone size={12} />{f.telefono}</a>}
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+    </div>
+  )
+}
+
+// ─── Solicitudes por aprobar ──────────────────────────────────
+const ESTADO_SOL: Record<string, string> = { enviada: 'Enviada', scoring: 'En análisis', revision_comite: 'En comité' }
+
+function TabSolicitudes({ filas }: { filas: FilaSolicitudPendiente[] }) {
+  const navigate = useNavigate()
+  return (
+    <div>
+      <ComoSeCalcula />
+      {filas.length === 0
+        ? <EmptyState icon={<FileCheck size={40} />} title="Sin solicitudes por aprobar" description="No hay solicitudes pendientes con estos filtros." />
+        : (
+          <div className="space-y-2">
+            {filas.map(f => (
+              <Card key={f.solicitud_id} className="cursor-pointer hover:border-gray-300" onClick={() => navigate(`/solicitudes/${f.solicitud_id}`)}>
+                <div className="p-4 flex flex-col sm:flex-row gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <p className="text-sm font-semibold text-gray-900">{f.nombre}</p>
+                      <Badge color="gray">{ESTADO_SOL[f.estado] ?? f.estado}</Badge>
+                      {f.origen === 'externo' && <Badge color="purple">Portal</Badge>}
+                      <span className="text-xs text-gray-400">hace {f.dias_esperando} días</span>
+                    </div>
+                    <p className="text-xs text-gray-500 mb-2">
+                      Pide {formatCOP(f.monto_solicitado)} a {f.plazo} cuotas · {[f.producto_nombre, f.zona ?? 'Sin zona', f.convenio, f.actividad_economica].filter(Boolean).join(' · ')}
+                    </p>
+                    <ResumenScoring s={f.scoring} montoPedido={f.monto_solicitado} />
+                  </div>
+                  <ChevronRight size={16} className="text-gray-300 self-center hidden sm:block" />
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
     </div>
   )
 }
