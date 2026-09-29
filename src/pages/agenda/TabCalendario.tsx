@@ -207,12 +207,13 @@ function DetalleDia({ fecha, eventos, hoy, grande = false }: { fecha: string; ev
   const renov = eventos.filter(e => e.tipo === 'renovacion')
   const porCobrar = cobros.reduce((s, e) => s + Math.max(0, e.cuota!.cuota - e.cuota!.monto_pagado), 0)
   const cobrado = pagadas.reduce((s, e) => s + (e.cuota!.monto_pagado || e.cuota!.cuota), 0)
-  const etiqueta = fecha === hoy ? 'Hoy' : deIso(fecha).toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' })
+  const larga = deIso(fecha).toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' })
+  const etiqueta = fecha === hoy ? `Hoy · ${larga}` : larga.charAt(0).toUpperCase() + larga.slice(1)
 
   return (
     <Card className={clsx('h-fit', !grande && 'lg:sticky lg:top-4')}>
       <div className="px-4 py-3 border-b border-gray-100">
-        <p className="text-sm font-semibold text-gray-900 capitalize">{etiqueta}</p>
+        <p className="text-sm font-semibold text-gray-900">{etiqueta}</p>
         <p className="text-xs text-gray-500">
           {eventos.length === 0 ? 'Sin compromisos' : [
             cobros.length && `${cobros.length} por cobrar (${formatCOP(porCobrar)})`,

@@ -101,7 +101,8 @@ export function FacilitadoresExtra({ filas, etiqueta, cargando }: { filas: Calid
                     <td className="px-2 py-2 font-medium text-gray-900 whitespace-nowrap">{f.nombre}</td>
                     <td className="px-2 py-2 whitespace-nowrap">{cifraCorta(f.saldo)}</td>
                     <td className="px-2 py-2"><Badge color={semaf(f.par30, 5, 10, false)}>{pct(f.par30, 1)}</Badge></td>
-                    <td className="px-2 py-2"><Badge color={semaf(f.recaudo.pct, 95, 80)}>{pct(f.recaudo.pct)}</Badge></td>
+                    <td className="px-2 py-2" title={`${formatCOP(f.recaudo.recaudado)} recaudado de ${formatCOP(f.recaudo.esperado)} que vencía${(f.recaudo.pct ?? 0) > 100 ? ' (incluye cobro de atrasos o pagos anticipados)' : ''}`}>
+                      <Badge color={semaf(f.recaudo.pct, 95, 80)}>{(f.recaudo.pct ?? 0) > 100 ? '> 100 %' : pct(f.recaudo.pct)}</Badge></td>
                     <td className="px-2 py-2" title={`${f.moraTemprana.malos} de ${f.moraTemprana.base} créditos`}>
                       <Badge color={semaf(f.moraTemprana.pct, 10, 20, false)}>{pct(f.moraTemprana.pct)}</Badge>
                       <span className="text-xs text-gray-400 ml-1">({f.moraTemprana.base})</span>
@@ -125,14 +126,14 @@ export function FacilitadoresExtra({ filas, etiqueta, cargando }: { filas: Calid
           {conRecaudo.length ? (
             <BarrasHorizontales series={[{ etiqueta: 'Recaudado', color: '#2563eb' }, { etiqueta: 'Faltó recaudar', color: '#e5e7eb' }]}
               filas={conRecaudo.map(f => ({ etiqueta: f.nombre, valores: [Math.min(f.recaudo.recaudado, f.recaudo.esperado), Math.max(0, f.recaudo.esperado - f.recaudo.recaudado)] }))}
-              porcentaje derecha={i => <>{pct(conRecaudo[i].recaudo.pct)} · {cifraCorta(conRecaudo[i].recaudo.recaudado)}</>} />
+              porcentaje derecha={i => <>{(conRecaudo[i].recaudo.pct ?? 0) > 100 ? '> 100 %' : pct(conRecaudo[i].recaudo.pct)} · {cifraCorta(conRecaudo[i].recaudo.recaudado)}</>} />
           ) : <p className="text-sm text-gray-400">Sin cuotas que vencieran en el período.</p>}
         </Bloque>
         <Card>
           <CardHeader><h3 className="text-sm font-semibold text-gray-900">Cómo leer el tablero</h3></CardHeader>
           <CardBody className="text-xs text-gray-600 space-y-2">
             <p><strong>Mora temprana</strong>: créditos que pagaron tarde (más de 7 días) o deben alguna de sus 3 primeras cuotas. Mide si la visita y el scoring están filtrando bien; meta ≤ 10 %.</p>
-            <p><strong>Recaudo</strong>: recaudado ÷ cuotas que vencían en el período. Meta ≥ 95 %.</p>
+            <p><strong>Recaudo</strong>: recaudado ÷ cuotas que vencían en el período. Meta ≥ 95 %. Más de 100 % = está cobrando atrasos de meses anteriores o recibe pagos anticipados.</p>
             <p><strong>Retención</strong>: de los clientes que terminaron de pagar, cuántos volvieron por otro crédito. Meta ≥ 60 %; baja retención encarece la originación.</p>
             <p><strong>Visitas</strong>: realizadas / programadas en el período. <strong>Días a desembolso</strong>: de la solicitud al desembolso.</p>
           </CardBody>
@@ -254,7 +255,7 @@ export function SolicitudesExtra({ a, etiqueta }: { a: ReturnType<typeof analisi
             {a.antiguedad.map((t, i) => (
               <div key={t.tramo} className="flex items-center gap-3">
                 <span className="w-28 text-xs text-gray-600">{t.tramo}</span>
-                <div className="flex-1 h-5 bg-gray-50 rounded"><div className="h-5 rounded flex items-center px-2" style={{ width: `${Math.max(t.n ? 8 : 0, (t.n / maxA) * 100)}%`, background: ['#16a34a', '#eab308', '#f97316', '#dc2626'][i] }}>{t.n > 0 && <span className="text-xs text-white font-semibold">{t.n}</span>}</div></div>
+                <div className="flex-1 h-5 bg-gray-50 rounded">{t.n > 0 && <div className="h-5 rounded flex items-center px-2" style={{ width: `${Math.max(8, (t.n / maxA) * 100)}%`, background: ['#16a34a', '#eab308', '#f97316', '#dc2626'][i] }}><span className="text-xs text-white font-semibold">{t.n}</span></div>}</div>
               </div>
             ))}
           </div>
