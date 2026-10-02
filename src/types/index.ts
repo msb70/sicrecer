@@ -88,13 +88,17 @@ export interface Convenio {
 }
 
 // ─── REQUISITO ────────────────────────────────────────────────
-export type TipoRequisito = 'archivo' | 'documento_identidad' | 'selfie'
+export type TipoRequisito = 'archivo' | 'monto' | 'texto' | 'documento_identidad' | 'selfie'
+export const TIPO_REQUISITO_LABELS: Record<TipoRequisito, string> = {
+  archivo: 'Archivo', monto: 'Monto', texto: 'Texto',
+  documento_identidad: 'Documento de identidad (perfil)', selfie: 'Selfie (perfil)',
+}
 export interface Requisito {
   id: string
   nombre: string
   descripcion: string
   obligatorio: boolean
-  /** archivo = el solicitante adjunta un documento; documento_identidad/selfie = lo cubre el perfil */
+  /** archivo = adjunta un documento; monto/texto = lo escribe el solicitante; documento_identidad/selfie = lo cubre el perfil */
   tipo?: TipoRequisito
 }
 
@@ -249,6 +253,8 @@ export interface Solicitud {
   pais?: string | null
   proposito?: string | null
   requisitos_confirmados?: string[]
+  /** Respuestas de requisitos monto/texto congeladas al enviar (migración 0016) */
+  respuestas_requisitos?: Record<string, { nombre: string; tipo: 'monto' | 'texto'; valor: number | string }>
   comite_id?: string | null
   motivo_rechazo?: string | null
   monto_aprobado?: number | null

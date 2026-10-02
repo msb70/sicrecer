@@ -175,7 +175,7 @@ export default function DetalleComite() {
                   </div>
                   <div className="mt-3">
                     <p className="text-xs font-medium text-gray-500 mb-1">Requisitos y adjuntos</p>
-                    <AdjuntosSolicitante solicitanteId={solicitante.id} producto={producto} />
+                    <AdjuntosSolicitante solicitanteId={solicitante.id} producto={producto} respuestas={solicitud.respuestas_requisitos} />
                   </div>
                   <div className="mt-4 grid sm:grid-cols-2 gap-3">
                     <div><p className="text-xs font-medium text-gray-500 mb-1">Documento</p>{fotos.documento ? <img src={fotos.documento} alt="Documento" className="w-full rounded-lg border object-contain max-h-56 bg-gray-50" /> : <p className="text-xs text-gray-400">Sin foto</p>}</div>

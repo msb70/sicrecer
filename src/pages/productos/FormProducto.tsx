@@ -5,7 +5,7 @@ import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Button, Input, Select, Card, CardHeader, CardBody, Alert } from '../../components/ui'
 import { PRODUCTOS, CONVENIOS, REQUISITOS, ACTIVIDADES_ECONOMICAS, formatCOP, recargarTablas } from '../../mocks'
 import { neon } from '../../lib/neon'
-import { PAIS_LABELS, type Pais } from '../../types'
+import { PAIS_LABELS, TIPO_REQUISITO_LABELS, type Pais } from '../../types'
 import { calcularCuota, DIAS_PERIODO } from '../../lib/finanzas'
 import { DesgloseCredito } from '../../components/credito/DesgloseCredito'
 import { SelectorCobertura } from '../../components/ubicacion/SelectorCobertura'
@@ -301,7 +301,7 @@ export default function FormProducto() {
             <Card>
               <CardHeader><h2 className="text-sm font-semibold text-gray-800">Requisitos del producto</h2></CardHeader>
               <CardBody>
-                <p className="text-xs text-gray-500 mb-3">Selecciona los documentos que el cliente debe presentar para este producto.</p>
+                <p className="text-xs text-gray-500 mb-3">Selecciona los documentos y datos (montos o textos) que el solicitante debe aportar para este producto.</p>
                 <div className="grid sm:grid-cols-2 gap-2">
                   {REQUISITOS.map(r => (
                     <label key={r.id} className={`flex items-start gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-colors ${
@@ -317,7 +317,8 @@ export default function FormProducto() {
                       />
                       <div>
                         <p className="text-sm font-medium text-gray-900">{r.nombre}</p>
-                        {r.obligatorio && <span className="text-xs text-green-600">Obligatorio</span>}
+                        <span className="text-xs text-gray-500">{TIPO_REQUISITO_LABELS[r.tipo ?? 'archivo']}</span>
+                        {r.obligatorio && <span className="text-xs text-green-600"> · Obligatorio</span>}
                         {r.descripcion && <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{r.descripcion}</p>}
                       </div>
                     </label>

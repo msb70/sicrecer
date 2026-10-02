@@ -115,14 +115,62 @@ function cargarImagen(origen: File | string): Promise<HTMLImageElement> {
 }
 
 // ─── Adjuntos por requisito ───────────────────────────────────
-export interface AdjuntoInfo { requisito_id: string; nombre_archivo: string; mime: string; creado_en: string }
+/** Respuesta del solicitante a un requisito: archivo (nombre_archivo/mime) o valor escrito (monto/texto). */
+export interface AdjuntoInfo {
+  requisito_id: string
+  nombre_archivo: string | null
+  mime: string | null
+  valor_numero?: number | null
+  valor_texto?: string | null
+  creado_en: string
+}
+export const TEXTO_REQUISITO_MAX = 2000
 export const ADJUNTO_MAX_BYTES = 1_000_000
 export const ADJUNTO_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
 
 export async function listarAdjuntos(solicitanteId: string): Promise<AdjuntoInfo[]> {
-  const { data, error } = await neon.from('solicitante_requisitos').select('requisito_id, nombre_archivo, mime, creado_en').eq('solicitante_id', solicitanteId)
+  const { data, error } = await neon.from('solicitante_requisitos').select('requisito_id, nombre_archivo, mime, valor_numero, valor_texto, creado_en').eq('solicitante_id', solicitanteId)
   lanzar('Error leyendo adjuntos', error)
-  return (data ?? []) as AdjuntoInfo[]
+  // numeric llega como texto por el Data API
+  return ((data ?? []) as AdjuntoInfo[]).map(a => ({ ...a, valor_numero: a.valor_numero == null ? null : Number(a.valor_numero) }))
+}
+
+/** Guarda (o reemplaza) la respuesta escrita de un requisito monto/texto. Vacío = se elimina. */
+export async function guardarRespuestaRequisito(
+  solicitanteId: string, requisito: Requisito, valor: string,
+): Promise<AdjuntoInfo | null> {
+  const limpio = valor.trim()
+  if (!limpio) { await eliminarAdjunto(solicitanteId, requisito.id); return null }
+  let valor_numero: number | null = null
+  let valor_texto: string | null = null
+  if (requisito.tipo === 'monto') {
+    const n = Number(limpio.replace(/[^\d.,-]/g, '').replace(/[.,](?=\d{3}(\D|$))/g, '').replace(',', '.'))
+    if (!Number.isFinite(n) || n < 0) throw new Error(`"${requisito.nombre}": escribe un monto válido.`)
+    valor_numero = Math.round(n * 100) / 100
+  } else if (requisito.tipo === 'texto') {
+    if (limpio.length > TEXTO_REQUISITO_MAX) throw new Error(`"${requisito.nombre}": máximo ${TEXTO_REQUISITO_MAX} caracteres.`)
+    valor_texto = limpio
+  } else {
+    throw new Error('Este requisito se cubre con un archivo.')
+  }
+  // bytes/mime/nombre_archivo en null: si antes era un archivo, se reemplaza
+  const fila = { solicitante_id: solicitanteId, requisito_id: requisito.id, valor_numero, valor_texto, nombre_archivo: null, mime: null, bytes: null }
+  const { error } = await neon.from('solicitante_requisitos').upsert(fila, { onConflict: 'solicitante_id,requisito_id' })
+  lanzar('Error guardando el dato', error)
+  return { requisito_id: requisito.id, nombre_archivo: null, mime: null, valor_numero, valor_texto, creado_en: new Date().toISOString() }
+}
+
+/** ¿La respuesta guardada cubre el requisito según su tipo? (misma regla que el trigger en BD) */
+export function respuestaCubre(r: Requisito, a: AdjuntoInfo | undefined): boolean {
+  if (requisitoCubiertoPorPerfil(r)) return true
+  if (!a) return false
+  if (r.tipo === 'monto') return a.valor_numero != null
+  if (r.tipo === 'texto') return !!a.valor_texto?.trim()
+  return !!a.mime
+}
+
+export function requisitoEsEscrito(r: Requisito): boolean {
+  return r.tipo === 'monto' || r.tipo === 'texto'
 }
 
 /** Sube (o reemplaza) el adjunto de un requisito. Imágenes se comprimen; PDF se sube tal cual (máx 1 MB). */
@@ -137,10 +185,10 @@ export async function subirAdjunto(solicitanteId: string, requisitoId: string, a
     throw new Error('Formato no admitido. Sube una imagen (JPG/PNG) o un PDF.')
   }
   const { mime, hex } = dataUrlAHex(dataUrl)
-  const fila = { solicitante_id: solicitanteId, requisito_id: requisitoId, nombre_archivo: archivo.name.slice(0, 120), mime, bytes: hex }
+  const fila = { solicitante_id: solicitanteId, requisito_id: requisitoId, nombre_archivo: archivo.name.slice(0, 120), mime, bytes: hex, valor_numero: null, valor_texto: null }
   const { error } = await neon.from('solicitante_requisitos').upsert(fila, { onConflict: 'solicitante_id,requisito_id' })
   lanzar('Error subiendo adjunto', error)
-  return { requisito_id: requisitoId, nombre_archivo: fila.nombre_archivo, mime, creado_en: new Date().toISOString() }
+  return { requisito_id: requisitoId, nombre_archivo: fila.nombre_archivo, mime, valor_numero: null, valor_texto: null, creado_en: new Date().toISOString() }
 }
 
 export async function eliminarAdjunto(solicitanteId: string, requisitoId: string): Promise<void> {
@@ -152,9 +200,9 @@ export async function eliminarAdjunto(solicitanteId: string, requisitoId: string
 export async function obtenerAdjunto(solicitanteId: string, requisitoId: string): Promise<{ dataUrl: string; mime: string; nombre: string } | null> {
   const { data, error } = await neon.from('solicitante_requisitos').select('mime, bytes, nombre_archivo').eq('solicitante_id', solicitanteId).eq('requisito_id', requisitoId).limit(1)
   lanzar('Error leyendo adjunto', error)
-  const fila = data?.[0] as { mime: string; bytes: string; nombre_archivo: string } | undefined
-  if (!fila) return null
-  return { dataUrl: byteaADataUrl(fila.bytes, fila.mime), mime: fila.mime, nombre: fila.nombre_archivo }
+  const fila = data?.[0] as { mime: string | null; bytes: string | null; nombre_archivo: string | null } | undefined
+  if (!fila || !fila.bytes || !fila.mime) return null
+  return { dataUrl: byteaADataUrl(fila.bytes, fila.mime), mime: fila.mime, nombre: fila.nombre_archivo ?? '' }
 }
 
 /** Abre un data URL en una pestaña nueva (vía Blob para evitar bloqueos del navegador). */
@@ -257,8 +305,8 @@ export function evaluarElegibilidad(args: {
   solicitante: Solicitante
   monto: number
   plazo: number
-  /** ids de requisitos con adjunto subido */
-  adjuntos: string[]
+  /** respuestas guardadas del solicitante (archivo, monto o texto) */
+  adjuntos: AdjuntoInfo[]
   requisitos: Requisito[]
   tieneDocumento: boolean
   tieneSelfie: boolean
@@ -276,8 +324,8 @@ export function evaluarElegibilidad(args: {
   for (const rid of p.requisito_ids ?? []) {
     const r = requisitos.find(x => x.id === rid)
     if (!r) continue
-    const cubierto = requisitoCubiertoPorPerfil(r) || adjuntos.includes(rid)
-    if (r.obligatorio && !cubierto) faltantes.push(`Falta adjuntar: ${r.nombre}.`)
+    const cubierto = respuestaCubre(r, adjuntos.find(a => a.requisito_id === rid))
+    if (r.obligatorio && !cubierto) faltantes.push(`${requisitoEsEscrito(r) ? 'Falta completar' : 'Falta adjuntar'}: ${r.nombre}.`)
   }
   if (!tieneDocumento) faltantes.push('Falta la foto de tu documento de identidad.')
   if (!tieneSelfie) faltantes.push('Falta tu foto de verificación (selfie).')

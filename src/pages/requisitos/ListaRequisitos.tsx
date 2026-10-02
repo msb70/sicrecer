@@ -5,9 +5,22 @@ import { Button, Card, Input, Alert } from '../../components/ui'
 import { REQUISITOS } from '../../mocks'
 import { guardarCatalogo, eliminarCatalogo } from '../../lib/catalogos'
 import { useApp, usePermiso } from '../../context/AppContext'
-import type { Requisito } from '../../types'
+import { TIPO_REQUISITO_LABELS, type Requisito, type TipoRequisito } from '../../types'
 
-const EMPTY_FORM = { nombre: '', descripcion: '', obligatorio: false }
+const EMPTY_FORM: { nombre: string; descripcion: string; obligatorio: boolean; tipo: TipoRequisito } = { nombre: '', descripcion: '', obligatorio: false, tipo: 'archivo' }
+
+const AYUDA_TIPO: Record<TipoRequisito, string> = {
+  archivo: 'El solicitante adjunta una imagen o PDF.',
+  monto: 'El solicitante escribe un monto (p. ej. ingresos mensuales).',
+  texto: 'El solicitante escribe un texto libre (p. ej. descripción del negocio).',
+  documento_identidad: 'Se cubre con la foto del documento de identidad del perfil.',
+  selfie: 'Se cubre con la selfie del perfil.',
+}
+
+const COLOR_TIPO: Record<TipoRequisito, string> = {
+  archivo: 'bg-blue-50 text-blue-700', monto: 'bg-amber-50 text-amber-700', texto: 'bg-purple-50 text-purple-700',
+  documento_identidad: 'bg-gray-100 text-gray-600', selfie: 'bg-gray-100 text-gray-600',
+}
 
 export default function ListaRequisitos() {
   const permiso = usePermiso('requisitos')
@@ -24,7 +37,7 @@ export default function ListaRequisitos() {
   const abrirNuevo = () => { setForm(EMPTY_FORM); setModo('nuevo'); setEditId(null) }
 
   const abrirEditar = (r: Requisito) => {
-    setForm({ nombre: r.nombre, descripcion: r.descripcion, obligatorio: r.obligatorio })
+    setForm({ nombre: r.nombre, descripcion: r.descripcion ?? '', obligatorio: r.obligatorio, tipo: r.tipo ?? 'archivo' })
     setEditId(r.id)
     setModo('editar')
   }
@@ -34,7 +47,7 @@ export default function ListaRequisitos() {
     setError('')
     if (modoSesion !== 'google') { setError('En modo demo no se guardan cambios.'); return }
     try {
-      const fila = { nombre: form.nombre.trim(), descripcion: form.descripcion.trim() || null, obligatorio: form.obligatorio }
+      const fila = { nombre: form.nombre.trim(), descripcion: form.descripcion.trim() || null, obligatorio: form.obligatorio, tipo: form.tipo }
       await guardarCatalogo('requisitos', fila, modo === 'editar' ? editandoId : null, 'req')
       setItems([...REQUISITOS])
       reset()
@@ -83,10 +96,23 @@ export default function ListaRequisitos() {
                 />
                 <Input
                   label="Descripción"
-                  placeholder="Detalle adicional del requisito"
+                  placeholder="Lo verá el solicitante como ayuda"
                   value={form.descripcion}
                   onChange={e => setForm(p => ({ ...p, descripcion: e.target.value }))}
                 />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">¿Cómo lo cumple el solicitante?</label>
+                <select
+                  value={form.tipo}
+                  onChange={e => setForm(p => ({ ...p, tipo: e.target.value as TipoRequisito }))}
+                  className="w-full sm:w-80 px-3 py-2 text-sm rounded-lg border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+                >
+                  {(Object.keys(TIPO_REQUISITO_LABELS) as TipoRequisito[]).map(t => (
+                    <option key={t} value={t}>{TIPO_REQUISITO_LABELS[t]}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">{AYUDA_TIPO[form.tipo]}</p>
               </div>
               <label className="flex items-center gap-2 cursor-pointer select-none">
                 <input
@@ -111,7 +137,7 @@ export default function ListaRequisitos() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100">
-                  {['Nombre', 'Descripción', 'Tipo', 'Acciones'].map(h => (
+                  {['Nombre', 'Descripción', 'Se cumple con', 'Obligatoriedad', 'Acciones'].map(h => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
                   ))}
                 </tr>
@@ -121,6 +147,9 @@ export default function ListaRequisitos() {
                   <tr key={r.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3 font-medium text-gray-900">{r.nombre}</td>
                     <td className="px-4 py-3 text-gray-500 text-xs max-w-xs truncate">{r.descripcion || '—'}</td>
+                    <td className="px-4 py-3">
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${COLOR_TIPO[r.tipo ?? 'archivo']}`}>{TIPO_REQUISITO_LABELS[r.tipo ?? 'archivo']}</span>
+                    </td>
                     <td className="px-4 py-3">
                       {r.obligatorio
                         ? <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-50 px-2 py-0.5 rounded-full font-medium"><CheckCircle size={11}/>Obligatorio</span>
@@ -165,7 +194,8 @@ export default function ListaRequisitos() {
                   <div>
                     <p className="font-medium text-gray-900">{r.nombre}</p>
                     {r.descripcion && <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{r.descripcion}</p>}
-                    <div className="mt-1.5">
+                    <div className="mt-1.5 flex items-center gap-2">
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${COLOR_TIPO[r.tipo ?? 'archivo']}`}>{TIPO_REQUISITO_LABELS[r.tipo ?? 'archivo']}</span>
                       {r.obligatorio
                         ? <span className="text-xs text-green-600 font-medium">Obligatorio</span>
                         : <span className="text-xs text-gray-400">Opcional</span>

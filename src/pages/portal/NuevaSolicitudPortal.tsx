@@ -8,13 +8,14 @@ import { useApp } from '../../context/AppContext'
 import {
   cargarCatalogoPortal, productosParaPais, listarFotos, crearSolicitudPortal, evaluarElegibilidad,
   listarAdjuntos, subirAdjunto, eliminarAdjunto, obtenerAdjunto, abrirDataUrl,
-  requisitoCubiertoPorPerfil, productoElegiblePorActividad, productoElegiblePorUbicacion,
+  requisitoCubiertoPorPerfil, productoElegiblePorActividad,
+  guardarRespuestaRequisito, respuestaCubre, requisitoEsEscrito, TEXTO_REQUISITO_MAX, productoElegiblePorUbicacion,
   type CatalogoPortal, type AdjuntoInfo,
 } from '../../lib/portal'
 import { generarPlan, resumenPlan, plazoValido as plazoPermitido, describirPlazos, maxCuotas } from '../../lib/finanzas'
 import { DesgloseCredito } from '../../components/credito/DesgloseCredito'
 import { formatCOP } from '../../mocks'
-import { PAIS_LABELS, type Pais, type ProductoCredito } from '../../types'
+import { PAIS_LABELS, type Pais, type ProductoCredito, type Requisito } from '../../types'
 
 const PASOS = ['País', 'Producto', 'Monto y plazo', 'Requisitos', 'Enviar']
 
@@ -34,6 +35,8 @@ export default function NuevaSolicitudPortal() {
   const [adjuntos, setAdjuntos] = useState<AdjuntoInfo[]>([])
   const [subiendo, setSubiendo] = useState<string | null>(null)
   const [errorAdjunto, setErrorAdjunto] = useState('')
+  // Valores escritos (monto/texto) aún sin guardar, por requisito
+  const [borradores, setBorradores] = useState<Record<string, string>>({})
   const [enviando, setEnviando] = useState(false)
   const [enviada, setEnviada] = useState<string | null>(null)
 
@@ -83,6 +86,42 @@ export default function NuevaSolicitudPortal() {
     }
   }
 
+  const valorGuardado = (r: Requisito): string => {
+    const a = adjuntos.find(x => x.requisito_id === r.id)
+    if (!a) return ''
+    if (r.tipo === 'monto') return a.valor_numero != null ? String(a.valor_numero) : ''
+    return a.valor_texto ?? ''
+  }
+
+  /** Guarda la respuesta escrita de un requisito si cambió. Devuelve false si falló. */
+  const guardarRespuesta = async (r: Requisito): Promise<boolean> => {
+    if (!solicitante) return false
+    const borrador = borradores[r.id]
+    if (borrador === undefined || borrador.trim() === valorGuardado(r).trim()) {
+      setBorradores(b => { const n = { ...b }; delete n[r.id]; return n })
+      return true
+    }
+    setSubiendo(r.id); setErrorAdjunto('')
+    try {
+      const info = await guardarRespuestaRequisito(solicitante.id, r, borrador)
+      setAdjuntos(a => [...a.filter(x => x.requisito_id !== r.id), ...(info ? [info] : [])])
+      setBorradores(b => { const n = { ...b }; delete n[r.id]; return n })
+      return true
+    } catch (err) {
+      setErrorAdjunto(err instanceof Error ? err.message : 'No se pudo guardar el dato')
+      return false
+    } finally {
+      setSubiendo(null)
+    }
+  }
+
+  const irAEnvio = async () => {
+    for (const r of requisitosProducto.filter(requisitoEsEscrito)) {
+      if (!(await guardarRespuesta(r))) return
+    }
+    setPaso(4)
+  }
+
   const verAdjunto = async (requisitoId: string) => {
     if (!solicitante) return
     const a = await obtenerAdjunto(solicitante.id, requisitoId).catch(() => null)
@@ -109,7 +148,7 @@ export default function NuevaSolicitudPortal() {
     if (!producto || !solicitante || !catalogo) return null
     return evaluarElegibilidad({
       producto, solicitante, monto: montoN, plazo: plazoN,
-      adjuntos: adjuntos.map(a => a.requisito_id), requisitos: catalogo.requisitos,
+      adjuntos, requisitos: catalogo.requisitos,
       tieneDocumento: fotos.documento, tieneSelfie: fotos.selfie,
     })
   }, [producto, solicitante, catalogo, montoN, plazoN, adjuntos, fotos])
@@ -127,7 +166,7 @@ export default function NuevaSolicitudPortal() {
       const s = await crearSolicitudPortal({
         solicitante_id: solicitante.id, producto_id: producto.id,
         monto_solicitado: montoN, plazo: plazoN, proposito: proposito.trim() || undefined,
-        requisitos_confirmados: adjuntos.map(a => a.requisito_id),
+        requisitos_confirmados: requisitosProducto.filter(r => respuestaCubre(r, adjuntos.find(a => a.requisito_id === r.id))).map(r => r.id),
       })
       setEnviada(s.id)
     } catch (err) {
@@ -312,14 +351,16 @@ export default function NuevaSolicitudPortal() {
           <Card>
             <CardHeader><h2 className="text-sm font-semibold text-gray-800">Requisitos del producto</h2></CardHeader>
             <CardBody className="space-y-3">
-              <p className="text-xs text-gray-500">Adjunta cada documento (foto JPG/PNG o PDF de hasta 1 MB). Los obligatorios son imprescindibles para enviar.</p>
+              <p className="text-xs text-gray-500">Adjunta cada documento (foto JPG/PNG o PDF de hasta 1 MB) y completa los datos que se piden. Los obligatorios son imprescindibles para enviar. Lo que escribas queda guardado para tus próximas solicitudes.</p>
               {errorAdjunto && <Alert type="error">{errorAdjunto}</Alert>}
               {requisitosProducto.length === 0 && <p className="text-sm text-gray-500">Este producto no tiene requisitos adicionales.</p>}
               {requisitosProducto.map(r => {
                 const porPerfil = requisitoCubiertoPorPerfil(r)
                 const cubiertoPerfil = r.tipo === 'documento_identidad' ? fotos.documento : r.tipo === 'selfie' ? fotos.selfie : false
                 const adj = adjuntos.find(a => a.requisito_id === r.id)
-                const ok = porPerfil ? cubiertoPerfil : Boolean(adj)
+                const escrito = requisitoEsEscrito(r)
+                const ok = porPerfil ? cubiertoPerfil : respuestaCubre(r, adj)
+                const valor = borradores[r.id] ?? valorGuardado(r)
                 return (
                   <div key={r.id} className={clsx('p-3 rounded-lg border', ok ? 'bg-green-50 border-green-200' : r.obligatorio ? 'border-red-200' : 'border-gray-200')}>
                     <div className="flex items-start justify-between gap-3">
@@ -334,11 +375,11 @@ export default function NuevaSolicitudPortal() {
                             {cubiertoPerfil ? 'Cubierto con la foto de tu perfil.' : <>Se cubre con la foto de tu perfil. <button className="underline" onClick={() => navigate('/portal/perfil')}>Ir a mi perfil</button></>}
                           </p>
                         )}
-                        {!porPerfil && adj && (
+                        {!porPerfil && !escrito && adj?.nombre_archivo && (
                           <p className="text-xs text-gray-600 mt-1 truncate">Adjunto: {adj.nombre_archivo}</p>
                         )}
                       </div>
-                      {!porPerfil && (
+                      {!porPerfil && !escrito && (
                         <div className="flex items-center gap-1 shrink-0">
                           {adj && (
                             <>
@@ -354,12 +395,42 @@ export default function NuevaSolicitudPortal() {
                         </div>
                       )}
                     </div>
+                    {escrito && (
+                      <div className="mt-2">
+                        {r.tipo === 'monto' ? (
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text" inputMode="decimal" placeholder="Ej: 1500000"
+                              value={valor}
+                              onChange={e => setBorradores(b => ({ ...b, [r.id]: e.target.value }))}
+                              onBlur={() => void guardarRespuesta(r)}
+                              className="w-48 px-3 py-1.5 text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                            />
+                            {adj?.valor_numero != null && borradores[r.id] === undefined && (
+                              <span className="text-xs text-gray-500">{formatCOP(adj.valor_numero)}</span>
+                            )}
+                          </div>
+                        ) : (
+                          <>
+                            <textarea
+                              rows={3} maxLength={TEXTO_REQUISITO_MAX} placeholder="Escribe aquí tu respuesta"
+                              value={valor}
+                              onChange={e => setBorradores(b => ({ ...b, [r.id]: e.target.value }))}
+                              onBlur={() => void guardarRespuesta(r)}
+                              className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                            />
+                            <p className="text-[11px] text-gray-400 text-right">{valor.length}/{TEXTO_REQUISITO_MAX}</p>
+                          </>
+                        )}
+                        {subiendo === r.id && <p className="text-xs text-gray-400 mt-1">Guardando…</p>}
+                      </div>
+                    )}
                   </div>
                 )
               })}
               <div className="flex justify-between">
                 <Button variant="secondary" onClick={() => setPaso(2)}><ArrowLeft size={16} /> Anterior</Button>
-                <Button onClick={() => setPaso(4)}>Siguiente <ArrowRight size={16} /></Button>
+                <Button onClick={() => void irAEnvio()} disabled={subiendo !== null}>Siguiente <ArrowRight size={16} /></Button>
               </div>
             </CardBody>
           </Card>
@@ -381,6 +452,11 @@ export default function NuevaSolicitudPortal() {
                   ['Cuota estimada', plan[0] ? formatCOP(plan[0].cuota) : '—'],
                   ['Total a pagar', formatCOP(resumen.totalPagar)],
                   ['Propósito', proposito || '—'],
+                  ...requisitosProducto.filter(requisitoEsEscrito).map(r => {
+                    const a = adjuntos.find(x => x.requisito_id === r.id)
+                    const v = r.tipo === 'monto' ? (a?.valor_numero != null ? formatCOP(a.valor_numero) : '—') : (a?.valor_texto || '—')
+                    return [r.nombre, v]
+                  }),
                 ].map(([k, v]) => (
                   <div key={k} className="flex justify-between py-1.5 border-b border-gray-50 last:border-0"><span className="text-gray-500">{k}</span><span className="font-medium text-gray-900 text-right">{v}</span></div>
                 ))}
