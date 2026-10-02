@@ -11,6 +11,7 @@ import { useApp } from '../../context/AppContext'
 import { neon } from '../../lib/neon'
 import { obtenerFoto } from '../../lib/portal'
 import { AdjuntosSolicitante } from '../../components/portal/AdjuntosSolicitante'
+import { RequisitosSolicitud } from '../../components/solicitud/RequisitosSolicitud'
 import { generarPlan, resumenPlan, describirPlazos, plazoValido } from '../../lib/finanzas'
 import { PAIS_LABELS, type Pais } from '../../types'
 import { clsx } from 'clsx'
@@ -194,6 +195,12 @@ export default function DetalleComite() {
                   <p>{cliente.actividad_economica} · {cliente.zona}</p>
                   <p>Créditos activos: {cliente.creditos_activos} · Total histórico: {formatCOP(cliente.total_prestado)}</p>
                 </CardBody>
+              </Card>
+            )}
+            {!solicitante && (
+              <Card>
+                <CardHeader><h2 className="text-sm font-semibold text-gray-800">Requisitos del producto</h2></CardHeader>
+                <CardBody><RequisitosSolicitud solicitudId={solicitud.id} producto={producto} editable={false} /></CardBody>
               </Card>
             )}
 

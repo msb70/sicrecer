@@ -62,7 +62,7 @@ export async function subirFoto(solicitanteId: string, tipo: TipoDocumentoFoto, 
 }
 
 // PostgREST serializa bytea como hex "\\x...." y acepta el mismo formato al escribir.
-function dataUrlAHex(dataUrl: string): { mime: string; hex: string } {
+export function dataUrlAHex(dataUrl: string): { mime: string; hex: string } {
   const [cab, b64] = dataUrl.split(',')
   const mime = /data:([^;]+);/.exec(cab)?.[1] ?? 'image/jpeg'
   const bin = atob(b64)
@@ -71,7 +71,7 @@ function dataUrlAHex(dataUrl: string): { mime: string; hex: string } {
   return { mime, hex }
 }
 
-function byteaADataUrl(hex: string, mime: string): string {
+export function byteaADataUrl(hex: string, mime: string): string {
   const limpio = hex.startsWith('\\x') ? hex.slice(2) : hex
   let bin = ''
   for (let i = 0; i < limpio.length; i += 2) bin += String.fromCharCode(parseInt(limpio.slice(i, i + 2), 16))
@@ -217,7 +217,7 @@ export function abrirDataUrl(dataUrl: string): void {
   setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }
 
-function archivoADataUrl(f: File): Promise<string> {
+export function archivoADataUrl(f: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const r = new FileReader()
     r.onload = () => resolve(String(r.result))

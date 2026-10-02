@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Calculator, CheckCircle2, Save } from 'lucide-react'
 import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
@@ -8,6 +8,8 @@ import { coberturaIncluye, describirCobertura } from '../../lib/ubicaciones'
 import { useApp } from '../../context/AppContext'
 import { guardarCatalogo } from '../../lib/catalogos'
 import { clsx } from 'clsx'
+import { RequisitosBorrador, requisitosDeProducto } from '../../components/solicitud/RequisitosSolicitud'
+import { borradorCubre, guardarRespuesta, esEscrito, parsearMonto, type BorradorRequisito } from '../../lib/requisitosSolicitud'
 
 // ─── CÁLCULO DE CUOTAS ────────────────────────────────────────
 // Motor financiero único (src/lib/finanzas.ts) — misma lógica que
@@ -21,7 +23,7 @@ function generarAmortizacion(monto: number, tasaAnual: number, plazo: number, me
 }
 
 // ─── PASOS ────────────────────────────────────────────────────
-const PASOS = ['Datos básicos', 'Calculadora', 'Confirmar']
+const PASOS = ['Datos básicos', 'Calculadora', 'Requisitos', 'Confirmar']
 
 export default function NuevaSolicitud() {
   const navigate = useNavigate()
@@ -44,10 +46,20 @@ export default function NuevaSolicitud() {
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
 
+  // Requisitos del producto: lo que adjunta/escribe el facilitador antes de guardar
+  const [borradores, setBorradores] = useState<Record<string, BorradorRequisito>>({})
+  const [avisoReq, setAvisoReq] = useState('')
+  useEffect(() => { setBorradores({}) }, [form.producto_id])
+  const cambiarBorrador = (id: string, b: BorradorRequisito | undefined) =>
+    setBorradores(bs => { const n = { ...bs }; if (b) n[id] = b; else delete n[id]; return n })
+
   const producto = PRODUCTOS.find(p => p.id === form.producto_id) ?? PRODUCTOS[0]
   const cliente  = CLIENTES.find(c => c.id === form.cliente_id)
   const coberturaOk = !cliente || coberturaIncluye(producto.cobertura, cliente.ciudad, cliente.localidad)
   const monto    = parseInt(form.monto) || 0
+  const requisitos = requisitosDeProducto(producto)
+  const faltanReq  = requisitos.filter(r => r.obligatorio && !borradorCubre(r, borradores[r.id]))
+  const cubiertos  = requisitos.filter(r => borradorCubre(r, borradores[r.id])).length
   const plazo    = parseInt(form.plazo) || 12
 
   // Validaciones básicas
@@ -68,6 +80,7 @@ export default function NuevaSolicitud() {
     if (!cliente) { setError('Selecciona el cliente.'); return }
     if (!montoValido || !plazoValido) { setError('Revisa el monto y el número de cuotas.'); return }
     if (!coberturaOk) { setError(`${producto.nombre} no se ofrece en la zona del cliente.`); return }
+    if (faltanReq.length > 0) { setError(`Faltan requisitos obligatorios: ${faltanReq.map(r => r.nombre).join(', ')}.`); return }
     if (modo !== 'google') { setError('En modo demo no se guardan cambios.'); return }
     setLoading(true)
     try {
@@ -85,8 +98,16 @@ export default function NuevaSolicitud() {
         pais: cliente.pais ?? producto.paises?.[0] ?? organizacion?.pais ?? 'CO',
         proposito: form.proposito.trim() || null,
       }, null, 'sol')
+      // Requisitos: se guardan en la solicitud recién creada
+      const fallidos: string[] = []
+      for (const r of requisitos) {
+        const b = borradores[r.id]
+        if (!borradorCubre(r, b)) continue
+        try { await guardarRespuesta(id, r, b!) } catch (e) { fallidos.push(e instanceof Error ? e.message : r.nombre) }
+      }
+      setAvisoReq(fallidos.length ? `La solicitud se creó, pero no se pudieron guardar algunos requisitos (${fallidos.join(' · ')}). Complétalos desde la ficha.` : '')
       setExito(true)
-      setTimeout(() => navigate(`/solicitudes/${id}`), 1500)
+      setTimeout(() => navigate(`/solicitudes/${id}`), fallidos.length ? 5000 : 1500)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo registrar la solicitud')
     } finally {
@@ -102,6 +123,7 @@ export default function NuevaSolicitud() {
             <CheckCircle2 size={56} className="text-green-500 mb-4" />
             <h2 className="text-xl font-bold text-gray-900">Solicitud enviada</h2>
             <p className="text-gray-500 mt-2">La solicitud quedó registrada como "Enviada". Desde su ficha puedes enviarla al comité.</p>
+            {avisoReq && <Alert type="warning" className="mt-4 max-w-lg text-left">{avisoReq}</Alert>}
           </div>
         </PageContainer>
       </Shell>
@@ -345,8 +367,28 @@ export default function NuevaSolicitud() {
           </div>
         )}
 
-        {/* ── PASO 2: Confirmar ───────────────── */}
+        {/* ── PASO 2: Requisitos ──────────────── */}
         {paso === 2 && (
+          <div className="max-w-2xl mx-auto space-y-5">
+            <Card>
+              <CardHeader><h2 className="text-sm font-semibold text-gray-800">Requisitos del producto — {producto.nombre}</h2></CardHeader>
+              <CardBody className="space-y-3">
+                <p className="text-xs text-gray-500">Adjunta cada documento (foto JPG/PNG o PDF de hasta 1 MB) y completa los montos y textos. Los obligatorios son imprescindibles para registrar la solicitud.</p>
+                <RequisitosBorrador requisitos={requisitos} borradores={borradores} onChange={cambiarBorrador} />
+              </CardBody>
+            </Card>
+            {faltanReq.length > 0 && <Alert type="warning">Faltan: {faltanReq.map(r => r.nombre).join(', ')}.</Alert>}
+            <div className="flex justify-between">
+              <Button variant="secondary" onClick={() => setPaso(1)}><ArrowLeft size={16} />Anterior</Button>
+              <Button onClick={() => setPaso(3)} disabled={faltanReq.length > 0}>
+                Siguiente <ArrowRight size={16} />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* ── PASO 3: Confirmar ───────────────── */}
+        {paso === 3 && (
           <div className="max-w-lg mx-auto space-y-5">
             <Card>
               <CardHeader><h2 className="text-sm font-semibold text-gray-800">Resumen de la solicitud</h2></CardHeader>
@@ -359,6 +401,11 @@ export default function NuevaSolicitud() {
                   [`Cuota ${producto.frecuencia}`, formatCOP(cuota)],
                   ['Total a pagar',    formatCOP(totalPagar)],
                   ['Propósito',        form.proposito || '—'],
+                  ['Requisitos',       `${cubiertos} de ${requisitos.length} completos`],
+                  ...requisitos.filter(esEscrito).map(r => {
+                    const v = borradores[r.id]?.valor?.trim() ?? ''
+                    return [r.nombre, !v ? '—' : r.tipo === 'monto' ? formatCOP(parsearMonto(v) ?? 0) : v]
+                  }),
                 ].map(([k, v]) => (
                   <div key={k} className="flex justify-between py-2 border-b border-gray-50 last:border-0">
                     <span className="text-gray-500">{k}</span>
@@ -374,7 +421,7 @@ export default function NuevaSolicitud() {
             {error && <Alert type="error">{error}</Alert>}
 
             <div className="flex justify-between">
-              <Button variant="secondary" onClick={() => setPaso(1)}><ArrowLeft size={16} />Anterior</Button>
+              <Button variant="secondary" onClick={() => setPaso(2)}><ArrowLeft size={16} />Anterior</Button>
               <Button loading={loading} onClick={handleEnviar}>
                 <Save size={16} />Enviar solicitud
               </Button>

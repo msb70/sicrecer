@@ -12,6 +12,7 @@ import { useApp } from '../../context/AppContext'
 import { neon } from '../../lib/neon'
 import { obtenerFoto } from '../../lib/portal'
 import { AdjuntosSolicitante } from '../../components/portal/AdjuntosSolicitante'
+import { RequisitosSolicitud } from '../../components/solicitud/RequisitosSolicitud'
 import { PAIS_LABELS, type Pais } from '../../types'
 import { FormEvaluacion } from '../../components/scoring/FormEvaluacion'
 import { Preanalisis } from '../../components/scoring/Preanalisis'
@@ -221,6 +222,20 @@ export default function DetalleSolicitud() {
                       {fotos.selfie ? <img src={fotos.selfie} alt="Selfie" className="w-full rounded-lg border border-gray-200 object-contain max-h-64 bg-gray-50" /> : <p className="text-xs text-gray-400">Sin foto</p>}
                     </div>
                   </div>
+                </CardBody>
+              </Card>
+            )}
+
+            {/* Requisitos del producto (solicitud interna) */}
+            {!esExterna && (
+              <Card>
+                <CardHeader><h2 className="text-sm font-semibold text-gray-800">Requisitos del producto</h2></CardHeader>
+                <CardBody>
+                  <RequisitosSolicitud
+                    solicitudId={solicitud.id}
+                    producto={producto}
+                    editable={puede('solicitudes', 'editar') && ['borrador', 'enviada', 'scoring'].includes(solicitud.estado)}
+                  />
                 </CardBody>
               </Card>
             )}

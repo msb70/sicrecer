@@ -44,6 +44,7 @@ import DetalleConvenio   from '../pages/convenios/DetalleConvenio'
 import FormConvenio      from '../pages/convenios/FormConvenio'
 import ListaProductos    from '../pages/productos/ListaProductos'
 import FormProducto      from '../pages/productos/FormProducto'
+import DetalleProducto from '../pages/productos/DetalleProducto'
 import Zonificacion      from '../pages/zonas/Zonificacion'
 import ListaUsuarios     from '../pages/usuarios/ListaUsuarios'
 import FormUsuario       from '../pages/usuarios/FormUsuario'
@@ -181,7 +182,7 @@ const router = createBrowserRouter([
   // Sprint 2 — Productos
   { path: '/productos',              element: <PrivateRoute><ListaProductos /></PrivateRoute> },
   { path: '/productos/nuevo',        element: <PrivateRoute><FormProducto /></PrivateRoute> },
-  { path: '/productos/:id',          element: <PrivateRoute><Placeholder titulo="Detalle producto" /></PrivateRoute> },
+  { path: '/productos/:id',          element: <PrivateRoute><DetalleProducto /></PrivateRoute> },
   { path: '/productos/:id/editar',   element: <PrivateRoute><FormProducto /></PrivateRoute> },
 
   // Sprint 2 — Zonificación
