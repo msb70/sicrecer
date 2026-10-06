@@ -8,6 +8,8 @@ import { validarUbicacion, type Ubicacion } from '../../lib/ubicaciones'
 import { PROSPECTOS, ZONAS } from '../../mocks'
 import { useApp } from '../../context/AppContext'
 import { guardarCatalogo } from '../../lib/catalogos'
+import { normalizarRed, type OrigenConsentimiento } from '../../lib/redes'
+import { CampoConsentimiento } from '../../components/redes/CampoConsentimiento'
 
 export default function FormProspecto() {
   const navigate = useNavigate()
@@ -21,6 +23,10 @@ export default function FormProspecto() {
     documento:       prospecto?.documento       ?? '',
     telefono:        prospecto?.telefono        ?? '',
     email:           prospecto?.email           ?? '',
+    instagram:       prospecto?.instagram       ?? '',
+    facebook:        prospecto?.facebook        ?? '',
+    acepta_comunicaciones: prospecto?.acepta_comunicaciones ?? false,
+    consentimiento_origen: (prospecto?.consentimiento_origen ?? '') as OrigenConsentimiento | '',
     sexo:            prospecto?.sexo            ?? '',
     zona:            prospecto?.zona            ?? '',
     pais:            prospecto?.pais            ?? organizacion?.pais ?? 'CO',
@@ -40,6 +46,11 @@ export default function FormProspecto() {
   const { modo, usuario } = useApp()
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
+  const setConsent = (c: { acepta?: boolean; origen?: OrigenConsentimiento | '' }) => setForm(f => ({
+    ...f,
+    ...(c.acepta !== undefined ? { acepta_comunicaciones: c.acepta } : {}),
+    ...(c.origen !== undefined ? { consentimiento_origen: c.origen } : {}),
+  }))
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -50,6 +61,7 @@ export default function FormProspecto() {
     if ((lat !== null && Number.isNaN(lat)) || (lng !== null && Number.isNaN(lng))) { setError('Coordenadas GPS inválidas'); return }
     const errUbic = validarUbicacion(form)
     if (errUbic) { setError(errUbic); return }
+    if (form.acepta_comunicaciones && !form.consentimiento_origen) { setError('Indica cómo dio la autorización de comunicaciones'); return }
     setLoading(true)
     try {
       const fila = {
@@ -57,6 +69,10 @@ export default function FormProspecto() {
         documento: form.documento.trim(),
         telefono: form.telefono.trim() || null,
         email: form.email.trim().toLowerCase() || null,
+        instagram: normalizarRed('instagram', form.instagram),
+        facebook: normalizarRed('facebook', form.facebook),
+        acepta_comunicaciones: form.acepta_comunicaciones,
+        consentimiento_origen: form.acepta_comunicaciones ? form.consentimiento_origen || null : prospecto?.consentimiento_origen ?? null,
         sexo: form.sexo || null,
         zona: form.zona || null,
         pais: form.pais,
@@ -150,6 +166,25 @@ export default function FormProspecto() {
                     type="email"
                   />
                 </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <Input
+                    label="Instagram"
+                    value={form.instagram}
+                    onChange={e => set('instagram', e.target.value)}
+                    placeholder="@usuario o enlace"
+                  />
+                  <Input
+                    label="Facebook"
+                    value={form.facebook}
+                    onChange={e => set('facebook', e.target.value)}
+                    placeholder="usuario o enlace"
+                  />
+                </div>
+                <CampoConsentimiento
+                  acepta={form.acepta_comunicaciones}
+                  origen={form.consentimiento_origen}
+                  onChange={setConsent}
+                />
                 <Select
                   label="Sexo"
                   value={form.sexo}

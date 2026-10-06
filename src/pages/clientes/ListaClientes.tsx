@@ -9,6 +9,9 @@ import { FILTROS_VACIOS, coincide, filaDeCliente, type FiltrosCartera } from '..
 import { useApp, usePermiso } from '../../context/AppContext'
 import type { EstadoCliente } from '../../types'
 import { clsx } from 'clsx'
+import { BarraCampanias, IconosContacto } from '../../components/redes/BarraCampanias'
+import { cumpleFiltroContacto, filasCampania, type FiltroContacto } from '../../lib/redes'
+import { descargarCSV } from '../../lib/reportes'
 
 const ESTADO_COLOR: Record<EstadoCliente, 'green' | 'blue' | 'red'> = {
   activo:   'blue',
@@ -26,6 +29,8 @@ const ESTADO_LABEL: Record<EstadoCliente, string> = {
 
 export default function ListaClientes() {
   const permisoSol = usePermiso('solicitudes')
+  const permisoCli = usePermiso('clientes')
+  const [filtroContacto, setFiltroContacto] = useState<FiltroContacto>('todos')
   const navigate = useNavigate()
   const [filtros, setFiltros] = useState<FiltrosCartera>(FILTROS_VACIOS)
   const { rol } = useApp()
@@ -34,8 +39,11 @@ export default function ListaClientes() {
   const filtrados = CLIENTES.filter(c => {
     const matchBusqueda = coincide(filaDeCliente(c), filtros, `${c.nombre} ${c.documento}`)
     const matchEstado = filtroEstado === 'todos' || c.estado === filtroEstado
-    return matchBusqueda && matchEstado
+    return matchBusqueda && matchEstado && cumpleFiltroContacto(c, filtroContacto)
   })
+  const exportables = filtrados.filter(c => c.acepta_comunicaciones)
+  const exportar = () => descargarCSV(`sicrecer_clientes_campania_${new Date().toISOString().slice(0, 10)}`,
+    filasCampania(exportables, 'Cliente'))
 
   return (
     <Shell>
@@ -73,6 +81,9 @@ export default function ListaClientes() {
             ))}
           </div>
         </div>
+
+        <BarraCampanias filtro={filtroContacto} onFiltro={setFiltroContacto} exportables={exportables.length}
+          onExportar={permisoCli.editar ? exportar : undefined} />
 
         {/* Cards en mobile, tabla en desktop */}
         <div className="sm:hidden space-y-3">
@@ -123,7 +134,7 @@ export default function ListaClientes() {
                             {c.nombre.split(' ').map(n => n[0]).join('').slice(0,2)}
                           </div>
                           <div>
-                            <p className="font-medium text-gray-900">{c.nombre}</p>
+                            <p className="font-medium text-gray-900 flex items-center gap-1.5">{c.nombre} <IconosContacto c={c} /></p>
                             <p className="text-xs text-gray-400">{c.zona}</p>
                           </div>
                         </div>

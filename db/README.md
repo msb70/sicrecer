@@ -25,6 +25,9 @@ aplicado en la rama `production`; este directorio es la fuente de verdad version
 | `0015_roles_permisos_y_serie.sql` | Roles configurables: `modulos` (pantallas), `roles` (con perfil de datos base), `rol_permisos` (ver / editar / borrar por módulo), `usuarios.rol_id`; `fn_permiso_actual(modulo, accion)`; la RLS de catálogos y tablas operativas exige el permiso (y el alcance de cartera del perfil); `aplicar_pago`, `desembolsar_solicitud`, `enviar_a_comite` y el voto del comité validan permiso; roles del sistema protegidos y el Administrador no pierde Usuarios/Roles. Vista `v_serie_mensual` (12 meses × crédito: saldo, mora, esperado, recaudado, desembolsado) para el dashboard |
 | `0016_requisitos_monto_texto.sql` | Requisitos de tipo `monto` y `texto` además de `archivo`: `solicitante_requisitos.valor_numero/valor_texto` (archivo opcional; cada fila trae archivo, monto o texto), `solicitudes.respuestas_requisitos` (copia congelada de los montos/textos al enviar) y `fn_validar_solicitud_externa` exige el dato según el tipo |
 | `0017_requisitos_solicitud_interna.sql` | Requisitos en la solicitud interna: tabla `solicitud_requisitos` (archivo, monto o texto por requisito y solicitud; RLS: lee quien ve la solicitud, escribe quien tiene permiso de editar solicitudes mientras no esté en comité), `fn_requisitos_faltantes_interna` y `enviar_a_comite` rechaza solicitudes internas con obligatorios sin cubrir |
+| `0018_cierre_mensual.sql` | Cierre mensual real por convenio: `cierres_mensuales` (totales congelados, versionado: reabrir conserva la versión anterior), `cierre_creditos` (foto por crédito al corte: saldo, capital vencido, días de mora, categoría), `cierre_movimientos`; `fn_calcular_cierre` / `vista_previa_cierre` (misma lógica en vivo), `cerrar_mes` (meses terminados y en orden, permiso cierre/editar), `reabrir_mes` (solo Administrador, con motivo, solo el último cerrado); triggers `trg_bloquear_mes_cerrado` en `cobranzas`, `pagos` y `creditos` (no se registra ni modifica nada con fecha en un mes cerrado); `cronograma_versiones` (copia del cronograma antes de cada reprogramación por anticipo). Reconstruye el histórico (origen `reconstruido`) hasta 2026-08 |
+| `0019_redes_sociales.sql` | `instagram` y `facebook` en `prospectos` y `clientes` (usuario normalizado o URL, máx. 300); trigger `trg_copiar_redes` (prospecto del portal → cliente al aprobarse en comité) |
+| `0020_consentimiento_comunicaciones.sql` | Consentimiento para campañas: `acepta_comunicaciones`, `consentimiento_fecha` (la sella la BD en cada alta/revocación, trigger `trg_sellar_consentimiento`) y `consentimiento_origen` en `prospectos`, `clientes` y `solicitantes`; `instagram`/`facebook` en `solicitantes`; el prospecto del portal y el cliente que nace de él heredan redes y consentimiento |
 | `0004_portal_solicitantes.sql` | Portal de autoservicio: `solicitantes` + fotos (`solicitante_documentos`, bytea), productos con `paises`/`publico`, `comites` (uno activo por producto) + `comite_miembros` + `comite_votos`, outbox `notificaciones`, RLS del solicitante (solo lo suyo), trigger de validación de solicitudes externas, funciones `enviar_a_comite` y `votar_solicitud` (mayoría simple; al aprobar convierte solicitante→cliente). Endurece la identidad: exige `emailVerified` en Neon Auth |
 
 ## Cómo aplicar en un entorno nuevo
@@ -48,6 +51,9 @@ psql "$DATABASE_URL" -f db/migrations/0014_scoring_fem.sql
 psql "$DATABASE_URL" -f db/migrations/0015_roles_permisos_y_serie.sql
 psql "$DATABASE_URL" -f db/migrations/0016_requisitos_monto_texto.sql
 psql "$DATABASE_URL" -f db/migrations/0017_requisitos_solicitud_interna.sql
+psql "$DATABASE_URL" -f db/migrations/0018_cierre_mensual.sql
+psql "$DATABASE_URL" -f db/migrations/0019_redes_sociales.sql
+psql "$DATABASE_URL" -f db/migrations/0020_consentimiento_comunicaciones.sql
 ```
 
 Tras crear tablas **o columnas** nuevas hay que refrescar la caché de esquema del Data API (Consola → Data API →

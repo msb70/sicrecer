@@ -12,6 +12,8 @@ import {
 import { PAIS_LABELS, type ActividadEconomica, type Pais } from '../../types'
 import { SelectorUbicacion } from '../../components/ubicacion/SelectorUbicacion'
 import { validarUbicacion } from '../../lib/ubicaciones'
+import { normalizarRed } from '../../lib/redes'
+import { CampoConsentimiento } from '../../components/redes/CampoConsentimiento'
 
 const TIPOS_DOC: Record<Pais, { value: string; label: string }[]> = {
   CO: [
@@ -44,7 +46,10 @@ export default function Perfil() {
     localidad: solicitante?.localidad ?? '',
     direccion: solicitante?.direccion ?? '',
     actividad_economica_id: solicitante?.actividad_economica_id ?? '',
+    instagram: solicitante?.instagram ?? '',
+    facebook: solicitante?.facebook ?? '',
   })
+  const [acepta, setAcepta] = useState(solicitante?.acepta_comunicaciones ?? false)
   const [fotos, setFotos] = useState<{ documento?: string | null; selfie?: string | null }>({})
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
@@ -89,6 +94,9 @@ export default function Perfil() {
         localidad: form.localidad || null,
         direccion: form.direccion.trim() || null,
         actividad_economica_id: form.actividad_economica_id,
+        instagram: normalizarRed('instagram', form.instagram),
+        facebook: normalizarRed('facebook', form.facebook),
+        acepta_comunicaciones: acepta,
       }
       const s = await guardarSolicitante(input, solicitante?.id)
       setSolicitante(s)
@@ -138,6 +146,8 @@ export default function Perfil() {
             <Select label="Género" value={form.genero} onChange={e => set('genero', e.target.value)} disabled={bloqueado}
               options={[{ value: '', label: 'Prefiero no decir' }, { value: 'F', label: 'Femenino' }, { value: 'M', label: 'Masculino' }, { value: 'otro', label: 'Otro' }]} />
             <Input label="Teléfono / WhatsApp" value={form.telefono} onChange={e => set('telefono', e.target.value)} placeholder="+57 300 000 0000" />
+            <Input label="Instagram (opcional)" value={form.instagram} onChange={e => set('instagram', e.target.value)} placeholder="@tu_usuario" disabled={bloqueado} />
+            <Input label="Facebook (opcional)" value={form.facebook} onChange={e => set('facebook', e.target.value)} placeholder="usuario o enlace de tu perfil" disabled={bloqueado} />
             <div className="sm:col-span-2">
               <SelectorUbicacion
                 value={form}
@@ -153,6 +163,7 @@ export default function Perfil() {
                 options={[{ value: '', label: 'Selecciona…' }, ...actividades.map(a => ({ value: a.id, label: a.nombre }))]} />
             </div>
           </div>
+          <CampoConsentimiento portal acepta={acepta} onChange={c => setAcepta(Boolean(c.acepta))} disabled={bloqueado} />
           {!bloqueado && (
             <div className="flex justify-end">
               <Button onClick={guardar} loading={guardando}><Save size={16} /> {esNuevo ? 'Guardar y continuar' : 'Guardar cambios'}</Button>

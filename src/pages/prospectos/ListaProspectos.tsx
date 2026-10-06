@@ -7,6 +7,9 @@ import { PROSPECTOS } from '../../mocks'
 import type { EstadoProspecto } from '../../types'
 import { clsx } from 'clsx'
 import { usePermiso } from '../../context/AppContext'
+import { BarraCampanias, IconosContacto } from '../../components/redes/BarraCampanias'
+import { cumpleFiltroContacto, filasCampania, type FiltroContacto } from '../../lib/redes'
+import { descargarCSV } from '../../lib/reportes'
 
 const ESTADO_COLOR: Record<EstadoProspecto, 'blue' | 'yellow' | 'green' | 'gray'> = {
   nuevo:      'blue',
@@ -27,13 +30,17 @@ export default function ListaProspectos() {
   const navigate = useNavigate()
   const [busqueda, setBusqueda] = useState('')
   const [filtroEstado, setFiltroEstado] = useState<EstadoProspecto | 'todos'>('todos')
+  const [filtroContacto, setFiltroContacto] = useState<FiltroContacto>('todos')
 
   const filtrados = PROSPECTOS.filter(p => {
     const matchBusqueda = p.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
       p.documento.includes(busqueda)
     const matchEstado = filtroEstado === 'todos' || p.estado === filtroEstado
-    return matchBusqueda && matchEstado
+    return matchBusqueda && matchEstado && cumpleFiltroContacto(p, filtroContacto)
   })
+  const exportables = filtrados.filter(p => p.acepta_comunicaciones && p.estado !== 'descartado')
+  const exportar = () => descargarCSV(`sicrecer_prospectos_campania_${new Date().toISOString().slice(0, 10)}`,
+    filasCampania(exportables, 'Prospecto'))
 
   return (
     <Shell>
@@ -77,6 +84,9 @@ export default function ListaProspectos() {
           </div>
         </div>
 
+        <BarraCampanias filtro={filtroContacto} onFiltro={setFiltroContacto} exportables={exportables.length}
+          onExportar={permiso.editar ? exportar : undefined} />
+
         {/* Tabla */}
         <Card>
           {filtrados.length === 0 ? (
@@ -109,6 +119,7 @@ export default function ListaProspectos() {
                           </div>
                           <span className="font-medium text-gray-900">{p.nombre}</span>
                           {p.canal_captacion === 'portal' && <Badge color="purple">Portal</Badge>}
+                          <IconosContacto c={p} />
                         </div>
                       </td>
                       <td className="px-6 py-4 text-gray-600 font-mono text-xs">{p.documento}</td>

@@ -8,6 +8,8 @@ import { useApp } from '../../context/AppContext'
 import { guardarCatalogo } from '../../lib/catalogos'
 import { SelectorUbicacion } from '../../components/ubicacion/SelectorUbicacion'
 import { validarUbicacion, type Ubicacion } from '../../lib/ubicaciones'
+import { normalizarRed, type OrigenConsentimiento } from '../../lib/redes'
+import { CampoConsentimiento } from '../../components/redes/CampoConsentimiento'
 
 /**
  * Convierte un prospecto en cliente: crea la ficha en `clientes` y marca el
@@ -23,10 +25,16 @@ export default function ConvertirProspecto() {
     nombre: prospecto?.nombre ?? '',
     documento: prospecto?.documento ?? '',
     telefono: prospecto?.telefono ?? '',
+    instagram: prospecto?.instagram ?? '',
+    facebook: prospecto?.facebook ?? '',
     genero: prospecto?.sexo === 'M' || prospecto?.sexo === 'F' ? prospecto.sexo : '',
     fecha_nacimiento: '',
     actividad_economica: '',
     zona: prospecto?.zona ?? '',
+  })
+  const [consent, setConsent] = useState<{ acepta: boolean; origen: OrigenConsentimiento | '' }>({
+    acepta: prospecto?.acepta_comunicaciones ?? false,
+    origen: prospecto?.consentimiento_origen ?? '',
   })
   const [ubic, setUbic] = useState<Ubicacion>({
     pais: prospecto?.pais ?? organizacion?.pais ?? 'CO', ciudad: prospecto?.ciudad ?? '',
@@ -45,12 +53,17 @@ export default function ConvertirProspecto() {
     if (existente) { setError(`Ya existe un cliente con el documento ${doc}: ${existente.nombre}`); return }
     const errUbic = validarUbicacion(ubic)
     if (errUbic) { setError(errUbic); return }
+    if (consent.acepta && !consent.origen) { setError('Indica cómo dio la autorización de comunicaciones'); return }
     setGuardando(true)
     try {
       const idCliente = await guardarCatalogo('clientes', {
         nombre: form.nombre.trim(),
         documento: doc,
         telefono: form.telefono.trim() || null,
+        instagram: normalizarRed('instagram', form.instagram),
+        facebook: normalizarRed('facebook', form.facebook),
+        acepta_comunicaciones: consent.acepta,
+        consentimiento_origen: consent.acepta ? consent.origen || null : null,
         genero: form.genero || null,
         fecha_nacimiento: form.fecha_nacimiento || null,
         actividad_economica: form.actividad_economica || null,
@@ -93,11 +106,15 @@ export default function ConvertirProspecto() {
                 <Select label="Género" value={form.genero} onChange={e => campo('genero', e.target.value)}
                   options={[{ value: '', label: 'Sin especificar' }, { value: 'F', label: 'Femenino' }, { value: 'M', label: 'Masculino' }]} />
                 <Input label="Fecha de nacimiento" type="date" value={form.fecha_nacimiento} onChange={e => campo('fecha_nacimiento', e.target.value)} />
+                <Input label="Instagram" value={form.instagram} onChange={e => campo('instagram', e.target.value)} placeholder="@usuario o enlace" />
+                <Input label="Facebook" value={form.facebook} onChange={e => campo('facebook', e.target.value)} placeholder="usuario o enlace" />
               </div>
               <Select label="Actividad económica" value={form.actividad_economica} onChange={e => campo('actividad_economica', e.target.value)}
                 options={[{ value: '', label: 'Selecciona…' }, ...ACTIVIDADES_ECONOMICAS.map(a => ({ value: a.nombre, label: `${a.nombre} (${a.sector})` }))]} />
               <Input label="Zona" value={form.zona} onChange={e => campo('zona', e.target.value)} />
               <SelectorUbicacion value={ubic} onChange={c => setUbic(u => ({ ...u, ...c }))} />
+              <CampoConsentimiento acepta={consent.acepta} origen={consent.origen}
+                onChange={c => setConsent(s => ({ acepta: c.acepta ?? s.acepta, origen: c.origen ?? s.origen }))} />
               <div className="flex justify-end gap-3 pt-2">
                 <Button variant="ghost" onClick={() => navigate(-1)}>Cancelar</Button>
                 <Button onClick={guardar} loading={guardando} disabled={Boolean(prospecto?.solicitante_id) || !form.nombre.trim() || !form.documento.trim()}>

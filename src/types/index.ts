@@ -184,6 +184,11 @@ export interface Prospecto {
   canal_preferido?: 'whatsapp' | 'llamada' | 'email' | 'visita'
   canal_captacion?: 'referido' | 'redes_sociales' | 'evento' | 'visita_facilitador' | 'portal' | 'otro'
   solicitante_id?: string | null   // registro del portal que originó el prospecto
+  instagram?: string | null        // usuario normalizado o URL (src/lib/redes.ts)
+  facebook?: string | null
+  acepta_comunicaciones?: boolean
+  consentimiento_fecha?: string | null
+  consentimiento_origen?: 'formulario' | 'portal' | 'visita' | 'otro' | null
   lat?: number | null
   lng?: number | null
 }
@@ -201,6 +206,11 @@ export interface Cliente {
   localidad?: string | null
   direccion?: string | null
   telefono: string
+  instagram?: string | null
+  facebook?: string | null
+  acepta_comunicaciones?: boolean
+  consentimiento_fecha?: string | null
+  consentimiento_origen?: 'formulario' | 'portal' | 'visita' | 'otro' | null
   estado: EstadoCliente
   creditos_activos: number
   total_prestado: number
@@ -284,6 +294,9 @@ export interface Solicitante {
   localidad?: string | null
   direccion?: string | null
   actividad_economica_id?: string | null
+  instagram?: string | null
+  facebook?: string | null
+  acepta_comunicaciones?: boolean
   estado: 'registrado' | 'cliente'
   cliente_id?: string | null
   creado_en?: string

@@ -12,6 +12,7 @@ import { useApp, usePermiso } from '../../context/AppContext'
 import { guardarCatalogo } from '../../lib/catalogos'
 import type { ActividadCRM, TipoActividadCRM } from '../../types'
 import { describirUbicacion, etiquetaLocalidad } from '../../lib/ubicaciones'
+import { TarjetaRedes } from '../../components/redes/TarjetaRedes'
 
 const ESTADO_COLOR = { nuevo: 'blue', contactado: 'yellow', convertido: 'green', descartado: 'gray' } as const
 const ESTADO_LABEL = { nuevo: 'Nuevo', contactado: 'Contactado', convertido: 'Convertido', descartado: 'Descartado' }
@@ -209,6 +210,8 @@ export default function DetalleProspecto() {
                 </div>
               </CardBody>
             </Card>
+
+            <TarjetaRedes tabla="prospectos" id={prospecto.id} valor={prospecto} />
 
             {/* Actividades CRM */}
             <Card>

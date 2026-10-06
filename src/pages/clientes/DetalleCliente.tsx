@@ -6,6 +6,7 @@ import { Button, Badge, Card, CardHeader, CardBody, Alert, StatCard } from '../.
 import { CLIENTES, CREDITOS, SOLICITUDES, formatCOP } from '../../mocks'
 import type { Credito } from '../../types'
 import { TarjetaUbicacion } from '../../components/ubicacion/TarjetaUbicacion'
+import { TarjetaRedes } from '../../components/redes/TarjetaRedes'
 import { usePermiso } from '../../context/AppContext'
 
 const ESTADO_LABEL = { activo: 'Activo', al_dia: 'Al día', moroso: 'En mora', inactivo: 'Inactivo' }
@@ -242,6 +243,8 @@ export default function DetalleCliente() {
             </Card>
 
             <TarjetaUbicacion tabla="clientes" id={cliente.id} valor={cliente} />
+
+            <TarjetaRedes tabla="clientes" id={cliente.id} valor={cliente} />
 
             {/* Plan de pagos por crédito activo */}
             {creditosActivos.length > 0 && (
