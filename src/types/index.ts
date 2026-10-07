@@ -297,6 +297,11 @@ export interface Solicitante {
   instagram?: string | null
   facebook?: string | null
   acepta_comunicaciones?: boolean
+  /** Términos y condiciones + Política de tratamiento de datos (obligatorio). */
+  acepta_terminos?: boolean
+  terminos_version?: string | null
+  /** La sella la BD al aceptar (prueba de la autorización). */
+  terminos_fecha?: string | null
   estado: 'registrado' | 'cliente'
   cliente_id?: string | null
   creado_en?: string

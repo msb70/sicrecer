@@ -4,6 +4,7 @@ import { FileText, UserCircle, LogOut, PlusCircle } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useApp } from '../../context/AppContext'
 import { BrandLogo } from '../BrandLogo'
+import { EnlacesLegales } from '../legal/EnlacesLegales'
 
 /** Layout del portal de solicitantes: barra superior + contenido, pensado para móvil. */
 export function PortalShell({ children, titulo, subtitulo, acciones }: {
@@ -57,7 +58,10 @@ export function PortalShell({ children, titulo, subtitulo, acciones }: {
         {children}
       </main>
 
-      <footer className="text-center text-xs text-gray-400 py-4">SiCrecer · Portal de solicitantes</footer>
+      <footer className="text-center text-xs text-gray-400 py-4 space-y-1">
+        <div>SiCrecer · Portal de solicitantes</div>
+        <EnlacesLegales />
+      </footer>
     </div>
   )
 }

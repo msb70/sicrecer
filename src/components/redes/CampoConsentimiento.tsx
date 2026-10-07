@@ -1,4 +1,6 @@
 import { Select } from '../ui'
+import { EnlaceLegal } from '../legal/EnlacesLegales'
+import { URL_POLITICA_DATOS } from '../../lib/legal'
 import { ORIGEN_CONSENTIMIENTO_LABEL, TEXTO_CONSENTIMIENTO, type OrigenConsentimiento } from '../../lib/redes'
 
 interface Props {
@@ -20,7 +22,9 @@ export function CampoConsentimiento({ acepta, origen = '', onChange, portal, dis
         <span>
           {portal
             ? TEXTO_CONSENTIMIENTO
-            : <>La persona <strong>autorizó</strong> recibir comunicaciones comerciales y campañas (WhatsApp, correo, teléfono, redes).</>}
+            : <>La persona <strong>autorizó</strong> recibir comunicaciones comerciales y campañas (WhatsApp, correo, teléfono, redes),
+              conforme a la <EnlaceLegal href={URL_POLITICA_DATOS}>Política de tratamiento de datos</EnlaceLegal> (Ley 1581 de 2012).
+              Conserva el soporte de la autorización.</>}
         </span>
       </label>
       {!portal && acepta && (

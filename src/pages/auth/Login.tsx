@@ -4,6 +4,7 @@ import { Eye, EyeOff, AlertCircle, UserPlus } from 'lucide-react'
 import { Button, Input, Alert } from '../../components/ui'
 import { useApp } from '../../context/AppContext'
 import { BrandLogo } from '../../components/BrandLogo'
+import { EnlacesLegales } from '../../components/legal/EnlacesLegales'
 
 function GoogleIcon() {
   return (
@@ -146,7 +147,10 @@ export default function Login() {
 
         </div>
 
-        <p className="mt-6 text-center text-xs text-gray-400">
+        <div className="mt-6 text-center text-xs">
+          <EnlacesLegales />
+        </div>
+        <p className="mt-2 text-center text-xs text-gray-400">
           SiCrecer v0.3 · Datos en Neon
         </p>
       </div>

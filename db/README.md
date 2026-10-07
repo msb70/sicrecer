@@ -28,6 +28,7 @@ aplicado en la rama `production`; este directorio es la fuente de verdad version
 | `0018_cierre_mensual.sql` | Cierre mensual real por convenio: `cierres_mensuales` (totales congelados, versionado: reabrir conserva la versión anterior), `cierre_creditos` (foto por crédito al corte: saldo, capital vencido, días de mora, categoría), `cierre_movimientos`; `fn_calcular_cierre` / `vista_previa_cierre` (misma lógica en vivo), `cerrar_mes` (meses terminados y en orden, permiso cierre/editar), `reabrir_mes` (solo Administrador, con motivo, solo el último cerrado); triggers `trg_bloquear_mes_cerrado` en `cobranzas`, `pagos` y `creditos` (no se registra ni modifica nada con fecha en un mes cerrado); `cronograma_versiones` (copia del cronograma antes de cada reprogramación por anticipo). Reconstruye el histórico (origen `reconstruido`) hasta 2026-08 |
 | `0019_redes_sociales.sql` | `instagram` y `facebook` en `prospectos` y `clientes` (usuario normalizado o URL, máx. 300); trigger `trg_copiar_redes` (prospecto del portal → cliente al aprobarse en comité) |
 | `0020_consentimiento_comunicaciones.sql` | Consentimiento para campañas: `acepta_comunicaciones`, `consentimiento_fecha` (la sella la BD en cada alta/revocación, trigger `trg_sellar_consentimiento`) y `consentimiento_origen` en `prospectos`, `clientes` y `solicitantes`; `instagram`/`facebook` en `solicitantes`; el prospecto del portal y el cliente que nace de él heredan redes y consentimiento |
+| `0022_aceptacion_terminos.sql` | Términos y condiciones + Política de tratamiento de datos (Ley 1581/2012): `solicitantes.acepta_terminos/terminos_version/terminos_fecha` (fecha sellada por la BD, se re-sella al cambiar versión, trigger `trg_sellar_terminos`); `trg_exigir_terminos_solicitud` impide solicitudes externas sin aceptación |
 | `0004_portal_solicitantes.sql` | Portal de autoservicio: `solicitantes` + fotos (`solicitante_documentos`, bytea), productos con `paises`/`publico`, `comites` (uno activo por producto) + `comite_miembros` + `comite_votos`, outbox `notificaciones`, RLS del solicitante (solo lo suyo), trigger de validación de solicitudes externas, funciones `enviar_a_comite` y `votar_solicitud` (mayoría simple; al aprobar convierte solicitante→cliente). Endurece la identidad: exige `emailVerified` en Neon Auth |
 
 ## Cómo aplicar en un entorno nuevo
@@ -54,6 +55,8 @@ psql "$DATABASE_URL" -f db/migrations/0017_requisitos_solicitud_interna.sql
 psql "$DATABASE_URL" -f db/migrations/0018_cierre_mensual.sql
 psql "$DATABASE_URL" -f db/migrations/0019_redes_sociales.sql
 psql "$DATABASE_URL" -f db/migrations/0020_consentimiento_comunicaciones.sql
+psql "$DATABASE_URL" -f db/migrations/0021_fondo_rotativo_convenio.sql
+psql "$DATABASE_URL" -f db/migrations/0022_aceptacion_terminos.sql
 ```
 
 Tras crear tablas **o columnas** nuevas hay que refrescar la caché de esquema del Data API (Consola → Data API →

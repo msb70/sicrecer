@@ -5,6 +5,7 @@ import { Button, Input, Alert } from '../../components/ui'
 import { useApp } from '../../context/AppContext'
 import { BrandLogo } from '../../components/BrandLogo'
 import { GoogleIcon } from '../../components/portal/GoogleIcon'
+import { AutorizacionDatos } from '../../components/legal/AutorizacionDatos'
 
 export default function Registro() {
   const navigate = useNavigate()
@@ -16,6 +17,15 @@ export default function Registro() {
   const [ver, setVer] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [aceptaTerminos, setAceptaTerminos] = useState(false)
+  const [errTerminos, setErrTerminos] = useState(false)
+
+  const exigirTerminos = () => {
+    if (aceptaTerminos) return true
+    setErrTerminos(true)
+    setError('Debes aceptar los Términos y condiciones y la Política de tratamiento de datos para crear tu cuenta.')
+    return false
+  }
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -23,6 +33,7 @@ export default function Registro() {
     if (!nombre.trim() || !email || !password) { setError('Completa todos los campos'); return }
     if (password.length < 8) { setError('La contraseña debe tener al menos 8 caracteres'); return }
     if (password !== password2) { setError('Las contraseñas no coinciden'); return }
+    if (!exigirTerminos()) return
     setLoading(true)
     try {
       const r = await registroEmail(email, password, nombre.trim())
@@ -52,9 +63,13 @@ export default function Registro() {
             </Alert>
           )}
 
+          <AutorizacionDatos compacto acepta={aceptaTerminos} error={errTerminos}
+            onChange={v => { setAceptaTerminos(v); if (v) { setErrTerminos(false); setError('') } }} />
+          <div className="h-4" />
+
           <button
             type="button"
-            onClick={() => void loginGoogle('/portal/perfil')}
+            onClick={() => { setError(''); if (exigirTerminos()) void loginGoogle('/portal/perfil') }}
             className="w-full flex items-center justify-center gap-3 px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
           >
             <GoogleIcon /> Registrarme con Google
@@ -88,7 +103,7 @@ export default function Registro() {
           </form>
 
           <p className="mt-4 text-center text-xs text-gray-500">
-            Te enviaremos un código a tu correo para confirmarlo.
+            Te enviaremos un código a tu correo para confirmarlo. Al completar tu perfil registraremos tu aceptación.
           </p>
         </div>
 

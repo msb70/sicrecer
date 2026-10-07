@@ -16,6 +16,7 @@ import { generarPlan, resumenPlan, plazoValido as plazoPermitido, describirPlazo
 import { DesgloseCredito } from '../../components/credito/DesgloseCredito'
 import { formatCOP } from '../../mocks'
 import { PAIS_LABELS, type Pais, type ProductoCredito, type Requisito } from '../../types'
+import { VERSION_TERMINOS } from '../../lib/legal'
 
 const PASOS = ['País', 'Producto', 'Monto y plazo', 'Requisitos', 'Enviar']
 
@@ -50,7 +51,9 @@ export default function NuevaSolicitudPortal() {
   }
 
   useEffect(() => {
-    if (!solicitante) { navigate('/portal/perfil', { replace: true }); return }
+    if (!solicitante || !solicitante.acepta_terminos || solicitante.terminos_version !== VERSION_TERMINOS) {
+      navigate('/portal/perfil', { replace: true }); return
+    }
     Promise.all([cargarCatalogoPortal(), refrescarPerfil()])
       .then(([cat]) => setCatalogo(cat))
       .catch(e => setError(e.message))

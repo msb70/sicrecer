@@ -14,6 +14,8 @@ import { SelectorUbicacion } from '../../components/ubicacion/SelectorUbicacion'
 import { validarUbicacion } from '../../lib/ubicaciones'
 import { normalizarRed } from '../../lib/redes'
 import { CampoConsentimiento } from '../../components/redes/CampoConsentimiento'
+import { AutorizacionDatos } from '../../components/legal/AutorizacionDatos'
+import { VERSION_TERMINOS } from '../../lib/legal'
 
 const TIPOS_DOC: Record<Pais, { value: string; label: string }[]> = {
   CO: [
@@ -50,6 +52,10 @@ export default function Perfil() {
     facebook: solicitante?.facebook ?? '',
   })
   const [acepta, setAcepta] = useState(solicitante?.acepta_comunicaciones ?? false)
+  // Vigente solo si aceptó la versión actual de Términos + Política
+  const terminosVigentes = Boolean(solicitante?.acepta_terminos && solicitante?.terminos_version === VERSION_TERMINOS)
+  const [aceptaTerminos, setAceptaTerminos] = useState(terminosVigentes)
+  const [errTerminos, setErrTerminos] = useState(false)
   const [fotos, setFotos] = useState<{ documento?: string | null; selfie?: string | null }>({})
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
@@ -77,6 +83,10 @@ export default function Perfil() {
       setError('Nombre, documento y teléfono son obligatorios'); return
     }
     if (!form.actividad_economica_id) { setError('Selecciona tu actividad económica'); return }
+    if (!aceptaTerminos) {
+      setErrTerminos(true)
+      setError('Debes aceptar los Términos y condiciones y la Política de tratamiento de datos para continuar.'); return
+    }
     const errUbic = validarUbicacion(form)
     if (errUbic) { setError(errUbic); return }
     setGuardando(true)
@@ -97,6 +107,8 @@ export default function Perfil() {
         instagram: normalizarRed('instagram', form.instagram),
         facebook: normalizarRed('facebook', form.facebook),
         acepta_comunicaciones: acepta,
+        acepta_terminos: true,
+        terminos_version: VERSION_TERMINOS,
       }
       const s = await guardarSolicitante(input, solicitante?.id)
       setSolicitante(s)
@@ -132,6 +144,12 @@ export default function Perfil() {
       {bloqueado && (
         <Alert type="info" className="mb-4">Ya eres cliente. Los datos de identidad los gestiona tu facilitador.</Alert>
       )}
+      {solicitante && !terminosVigentes && (
+        <Alert type="warning" className="mb-4">
+          Para seguir usando el portal debes aceptar los Términos y condiciones y la Política de tratamiento de datos
+          vigentes. Marca la casilla al final de tus datos y guarda.
+        </Alert>
+      )}
       {error && <Alert type="error" className="mb-4"><div className="flex items-center gap-2"><AlertCircle size={16} />{error}</div></Alert>}
       {ok && <Alert type="success" className="mb-4">{ok}</Alert>}
 
@@ -163,8 +181,11 @@ export default function Perfil() {
                 options={[{ value: '', label: 'Selecciona…' }, ...actividades.map(a => ({ value: a.id, label: a.nombre }))]} />
             </div>
           </div>
+          <AutorizacionDatos acepta={aceptaTerminos} error={errTerminos}
+            fecha={terminosVigentes ? solicitante?.terminos_fecha : null}
+            onChange={v => { setAceptaTerminos(v); if (v) setErrTerminos(false) }} />
           <CampoConsentimiento portal acepta={acepta} onChange={c => setAcepta(Boolean(c.acepta))} disabled={bloqueado} />
-          {!bloqueado && (
+          {(!bloqueado || !terminosVigentes) && (
             <div className="flex justify-end">
               <Button onClick={guardar} loading={guardando}><Save size={16} /> {esNuevo ? 'Guardar y continuar' : 'Guardar cambios'}</Button>
             </div>

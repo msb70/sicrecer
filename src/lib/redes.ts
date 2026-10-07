@@ -51,8 +51,9 @@ export const ORIGEN_CONSENTIMIENTO_LABEL: Record<OrigenConsentimiento, string> =
 }
 
 export const TEXTO_CONSENTIMIENTO =
-  'Autorizo a SiCrecer a contactarme por WhatsApp, correo, teléfono y redes sociales con información de productos, ' +
-  'campañas y novedades. Puedo retirar esta autorización en cualquier momento.'
+  '(Opcional) Autorizo a SiCrecer a contactarme por WhatsApp, correo, teléfono y redes sociales con información de productos, ' +
+  'campañas y novedades, conforme a la Política de tratamiento de datos (Ley 1581 de 2012). Esta autorización es independiente ' +
+  'de la anterior, no es requisito para solicitar un crédito y puedo retirarla en cualquier momento.'
 
 export interface ContactoCampania {
   nombre: string

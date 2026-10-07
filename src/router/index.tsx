@@ -5,6 +5,10 @@ import { Spinner } from '../components/ui'
 import { useApp } from '../context/AppContext'
 import { puedeAccederCon } from '../lib/permisos'
 
+// Legal (públicas)
+import { Terminos, PoliticaDatos } from '../pages/legal/DocumentoLegal'
+import { RUTA_TERMINOS, RUTA_POLITICA_DATOS } from '../lib/legal'
+
 // Auth
 import Login             from '../pages/auth/Login'
 import SeleccionOrg      from '../pages/auth/SeleccionOrg'
@@ -161,6 +165,8 @@ const router = createBrowserRouter([
   { path: '/login',              element: <Login /> },
   { path: '/registro',           element: <Registro /> },
   { path: '/verificar',          element: <Verificar /> },
+  { path: RUTA_TERMINOS,         element: <Terminos /> },
+  { path: RUTA_POLITICA_DATOS,   element: <PoliticaDatos /> },
 
   // Portal de solicitantes
   { path: '/portal',                 element: <PortalRoute><MisSolicitudes /></PortalRoute> },

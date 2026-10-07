@@ -21,7 +21,7 @@ export async function obtenerSolicitante(email: string): Promise<Solicitante | n
   return (data?.[0] as Solicitante) ?? null
 }
 
-export type SolicitanteInput = Omit<Solicitante, 'id' | 'estado' | 'cliente_id' | 'creado_en'>
+export type SolicitanteInput = Omit<Solicitante, 'id' | 'estado' | 'cliente_id' | 'creado_en' | 'terminos_fecha'>
 
 export async function guardarSolicitante(input: SolicitanteInput, idExistente?: string): Promise<Solicitante> {
   const fila = { ...input, email: input.email.toLowerCase() }
