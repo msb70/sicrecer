@@ -3,7 +3,7 @@
 // Toda la lógica de dinero vive en la base (SECURITY DEFINER,
 // transaccional); aquí solo se invocan y se tipan los resultados.
 
-import { neon } from './neon'
+import { supabase } from './supabase'
 import type { EstadoCuenta, ResultadoPagoServidor } from '../types'
 
 const num = (v: unknown) => (v === null || v === undefined ? 0 : Number(v))
@@ -30,14 +30,14 @@ function normalizarEstado(raw: EstadoCuenta): EstadoCuenta {
 
 /** Estado de cuenta al día: genera cargos por atraso pendientes y devuelve cronograma, cargos, pagos y resumen. */
 export async function obtenerEstadoCuenta(creditoId: string, fecha?: string): Promise<EstadoCuenta> {
-  const { data, error } = await neon.rpc('estado_cuenta', { p_credito_id: creditoId, ...(fecha ? { p_fecha: fecha } : {}) })
+  const { data, error } = await supabase.rpc('estado_cuenta', { p_credito_id: creditoId, ...(fecha ? { p_fecha: fecha } : {}) })
   if (error) throw new Error(error.message)
   return normalizarEstado(data as EstadoCuenta)
 }
 
 /** Simula cómo se aplicaría un pago (misma lógica que aplicar_pago, sin persistir). */
 export async function simularPago(creditoId: string, monto: number, fecha: string): Promise<ResultadoPagoServidor> {
-  const { data, error } = await neon.rpc('simular_pago', { p_credito_id: creditoId, p_monto: monto, p_fecha: fecha })
+  const { data, error } = await supabase.rpc('simular_pago', { p_credito_id: creditoId, p_monto: monto, p_fecha: fecha })
   if (error) throw new Error(error.message)
   return data as ResultadoPagoServidor
 }
@@ -54,7 +54,7 @@ export interface DatosPago {
 
 /** Aplica un pago: gastos → mora → interés → capital; excedente = anticipo a capital. */
 export async function aplicarPago(d: DatosPago): Promise<ResultadoPagoServidor> {
-  const { data, error } = await neon.rpc('aplicar_pago', {
+  const { data, error } = await supabase.rpc('aplicar_pago', {
     p_credito_id: d.creditoId,
     p_monto: d.monto,
     p_banco: d.banco,

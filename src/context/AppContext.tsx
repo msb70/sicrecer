@@ -1,11 +1,11 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { Rol, Organizacion, Usuario, Solicitante, AccionPermiso, RolConfig } from '../types'
 import { MATRIZ_BASE, matrizDesdeFilas, tienePermiso, type MatrizPermisos } from '../lib/permisos'
-import { neon } from '../lib/neon'
+import { supabase } from '../lib/supabase'
 import { obtenerSolicitante } from '../lib/portal'
 import {
   ORGANIZACIONES, USUARIOS, ROLES, ROL_PERMISOS,
-  cargarDatosDesdeNeon, recargarTablas, restaurarDatosDemo,
+  cargarDatosDesdeSupabase, recargarTablas, restaurarDatosDemo,
 } from '../mocks'
 
 type ModoSesion = 'ninguno' | 'demo' | 'google'
@@ -36,6 +36,7 @@ interface AppContextValue {
   registroEmail: (email: string, password: string, nombre: string) => Promise<{ requiereVerificacion: boolean }>
   verificarOtp: (email: string, otp: string) => Promise<void>
   reenviarOtp: (email: string) => Promise<void>
+  recuperarContrasena: (email: string) => Promise<void>
   restaurarSesion: () => Promise<void>
   // Roles y permisos
   rolConfig: RolConfig | null
@@ -55,7 +56,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [usuario, setUsuario] = useState<Usuario>(USUARIOS[0])
   const [rol, setRolState] = useState<Rol>('administrador')
   const [tipoSesion, setTipoSesion] = useState<TipoSesion>(null)
-  const [emailSesion, setEmailSesion] = useState('')
+  const [emailSesion, setEmailSesionState] = useState('')
+  const emailSesionRef = useRef('')
+  const setEmailSesion = (e: string) => { emailSesionRef.current = e; setEmailSesionState(e) }
   const [emailVerificado, setEmailVerificado] = useState(false)
   const [solicitante, setSolicitante] = useState<Solicitante | null>(null)
   const [versionPermisos, setVersionPermisos] = useState(0)
@@ -82,23 +85,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setUsuario(u)
   }
 
-  // Restaurar sesión de Neon Auth: primero whitelist interna (`usuarios`);
+  // Restaurar sesión de Supabase Auth: primero whitelist interna (`usuarios`);
   // si no está, es un solicitante del portal (tabla `solicitantes`).
   async function restaurarSesion() {
     setCargandoSesion(true)
     try {
-      const { data } = await neon.auth.getSession()
-      const email = data?.user?.email
+      const { data } = await supabase.auth.getSession()
+      const user = data?.session?.user
+      const email = user?.email
       if (!email) { setTipoSesion(null); setAutenticado(false); return }
       setEmailSesion(email.toLowerCase())
-      setEmailVerificado(Boolean((data?.user as { emailVerified?: boolean } | undefined)?.emailVerified))
+      // Con "Confirm email" obligatorio en Supabase no hay sesión sin correo
+      // confirmado; se conserva el indicador por compatibilidad con la UI.
+      setEmailVerificado(Boolean(user?.email_confirmed_at || user?.user_metadata?.email_verified))
 
-      // El Data API a veces resuelve una consulta sin identidad (RLS → 0 filas
-      // sin error). Antes de concluir que no es usuario interno se reintenta,
-      // para no mandar a un administrador al portal de solicitantes.
+      // Se reintenta la lectura de la whitelist antes de concluir que no es
+      // usuario interno, para no mandar a un administrador al portal.
       let u: Usuario | null = null
       for (let intento = 1; intento <= 3 && !u; intento++) {
-        const { data: filas, error } = await neon
+        const { data: filas, error } = await supabase
           .from('usuarios')
           .select('*')
           .eq('email', email)
@@ -108,7 +113,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (!u && intento < 3) await new Promise(r => setTimeout(r, 350 * intento))
       }
       if (u) {
-        await cargarDatosDesdeNeon()
+        await cargarDatosDesdeSupabase()
         const org = ORGANIZACIONES.find(o => o.id === u.organizacion_id) ?? ORGANIZACIONES[0]
         if (!org) {
           console.error('[sesion] organizaciones vacío tras cargar datos', { usuario: u, organizaciones: ORGANIZACIONES.length })
@@ -138,27 +143,45 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  useEffect(() => { void restaurarSesion() }, [])
+  // Al montar: restaurar sesión. Además, cuando Supabase completa el retorno de
+  // Google (código PKCE en la URL) emite SIGNED_IN; se vuelve a restaurar para
+  // no quedarse con la lectura previa (sin sesión).
+  useEffect(() => {
+    void restaurarSesion()
+    const { data: sub } = supabase.auth.onAuthStateChange((evento) => {
+      if (evento === 'SIGNED_IN' || evento === 'TOKEN_REFRESHED') {
+        // Evitar re-cargas si ya hay sesión restaurada con el mismo usuario
+        void supabase.auth.getSession().then(({ data }) => {
+          const email = data.session?.user?.email?.toLowerCase()
+          if (email && email !== emailSesionRef.current) void restaurarSesion()
+        })
+      }
+      if (evento === 'SIGNED_OUT') {
+        setModo('ninguno'); setTipoSesion(null); setSolicitante(null); setEmailSesion(''); setAutenticado(false)
+      }
+    })
+    return () => sub.subscription.unsubscribe()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Email + contraseña (portal de solicitantes) ───────────
-  // Nota: el SDK expone el plugin emailOtp; tipado laxo para no depender de su versión.
-  type AuthExt = {
-    signIn: { email: (a: { email: string; password: string }) => Promise<{ data: unknown; error: { message?: string; code?: string; status?: number } | null }> }
-    signUp: { email: (a: { email: string; password: string; name: string }) => Promise<{ data: { user?: { emailVerified?: boolean } } | null; error: { message?: string } | null }> }
-    emailOtp: {
-      verifyEmail: (a: { email: string; otp: string }) => Promise<{ data: unknown; error: { message?: string } | null }>
-      sendVerificationOtp: (a: { email: string; type: 'email-verification' }) => Promise<{ error: { message?: string } | null }>
-    }
+  const mensajeAuth = (m: string | undefined, porDefecto: string) => {
+    const t = (m ?? '').toLowerCase()
+    if (t.includes('invalid login credentials')) return 'Correo o contraseña incorrectos'
+    if (t.includes('rate limit') || t.includes('too many')) return 'Demasiados intentos. Espera un momento y vuelve a intentarlo'
+    if (t.includes('already registered')) return 'Ese correo ya tiene cuenta. Inicia sesión o recupera tu contraseña'
+    if (t.includes('token has expired') || t.includes('otp_expired')) return 'El código venció. Solicita uno nuevo'
+    if (t.includes('invalid') && t.includes('token')) return 'Código inválido'
+    if (t.includes('password should be')) return 'La contraseña no cumple los requisitos mínimos'
+    return m || porDefecto
   }
-  const authExt = neon.auth as unknown as AuthExt
 
   const loginEmail = async (email: string, password: string) => {
     setErrorAuth('')
-    const { error } = await authExt.signIn.email({ email: email.toLowerCase(), password })
+    const { error } = await supabase.auth.signInWithPassword({ email: email.toLowerCase(), password })
     if (error) {
       const msg = (error.message ?? '').toLowerCase()
-      if (error.status === 403 || msg.includes('verif')) return { requiereVerificacion: true }
-      throw new Error(error.message ?? 'No se pudo iniciar sesión')
+      if (error.code === 'email_not_confirmed' || msg.includes('not confirmed')) return { requiereVerificacion: true }
+      throw new Error(mensajeAuth(error.message, 'No se pudo iniciar sesión'))
     }
     await restaurarSesion()
     return { requiereVerificacion: false }
@@ -166,22 +189,37 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const registroEmail = async (email: string, password: string, nombre: string) => {
     setErrorAuth('')
-    const { data, error } = await authExt.signUp.email({ email: email.toLowerCase(), password, name: nombre })
-    if (error) throw new Error(error.message ?? 'No se pudo crear la cuenta')
-    if (data?.user && !data.user.emailVerified) return { requiereVerificacion: true }
+    const { data, error } = await supabase.auth.signUp({
+      email: email.toLowerCase(), password,
+      options: { data: { name: nombre, full_name: nombre } },
+    })
+    if (error) throw new Error(mensajeAuth(error.message, 'No se pudo crear la cuenta'))
+    // Con confirmación de correo obligatoria no hay sesión hasta verificar el código.
+    if (!data.session) return { requiereVerificacion: true }
     await restaurarSesion()
     return { requiereVerificacion: false }
   }
 
   const verificarOtp = async (email: string, otp: string) => {
-    const { error } = await authExt.emailOtp.verifyEmail({ email: email.toLowerCase(), otp: otp.trim() })
-    if (error) throw new Error(error.message ?? 'Código inválido o vencido')
+    const e = email.toLowerCase(); const token = otp.trim()
+    // Código de confirmación de registro; si la cuenta ya estaba confirmada
+    // (reenvío como OTP de acceso), se acepta también como código de email.
+    let { error } = await supabase.auth.verifyOtp({ email: e, token, type: 'signup' })
+    if (error) ({ error } = await supabase.auth.verifyOtp({ email: e, token, type: 'email' }))
+    if (error) throw new Error(mensajeAuth(error.message, 'Código inválido o vencido'))
     await restaurarSesion()
   }
 
   const reenviarOtp = async (email: string) => {
-    const { error } = await authExt.emailOtp.sendVerificationOtp({ email: email.toLowerCase(), type: 'email-verification' })
-    if (error) throw new Error(error.message ?? 'No se pudo reenviar el código')
+    const { error } = await supabase.auth.resend({ type: 'signup', email: email.toLowerCase() })
+    if (error) throw new Error(mensajeAuth(error.message, 'No se pudo reenviar el código'))
+  }
+
+  const recuperarContrasena = async (email: string) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email.toLowerCase(), {
+      redirectTo: `${window.location.origin}/nueva-contrasena`,
+    })
+    if (error) throw new Error(mensajeAuth(error.message, 'No se pudo enviar el correo de recuperación'))
   }
 
   // Modo demo: sin credenciales, datos locales de ejemplo.
@@ -200,18 +238,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setAutenticado(true)
   }
 
-  // Login real: redirige a Google vía Neon Auth.
+  // Login real: redirige a Google vía Supabase Auth (PKCE).
   const loginGoogle = async (callbackPath = '/') => {
     setErrorAuth('')
-    const { error } = await neon.auth.signIn.social({
+    const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      callbackURL: `${window.location.origin}${callbackPath}`,
+      options: { redirectTo: `${window.location.origin}${callbackPath}` },
     })
     if (error) setErrorAuth(error.message ?? 'No se pudo iniciar sesión con Google')
   }
 
   const logout = () => {
-    if (modo === 'google') void neon.auth.signOut()
+    if (modo === 'google') void supabase.auth.signOut()
     setModo('ninguno')
     setTipoSesion(null)
     setSolicitante(null)
@@ -225,7 +263,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       autenticado, cargandoSesion, errorAuth, modo,
       login, loginGoogle, logout,
       tipoSesion, emailSesion, emailVerificado, solicitante, setSolicitante,
-      loginEmail, registroEmail, verificarOtp, reenviarOtp, restaurarSesion,
+      loginEmail, registroEmail, verificarOtp, reenviarOtp, recuperarContrasena, restaurarSesion,
       rolConfig, permisos, puede, refrescarPermisos,
     }}>
       {children}

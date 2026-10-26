@@ -1,6 +1,6 @@
 // ─── Reportes ampliados: calidad por facilitador, impacto por convenio,
 // tiempos y semáforo de solicitudes, composición de la cartera ────────
-import { neon } from './neon'
+import { supabase } from './supabase'
 import { ACTIVIDADES_ECONOMICAS, CLIENTES, CONVENIOS, PRODUCTOS, USUARIOS, ZONAS } from '../mocks'
 import { VISITAS } from '../mocks/extra'
 import { filaDeCredito, filaDeSolicitud } from './filtros'
@@ -15,7 +15,7 @@ export interface CuotaCron {
 
 /** Cronograma completo visible por RLS (para mora temprana). */
 export async function cargarCronograma(): Promise<CuotaCron[]> {
-  const { data, error } = await neon.from('cronograma_cuotas')
+  const { data, error } = await supabase.from('cronograma_cuotas')
     .select('credito_id,num,fecha_vencimiento,cuota,monto_pagado,estado,pagada_en').lte('num', 3)
   if (error) throw new Error(`No se pudo cargar el cronograma: ${error.message}`)
   return (data ?? []).map(r => {

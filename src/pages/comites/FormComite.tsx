@@ -5,7 +5,7 @@ import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Button, Input, Select, Card, CardHeader, CardBody, Alert } from '../../components/ui'
 import { COMITES, COMITE_MIEMBROS, PRODUCTOS, USUARIOS, recargarTablas } from '../../mocks'
 import { useApp } from '../../context/AppContext'
-import { neon } from '../../lib/neon'
+import { supabase } from '../../lib/supabase'
 import { ROL_LABELS } from '../../types'
 
 export default function FormComite() {
@@ -33,16 +33,16 @@ export default function FormComite() {
     try {
       let comiteId = comite?.id
       if (esEdicion && comiteId) {
-        const { error } = await neon.from('comites').update({ nombre: nombre.trim(), producto_id: productoId, activo }).eq('id', comiteId)
+        const { error } = await supabase.from('comites').update({ nombre: nombre.trim(), producto_id: productoId, activo }).eq('id', comiteId)
         if (error) throw new Error(error.message)
-        const { error: e2 } = await neon.from('comite_miembros').delete().eq('comite_id', comiteId)
+        const { error: e2 } = await supabase.from('comite_miembros').delete().eq('comite_id', comiteId)
         if (e2) throw new Error(e2.message)
       } else {
-        const { data, error } = await neon.from('comites').insert({ nombre: nombre.trim(), producto_id: productoId, organizacion_id: organizacion.id, activo }).select('id')
+        const { data, error } = await supabase.from('comites').insert({ nombre: nombre.trim(), producto_id: productoId, organizacion_id: organizacion.id, activo }).select('id')
         if (error) throw new Error(error.message)
         comiteId = (data![0] as { id: string }).id
       }
-      const { error: e3 } = await neon.from('comite_miembros').insert(miembros.map(usuario_id => ({ comite_id: comiteId, usuario_id })))
+      const { error: e3 } = await supabase.from('comite_miembros').insert(miembros.map(usuario_id => ({ comite_id: comiteId, usuario_id })))
       if (e3) throw new Error(e3.message)
       await recargarTablas('comites', 'comite_miembros')
       navigate('/comites')

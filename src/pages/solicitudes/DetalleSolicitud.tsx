@@ -4,12 +4,12 @@ import { ArrowLeft, CheckCircle2, XCircle, Clock, AlertTriangle, Send, Globe } f
 import { LineaTiempo, etapasSolicitud } from '../../components/solicitud/LineaTiempo'
 import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Button, Badge, Card, CardHeader, CardBody, Alert } from '../../components/ui'
-import { SOLICITUDES, CLIENTES, PRODUCTOS, SOLICITANTES, COMITES, REQUISITOS, ACTIVIDADES_ECONOMICAS, CREDITOS, formatCOP, recargarTablas, cargarDatosDesdeNeon, USUARIOS } from '../../mocks'
+import { SOLICITUDES, CLIENTES, PRODUCTOS, SOLICITANTES, COMITES, REQUISITOS, ACTIVIDADES_ECONOMICAS, CREDITOS, formatCOP, recargarTablas, cargarDatosDesdeSupabase, USUARIOS } from '../../mocks'
 import { DesembolsoModal } from '../../components/credito/DesembolsoModal'
 import { DesgloseCredito } from '../../components/credito/DesgloseCredito'
 import { describirPlazos } from '../../lib/finanzas'
 import { useApp } from '../../context/AppContext'
-import { neon } from '../../lib/neon'
+import { supabase } from '../../lib/supabase'
 import { obtenerFoto } from '../../lib/portal'
 import { AdjuntosSolicitante } from '../../components/portal/AdjuntosSolicitante'
 import { RequisitosSolicitud } from '../../components/solicitud/RequisitosSolicitud'
@@ -64,7 +64,7 @@ export default function DetalleSolicitud() {
     if (!solicitud) return
     setEnviando(true); setMsg(null)
     try {
-      const { data, error } = await neon.rpc('enviar_a_comite', { p_solicitud_id: solicitud.id })
+      const { data, error } = await supabase.rpc('enviar_a_comite', { p_solicitud_id: solicitud.id })
       if (error) throw new Error(error.message)
       const r = data as { comite: string; notificados: number }
       await recargarTablas('solicitudes')
@@ -117,7 +117,7 @@ export default function DetalleSolicitud() {
             producto={producto}
             onClose={() => setMostrarDesembolso(false)}
             onDone={async (creditoId) => {
-              await cargarDatosDesdeNeon()
+              await cargarDatosDesdeSupabase()
               setMostrarDesembolso(false)
               navigate(`/cartera/${creditoId}`)
             }}

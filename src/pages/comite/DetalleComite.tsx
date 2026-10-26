@@ -8,7 +8,7 @@ import {
   ACTIVIDADES_ECONOMICAS, formatCOP, recargarTablas,
 } from '../../mocks'
 import { useApp } from '../../context/AppContext'
-import { neon } from '../../lib/neon'
+import { supabase } from '../../lib/supabase'
 import { obtenerFoto } from '../../lib/portal'
 import { AdjuntosSolicitante } from '../../components/portal/AdjuntosSolicitante'
 import { RequisitosSolicitud } from '../../components/solicitud/RequisitosSolicitud'
@@ -83,7 +83,7 @@ export default function DetalleComite() {
     }
     setEnviando(true)
     try {
-      const { data, error } = await neon.rpc('votar_solicitud', {
+      const { data, error } = await supabase.rpc('votar_solicitud', {
         p_solicitud_id: solicitud.id, p_decision: decision, p_comentario: comentario.trim() || null,
         p_monto: decision === 'aprobado' ? montoN : null, p_plazo: decision === 'aprobado' ? plazoN : null,
       })

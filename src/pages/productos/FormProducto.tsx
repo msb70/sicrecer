@@ -4,7 +4,7 @@ import { ArrowLeft, Save, Info } from 'lucide-react'
 import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Button, Input, Select, Card, CardHeader, CardBody, Alert } from '../../components/ui'
 import { PRODUCTOS, CONVENIOS, REQUISITOS, ACTIVIDADES_ECONOMICAS, formatCOP, recargarTablas } from '../../mocks'
-import { neon } from '../../lib/neon'
+import { supabase } from '../../lib/supabase'
 import { PAIS_LABELS, TIPO_REQUISITO_LABELS, type Pais } from '../../types'
 import { calcularCuota, DIAS_PERIODO } from '../../lib/finanzas'
 import { DesgloseCredito } from '../../components/credito/DesgloseCredito'
@@ -106,11 +106,11 @@ export default function FormProducto() {
         cobertura,
       }
       if (esEdicion && producto) {
-        const { error } = await neon.from('productos_credito').update(fila).eq('id', producto.id)
+        const { error } = await supabase.from('productos_credito').update(fila).eq('id', producto.id)
         if (error) throw new Error(error.message)
       } else {
         const id = 'prod-' + Date.now().toString(36)
-        const { error } = await neon.from('productos_credito').insert({ id, ...fila })
+        const { error } = await supabase.from('productos_credito').insert({ id, ...fila })
         if (error) throw new Error(error.message)
       }
       await recargarTablas('productos_credito')

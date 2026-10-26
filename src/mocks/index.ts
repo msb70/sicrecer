@@ -1,7 +1,7 @@
 // ─── ALMACÉN DE DATOS ─────────────────────────────────────────
 // Este módulo conserva los mismos nombres exportados que la fase
 // mock (ORGANIZACIONES, CLIENTES, …) para no tocar las páginas,
-// pero ahora los arrays se llenan desde la base de datos Neon
+// pero ahora los arrays se llenan desde la base de datos Supabase
 // (Data API) al iniciar sesión con Google. En modo demo se cargan
 // los datos de ./fallback.ts.
 
@@ -13,7 +13,7 @@ import type {
   RolConfig, PermisoRol, Modulo, Rol,
 } from '../types'
 import { MATRIZ_BASE, MODULOS_BASE } from '../lib/permisos'
-import { neon } from '../lib/neon'
+import { supabase } from '../lib/supabase'
 import * as demo from './fallback'
 import { PAGOS, VISITAS, KPI_REPORTES, cargarExtrasDemo, type Pago, type Visita } from './extra'
 
@@ -32,7 +32,7 @@ export const CLIENTES: Cliente[] = [...demo.CLIENTES_DEMO]
 export const SOLICITUDES: Solicitud[] = [...demo.SOLICITUDES_DEMO]
 export const CREDITOS: Credito[] = [...demo.CREDITOS_DEMO]
 export const COBRANZAS: Cobranza[] = [...demo.COBRANZAS_DEMO]
-// Portal / comités (sin datos demo: solo existen en Neon)
+// Portal / comités (sin datos demo: solo existen en Supabase)
 export const COMITES: Comite[] = []
 export const COMITE_MIEMBROS: ComiteMiembro[] = []
 export const COMITE_VOTOS: ComiteVoto[] = []
@@ -67,24 +67,31 @@ const esperar = (ms: number) => new Promise(r => setTimeout(r, ms))
  * a veces resuelve una consulta sin identidad y la RLS devuelve 0 filas sin
  * error (así una solicitud recién creada "desaparecía" hasta recargar).
  */
+const PAGINA = 1000 // PostgREST en Supabase devuelve como máximo 1000 filas por petición
+
 async function tabla<T>(nombre: string, orden = 'id'): Promise<T[]> {
   for (let intento = 0; ; intento++) {
-    const { data, error } = await neon.from(nombre).select('*').order(orden)
-    if (error) throw new Error(`Error cargando ${nombre}: ${error.message}`)
-    if ((data && data.length > 0) || intento >= 2) return (data ?? []) as T[]
+    const filas: T[] = []
+    for (let desde = 0; ; desde += PAGINA) {
+      const { data, error } = await supabase.from(nombre).select('*').order(orden).range(desde, desde + PAGINA - 1)
+      if (error) throw new Error(`Error cargando ${nombre}: ${error.message}`)
+      filas.push(...((data ?? []) as T[]))
+      if (!data || data.length < PAGINA) break
+    }
+    if (filas.length > 0 || intento >= 2) return filas
     await esperar(300 * (intento + 1))
   }
 }
 
 /**
- * Carga todos los datos desde Neon (requiere sesión activa por RLS).
+ * Carga todos los datos desde Supabase (requiere sesión activa por RLS).
  *
  * Con muchas consultas en paralelo, el Data API a veces resuelve alguna
  * sin identidad (auth.user_id() nulo) y la RLS devuelve 0 filas sin error.
  * `organizaciones` y `usuarios` nunca pueden venir vacías para un usuario
  * interno: si llegan vacías se reintenta la carga completa.
  */
-export async function cargarDatosDesdeNeon(): Promise<void> {
+export async function cargarDatosDesdeSupabase(): Promise<void> {
   const INTENTOS = 4
   for (let intento = 1; intento <= INTENTOS; intento++) {
     const ok = await cargarUnaVez()
@@ -129,7 +136,7 @@ async function cargarUnaVez(): Promise<boolean> {
     tabla<Cobranza>('cobranzas'),
     tabla<Pago>('pagos'),
     tabla<Visita>('visitas'),
-    neon.from('kpi_reportes').select('datos').eq('id', 'actual').then(r => {
+    supabase.from('kpi_reportes').select('datos').eq('id', 'actual').then(r => {
       if (r.error) throw new Error(`Error cargando kpi_reportes: ${r.error.message}`)
       return r.data as { datos: typeof KPI_REPORTES }[]
     }),
@@ -206,7 +213,7 @@ export async function recargarTablas(...nombres: TablaRecargable[]): Promise<voi
   }))
 }
 
-/** Restaura los datos demo (modo demo sin conexión a Neon). */
+/** Restaura los datos demo (modo demo sin conexión a Supabase). */
 export function restaurarDatosDemo(): void {
   reemplazar(ORGANIZACIONES, [...demo.ORGANIZACIONES_DEMO])
   reemplazar(USUARIOS, [...demo.USUARIOS_DEMO])

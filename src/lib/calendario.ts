@@ -3,7 +3,7 @@
 // visitas y créditos que terminan (renovación). La RLS limita las cuotas a la
 // cartera visible para el usuario.
 
-import { neon } from './neon'
+import { supabase } from './supabase'
 
 export type Vista = 'dia' | 'semana' | 'mes'
 
@@ -56,7 +56,7 @@ export interface CuotaCal {
 }
 
 export async function cargarCuotas(desde: string, hasta: string): Promise<CuotaCal[]> {
-  const { data, error } = await neon
+  const { data, error } = await supabase
     .from('cronograma_cuotas')
     .select('credito_id,num,fecha_vencimiento,cuota,monto_pagado,estado,pagada_en')
     .gte('fecha_vencimiento', desde)

@@ -3,7 +3,7 @@
 // crédito con saldo, días de mora al corte, cuota esperada, recaudo y
 // desembolso. La vista respeta la RLS: el facilitador recibe solo su zona.
 
-import { neon } from './neon'
+import { supabase } from './supabase'
 import type { Convenio, Credito, Solicitud } from '../types'
 import { coincide, type FiltrosCartera } from './filtros'
 
@@ -29,7 +29,7 @@ const esperar = (ms: number) => new Promise(r => setTimeout(r, ms))
 export async function cargarSerie(): Promise<FilaSerie[]> {
   let ultimo = ''
   for (let intento = 0; intento < 3; intento++) {
-    const { data, error } = await neon.from('v_serie_mensual').select('*').order('mes')
+    const { data, error } = await supabase.from('v_serie_mensual').select('*').order('mes')
     if (!error) {
       if ((data && data.length) || intento >= 1) {
         return (data ?? []).map(f => {

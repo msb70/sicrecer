@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, CheckCircle2, AlertCircle } from 'lucide-react'
 import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Button, Card, CardHeader, CardBody, Input, Alert } from '../../components/ui'
-import { CLIENTES, CREDITOS, COBRANZAS, BANCOS, formatCOP, cargarDatosDesdeNeon } from '../../mocks'
+import { CLIENTES, CREDITOS, COBRANZAS, BANCOS, formatCOP, cargarDatosDesdeSupabase } from '../../mocks'
 import { useApp } from '../../context/AppContext'
 import { aplicarPago } from '../../lib/creditos'
 import { DistribucionPago } from '../../components/credito/DistribucionPago'
@@ -67,7 +67,7 @@ export default function FormCobranza() {
         setEnviando(false)
         return
       }
-      await cargarDatosDesdeNeon()  // refrescar créditos/cobranzas en memoria
+      await cargarDatosDesdeSupabase()  // refrescar créditos/cobranzas en memoria
       setEnviando(false)
       setGuardado(true)
       setTimeout(() => navigate(`/cartera/${creditoId}`), 1400)

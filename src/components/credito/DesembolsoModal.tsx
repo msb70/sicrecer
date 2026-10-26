@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Banknote, CheckCircle2 } from 'lucide-react'
 import { Button, Alert } from '../ui'
 import { DesgloseCredito } from './DesgloseCredito'
-import { neon } from '../../lib/neon'
+import { supabase } from '../../lib/supabase'
 import { calcularCuota, fechaCuota, resumenPlan, generarPlan } from '../../lib/finanzas'
 import { formatCOP } from '../../mocks'
 import type { ProductoCredito, Solicitud } from '../../types'
@@ -35,7 +35,7 @@ export function DesembolsoModal({ solicitud, producto, onClose, onDone }: {
   const confirmar = async () => {
     setEnviando(true); setError('')
     try {
-      const { data, error } = await neon.rpc('desembolsar_solicitud', { p_solicitud_id: solicitud.id, p_fecha_desembolso: fecha })
+      const { data, error } = await supabase.rpc('desembolsar_solicitud', { p_solicitud_id: solicitud.id, p_fecha_desembolso: fecha })
       if (error) throw new Error(error.message)
       const r = data as { credito_id: string; monto_entregado: number; duplicado?: boolean }
       setOk({ credito_id: r.credito_id, monto_entregado: r.monto_entregado })

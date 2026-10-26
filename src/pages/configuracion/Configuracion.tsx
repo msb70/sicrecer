@@ -4,7 +4,7 @@ import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Button, Card, CardHeader, CardBody, Alert, Badge, Spinner } from '../../components/ui'
 import { useApp } from '../../context/AppContext'
 import { ORGANIZACIONES } from '../../mocks'
-import { neon } from '../../lib/neon'
+import { supabase } from '../../lib/supabase'
 import { guardarCatalogo } from '../../lib/catalogos'
 import { PAIS_LABELS, type ConfiguracionOrganizacion, type Organizacion } from '../../types'
 import { clsx } from 'clsx'
@@ -286,7 +286,7 @@ function describirDispositivo(ua?: string | null): string {
 
 function TabSeguridad() {
   const { modo } = useApp()
-  const auth = neon.auth as unknown as AuthSeguridad
+  const auth = supabase.auth as unknown as AuthSeguridad
   const [mostrarPass, setMostrarPass] = useState(false)
   const [form, setForm] = useState({ actual: '', nueva: '', confirmar: '' })
   const [guardado, setGuardado] = useState(false)

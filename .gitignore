@@ -39,3 +39,7 @@ supabase/.branches/
 
 deploys/
 *.zip
+
+# Migración Supabase
+db/backup/
+.supabase_db_password.txt

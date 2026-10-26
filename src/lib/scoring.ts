@@ -3,7 +3,7 @@
 // Voluntad 20 (veracidad 12 + compromisos 8). El cálculo vive en la base
 // (fn_scoring_fem); aquí solo se lee, se muestra y se captura la evaluación.
 
-import { neon } from './neon'
+import { supabase } from './supabase'
 
 export type Semaforo = 'verde' | 'ambar' | 'naranja' | 'rojo'
 
@@ -88,7 +88,7 @@ export function evaluacionVacia(solicitudId: string): Evaluacion {
 const NUMS = ['ventas_mensuales', 'costo_ventas', 'gastos_negocio', 'gastos_hogar', 'otras_cuotas', 'referencias_verificadas'] as const
 
 export async function obtenerEvaluacion(solicitudId: string): Promise<Evaluacion | null> {
-  const { data, error } = await neon.from('evaluaciones').select('*').eq('solicitud_id', solicitudId).maybeSingle()
+  const { data, error } = await supabase.from('evaluaciones').select('*').eq('solicitud_id', solicitudId).maybeSingle()
   if (error) throw new Error(error.message)
   if (!data) return null
   const e = data as Record<string, unknown>
@@ -99,12 +99,12 @@ export async function obtenerEvaluacion(solicitudId: string): Promise<Evaluacion
 export async function guardarEvaluacion(ev: Evaluacion): Promise<void> {
   const { id, ...fila } = ev
   void id
-  const { error } = await neon.from('evaluaciones').upsert(fila, { onConflict: 'solicitud_id' }).select('id')
+  const { error } = await supabase.from('evaluaciones').upsert(fila, { onConflict: 'solicitud_id' }).select('id')
   if (error) throw new Error(/row-level security/i.test(error.message) ? 'Tu rol no puede registrar la evaluación de esta solicitud.' : error.message)
 }
 
 export async function obtenerScoring(solicitudId: string): Promise<ScoringFEM | null> {
-  const { data, error } = await neon.rpc('fn_scoring_fem', { p_solicitud_id: solicitudId })
+  const { data, error } = await supabase.rpc('fn_scoring_fem', { p_solicitud_id: solicitudId })
   if (error) throw new Error(error.message)
   return (data as ScoringFEM) ?? null
 }

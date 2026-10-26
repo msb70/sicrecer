@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { neon } from '../../lib/neon'
+import { supabase } from '../../lib/supabase'
 import { useNavigate } from 'react-router-dom'
 import { Eye, EyeOff, CheckCircle2, X } from 'lucide-react'
 import { Button, Alert } from '../../components/ui'
@@ -64,12 +64,16 @@ export default function CambiarContrasena() {
     setError('')
     setLoading(true)
     try {
-      const auth = neon.auth as unknown as {
-        changePassword?: (a: { currentPassword: string; newPassword: string; revokeOtherSessions?: boolean }) => Promise<{ error: { message?: string } | null }>
-      }
-      if (!auth.changePassword) throw new Error('El cambio de contraseña no está disponible')
-      const { error } = await auth.changePassword({ currentPassword: actual, newPassword: nueva, revokeOtherSessions: true })
+      // Supabase no exige la contraseña actual en updateUser: se verifica
+      // re-autenticando con ella antes de cambiarla.
+      const { data: sesion } = await supabase.auth.getSession()
+      const email = sesion.session?.user?.email
+      if (!email) throw new Error('No hay sesión activa. Inicia sesión de nuevo')
+      const { error: errActual } = await supabase.auth.signInWithPassword({ email, password: actual })
+      if (errActual) throw new Error('La contraseña actual no es correcta')
+      const { error } = await supabase.auth.updateUser({ password: nueva })
       if (error) throw new Error(error.message ?? 'No se pudo cambiar la contraseña')
+      await supabase.auth.signOut({ scope: 'others' })
       setExito(true)
       setTimeout(() => navigate('/'), 2000)
     } catch (err) {

@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, DollarSign, CheckCircle2, Clock, AlertTriangle, RefreshCw } from 'lucide-react'
 import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Button, Badge, Card, CardHeader, CardBody, StatCard, Alert, Spinner } from '../../components/ui'
-import { CREDITOS, CLIENTES, PRODUCTOS, BANCOS, formatCOP, cargarDatosDesdeNeon } from '../../mocks'
+import { CREDITOS, CLIENTES, PRODUCTOS, BANCOS, formatCOP, cargarDatosDesdeSupabase } from '../../mocks'
 import { useApp, usePermiso } from '../../context/AppContext'
 import { generarPlan } from '../../lib/finanzas'
 import { obtenerEstadoCuenta, aplicarPago } from '../../lib/creditos'
@@ -147,7 +147,7 @@ export default function DetalleCredito() {
             credito={credito}
             demo={modo !== 'google'}
             onClose={() => setMostrarRegistro(false)}
-            onDone={async () => { setMostrarRegistro(false); await Promise.all([cargar(), cargarDatosDesdeNeon()]) }}
+            onDone={async () => { setMostrarRegistro(false); await Promise.all([cargar(), cargarDatosDesdeSupabase()]) }}
           />
         )}
 

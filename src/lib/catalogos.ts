@@ -3,7 +3,7 @@
 // permite escribir al rol administrador; los errores de la base se
 // devuelven como Error con un mensaje legible.
 
-import { neon } from './neon'
+import { supabase } from './supabase'
 import { recargarTablas, type TablaRecargable } from '../mocks'
 
 export type TablaCatalogo = Extract<TablaRecargable,
@@ -30,7 +30,7 @@ const esRls = (err: { message?: string; code?: string } | null) =>
 
 /**
  * Ejecuta una escritura reintentando cuando la RLS la rechaza: el Data API a
- * veces resuelve la petición sin identidad (ver cargarDatosDesdeNeon).
+ * veces resuelve la petición sin identidad (ver cargarDatosDesdeSupabase).
  */
 export async function conReintento<R extends { error: { message?: string; code?: string } | null }>(op: () => PromiseLike<R>): Promise<R> {
   let r = await op()
@@ -47,13 +47,13 @@ export async function guardarCatalogo<T extends Record<string, unknown>>(
 ): Promise<string> {
   if (id) {
     const actual = id
-    const { data, error } = await conReintento(() => neon.from(tabla).update(fila).eq('id', actual).select('id'))
+    const { data, error } = await conReintento(() => supabase.from(tabla).update(fila as never).eq('id', actual).select('id'))
     if (error) throw new Error(mensaje(error))
     if (!data || data.length === 0) throw new Error('No se guardó el cambio (sin permiso o registro inexistente).')
   } else {
     id = `${prefijo}-${Date.now().toString(36)}`
     const nuevo = { id, ...fila }
-    const { error } = await conReintento(() => neon.from(tabla).insert(nuevo))
+    const { error } = await conReintento(() => supabase.from(tabla).insert(nuevo))
     if (error) throw new Error(mensaje(error))
   }
   await recargarTablas(tabla)
@@ -61,7 +61,7 @@ export async function guardarCatalogo<T extends Record<string, unknown>>(
 }
 
 export async function eliminarCatalogo(tabla: TablaCatalogo, id: string): Promise<void> {
-  const { data, error } = await conReintento(() => neon.from(tabla).delete().eq('id', id).select('id'))
+  const { data, error } = await conReintento(() => supabase.from(tabla).delete().eq('id', id).select('id'))
   if (error) throw new Error(mensaje(error))
   if (!data || data.length === 0) throw new Error('No se eliminó (sin permiso o registro inexistente).')
   await recargarTablas(tabla)

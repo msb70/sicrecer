@@ -5,7 +5,7 @@ import {
 import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Card, CardHeader, CardBody, Badge, Button, Alert, Spinner } from '../../components/ui'
 import { CONVENIOS, formatCOP } from '../../mocks'
-import { neon } from '../../lib/neon'
+import { supabase } from '../../lib/supabase'
 import { useApp, usePermiso } from '../../context/AppContext'
 
 // ─────────────────────────────────────────────────────────────
@@ -129,7 +129,7 @@ export default function CierreMensual() {
     if (!convenioId || modo !== 'google') return
     setCargando(true); setError('')
     try {
-      const { data: lista, error: e1 } = await neon.from('cierres_mensuales').select('*')
+      const { data: lista, error: e1 } = await supabase.from('cierres_mensuales').select('*')
         .eq('convenio_id', convenioId).order('mes', { ascending: false }).order('version', { ascending: false })
       if (e1) throw new Error(e1.message)
       const cs = (lista ?? []).map(c => numerar(c as Cierre, NUM_TOTALES as string[]))
@@ -138,8 +138,8 @@ export default function CierreMensual() {
       const v = cs.find(c => c.mes.slice(0, 10) === mesISO && c.estado === 'cerrado')
       if (v) {
         const [{ data: cc, error: e2 }, { data: mm, error: e3 }] = await Promise.all([
-          neon.from('cierre_creditos').select('*').eq('cierre_id', v.id).order('dias_mora', { ascending: false }),
-          neon.from('cierre_movimientos').select('*').eq('cierre_id', v.id).order('fecha').order('id'),
+          supabase.from('cierre_creditos').select('*').eq('cierre_id', v.id).order('dias_mora', { ascending: false }),
+          supabase.from('cierre_movimientos').select('*').eq('cierre_id', v.id).order('fecha').order('id'),
         ])
         if (e2) throw new Error(e2.message)
         if (e3) throw new Error(e3.message)
@@ -147,7 +147,7 @@ export default function CierreMensual() {
         setCreditos((cc ?? []).map(x => numerar(x as CreditoFoto, NUM_CREDITO)))
         setMovs((mm ?? []).map(x => numerar(x as Movimiento, ['monto'])))
       } else {
-        const { data, error: e4 } = await neon.rpc('vista_previa_cierre', { p_convenio_id: convenioId, p_mes: mesISO })
+        const { data, error: e4 } = await supabase.rpc('vista_previa_cierre', { p_convenio_id: convenioId, p_mes: mesISO })
         if (e4) throw new Error(e4.message)
         const r = data as { totales: Totales; creditos: CreditoFoto[]; movimientos: Movimiento[] }
         setTotales(numerar(r.totales, NUM_TOTALES as string[]))
@@ -166,7 +166,7 @@ export default function CierreMensual() {
 
   const ejecutarCierre = async () => {
     setEnviando(true); setError(''); setAviso('')
-    const { error: e } = await neon.rpc('cerrar_mes', { p_convenio_id: convenioId, p_mes: mesISO, p_notas: notas || null })
+    const { error: e } = await supabase.rpc('cerrar_mes', { p_convenio_id: convenioId, p_mes: mesISO, p_notas: notas || null })
     setEnviando(false)
     if (e) { setError(e.message); return }
     setConfirmarCierre(false); setNotas('')
@@ -175,7 +175,7 @@ export default function CierreMensual() {
   }
   const ejecutarReapertura = async () => {
     setEnviando(true); setError(''); setAviso('')
-    const { error: e } = await neon.rpc('reabrir_mes', { p_convenio_id: convenioId, p_mes: mesISO, p_motivo: motivo })
+    const { error: e } = await supabase.rpc('reabrir_mes', { p_convenio_id: convenioId, p_mes: mesISO, p_motivo: motivo })
     setEnviando(false)
     if (e) { setError(e.message); return }
     setReabrir(false); setMotivo('')

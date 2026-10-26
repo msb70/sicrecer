@@ -3,7 +3,7 @@
 // archivo (imagen/PDF), monto o texto según requisitos.tipo. Los tipos
 // documento_identidad/selfie se cubren con un archivo (el cliente interno
 // no tiene perfil de portal). enviar_a_comite exige los obligatorios.
-import { neon } from './neon'
+import { supabase } from './supabase'
 import {
   comprimirImagen, archivoADataUrl, dataUrlAHex, byteaADataUrl,
   ADJUNTO_MAX_BYTES, TEXTO_REQUISITO_MAX,
@@ -52,7 +52,7 @@ export function borradorCubre(r: Requisito, b: BorradorRequisito | undefined): b
 }
 
 export async function listarRespuestas(solicitudId: string): Promise<RespuestaSolicitud[]> {
-  const { data, error } = await neon.from('solicitud_requisitos')
+  const { data, error } = await supabase.from('solicitud_requisitos')
     .select('requisito_id, nombre_archivo, mime, valor_numero, valor_texto').eq('solicitud_id', solicitudId)
   lanzar('Error leyendo requisitos', error)
   return ((data ?? []) as RespuestaSolicitud[]).map(a => ({ ...a, valor_numero: a.valor_numero == null ? null : Number(a.valor_numero) }))
@@ -92,7 +92,7 @@ export async function guardarRespuesta(solicitudId: string, r: Requisito, b: Bor
     fila = { nombre_archivo: b.archivo.name.slice(0, 120), mime, bytes: hex, valor_numero: null, valor_texto: null }
   }
   const completa = { solicitud_id: solicitudId, requisito_id: r.id, ...fila }
-  const { error } = await neon.from('solicitud_requisitos').upsert(completa, { onConflict: 'solicitud_id,requisito_id' })
+  const { error } = await supabase.from('solicitud_requisitos').upsert(completa, { onConflict: 'solicitud_id,requisito_id' })
   lanzar(`Error guardando "${r.nombre}"`, error)
   return {
     requisito_id: r.id,
@@ -102,12 +102,12 @@ export async function guardarRespuesta(solicitudId: string, r: Requisito, b: Bor
 }
 
 export async function eliminarRespuesta(solicitudId: string, requisitoId: string): Promise<void> {
-  const { error } = await neon.from('solicitud_requisitos').delete().eq('solicitud_id', solicitudId).eq('requisito_id', requisitoId)
+  const { error } = await supabase.from('solicitud_requisitos').delete().eq('solicitud_id', solicitudId).eq('requisito_id', requisitoId)
   lanzar('Error eliminando requisito', error)
 }
 
 export async function obtenerArchivo(solicitudId: string, requisitoId: string): Promise<string | null> {
-  const { data, error } = await neon.from('solicitud_requisitos').select('mime, bytes').eq('solicitud_id', solicitudId).eq('requisito_id', requisitoId).limit(1)
+  const { data, error } = await supabase.from('solicitud_requisitos').select('mime, bytes').eq('solicitud_id', solicitudId).eq('requisito_id', requisitoId).limit(1)
   lanzar('Error leyendo archivo', error)
   const f = data?.[0] as { mime: string | null; bytes: string | null } | undefined
   return f?.bytes && f.mime ? byteaADataUrl(f.bytes, f.mime) : null

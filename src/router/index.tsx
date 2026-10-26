@@ -13,6 +13,8 @@ import { RUTA_TERMINOS, RUTA_POLITICA_DATOS } from '../lib/legal'
 import Login             from '../pages/auth/Login'
 import SeleccionOrg      from '../pages/auth/SeleccionOrg'
 import CambiarContrasena from '../pages/auth/CambiarContrasena'
+import RecuperarContrasena from '../pages/auth/RecuperarContrasena'
+import NuevaContrasena from '../pages/auth/NuevaContrasena'
 
 // App
 import Dashboard         from '../pages/dashboard/Dashboard'
@@ -165,6 +167,8 @@ const router = createBrowserRouter([
   { path: '/login',              element: <Login /> },
   { path: '/registro',           element: <Registro /> },
   { path: '/verificar',          element: <Verificar /> },
+  { path: '/recuperar',          element: <RecuperarContrasena /> },
+  { path: '/nueva-contrasena',   element: <NuevaContrasena /> },
   { path: RUTA_TERMINOS,         element: <Terminos /> },
   { path: RUTA_POLITICA_DATOS,   element: <PoliticaDatos /> },
 

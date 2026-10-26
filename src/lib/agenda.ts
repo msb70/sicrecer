@@ -3,7 +3,7 @@
 // un facilitador solo recibe la cartera de sus zonas; coordinador,
 // administrador, auditor y comité reciben todo.
 
-import { neon } from './neon'
+import { supabase } from './supabase'
 
 export type Preaprobacion = 'preaprobado' | 'revision' | 'no_preaprobado' | 'sin_historial' | 'pendiente_visita'
 
@@ -132,7 +132,7 @@ const esperar = (ms: number) => new Promise(r => setTimeout(r, ms))
 async function vista<T>(nombre: string): Promise<T[]> {
   let ultimoError = ''
   for (let intento = 0; intento < 3; intento++) {
-    const { data, error } = await neon.from(nombre).select('*')
+    const { data, error } = await supabase.from(nombre).select('*')
     if (!error) {
       // Vacío puede ser real (sin cartera) o la consulta sin identidad del Data API: un reintento.
       if ((data && data.length > 0) || intento >= 1) return normalizar<T>((data ?? []) as Record<string, unknown>[])

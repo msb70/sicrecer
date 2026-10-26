@@ -136,6 +136,9 @@ export default function Login() {
             <Button type="submit" loading={loading} className="w-full" size="lg">
               Ingresar
             </Button>
+            <div className="text-right">
+              <Link to="/recuperar" className="text-xs text-brand-700 hover:text-brand-800">¿Olvidaste tu contraseña?</Link>
+            </div>
           </form>
 
           <div className="mt-5 pt-4 border-t border-gray-100 text-center">
@@ -151,7 +154,7 @@ export default function Login() {
           <EnlacesLegales />
         </div>
         <p className="mt-2 text-center text-xs text-gray-400">
-          SiCrecer v0.3 · Datos en Neon
+          SiCrecer v0.4 · Datos en Supabase
         </p>
       </div>
     </div>

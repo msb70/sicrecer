@@ -4,7 +4,7 @@ import { coberturaIncluye } from './ubicaciones'
 // Todo pasa por el Data API con la sesión del solicitante; la
 // autorización real está en RLS (db/migrations/0004_portal_solicitantes.sql).
 
-import { neon } from './neon'
+import { supabase } from './supabase'
 import type {
   Solicitante, Solicitud, ProductoCredito, Requisito, ActividadEconomica,
   Organizacion, TipoDocumentoFoto, Pais,
@@ -16,7 +16,7 @@ function lanzar(prefijo: string, error: { message: string } | null) {
 
 // ─── Perfil ───────────────────────────────────────────────────
 export async function obtenerSolicitante(email: string): Promise<Solicitante | null> {
-  const { data, error } = await neon.from('solicitantes').select('*').eq('email', email.toLowerCase()).limit(1)
+  const { data, error } = await supabase.from('solicitantes').select('*').eq('email', email.toLowerCase()).limit(1)
   lanzar('Error leyendo perfil', error)
   return (data?.[0] as Solicitante) ?? null
 }
@@ -26,11 +26,11 @@ export type SolicitanteInput = Omit<Solicitante, 'id' | 'estado' | 'cliente_id' 
 export async function guardarSolicitante(input: SolicitanteInput, idExistente?: string): Promise<Solicitante> {
   const fila = { ...input, email: input.email.toLowerCase() }
   if (idExistente) {
-    const { data, error } = await neon.from('solicitantes').update(fila).eq('id', idExistente).select('*')
+    const { data, error } = await supabase.from('solicitantes').update(fila).eq('id', idExistente).select('*')
     lanzar('Error actualizando perfil', error)
     return data![0] as Solicitante
   }
-  const { data, error } = await neon.from('solicitantes').insert(fila).select('*')
+  const { data, error } = await supabase.from('solicitantes').insert(fila).select('*')
   lanzar('Error creando perfil', error)
   return data![0] as Solicitante
 }
@@ -39,14 +39,14 @@ export async function guardarSolicitante(input: SolicitanteInput, idExistente?: 
 export interface FotoInfo { tipo: TipoDocumentoFoto; creado_en: string }
 
 export async function listarFotos(solicitanteId: string): Promise<FotoInfo[]> {
-  const { data, error } = await neon.from('solicitante_documentos').select('tipo, creado_en').eq('solicitante_id', solicitanteId)
+  const { data, error } = await supabase.from('solicitante_documentos').select('tipo, creado_en').eq('solicitante_id', solicitanteId)
   lanzar('Error leyendo fotos', error)
   return (data ?? []) as FotoInfo[]
 }
 
 /** Devuelve la foto como data URL (para previsualizar). */
 export async function obtenerFoto(solicitanteId: string, tipo: TipoDocumentoFoto): Promise<string | null> {
-  const { data, error } = await neon.from('solicitante_documentos').select('mime, bytes').eq('solicitante_id', solicitanteId).eq('tipo', tipo).limit(1)
+  const { data, error } = await supabase.from('solicitante_documentos').select('mime, bytes').eq('solicitante_id', solicitanteId).eq('tipo', tipo).limit(1)
   lanzar('Error leyendo foto', error)
   const fila = data?.[0] as { mime: string; bytes: string } | undefined
   if (!fila) return null
@@ -57,7 +57,7 @@ export async function obtenerFoto(solicitanteId: string, tipo: TipoDocumentoFoto
 export async function subirFoto(solicitanteId: string, tipo: TipoDocumentoFoto, dataUrl: string): Promise<void> {
   const { mime, hex } = dataUrlAHex(dataUrl)
   const fila = { solicitante_id: solicitanteId, tipo, mime, bytes: hex }
-  const { error } = await neon.from('solicitante_documentos').upsert(fila, { onConflict: 'solicitante_id,tipo' })
+  const { error } = await supabase.from('solicitante_documentos').upsert(fila, { onConflict: 'solicitante_id,tipo' })
   lanzar('Error subiendo foto', error)
 }
 
@@ -129,7 +129,7 @@ export const ADJUNTO_MAX_BYTES = 1_000_000
 export const ADJUNTO_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
 
 export async function listarAdjuntos(solicitanteId: string): Promise<AdjuntoInfo[]> {
-  const { data, error } = await neon.from('solicitante_requisitos').select('requisito_id, nombre_archivo, mime, valor_numero, valor_texto, creado_en').eq('solicitante_id', solicitanteId)
+  const { data, error } = await supabase.from('solicitante_requisitos').select('requisito_id, nombre_archivo, mime, valor_numero, valor_texto, creado_en').eq('solicitante_id', solicitanteId)
   lanzar('Error leyendo adjuntos', error)
   // numeric llega como texto por el Data API
   return ((data ?? []) as AdjuntoInfo[]).map(a => ({ ...a, valor_numero: a.valor_numero == null ? null : Number(a.valor_numero) }))
@@ -155,7 +155,7 @@ export async function guardarRespuestaRequisito(
   }
   // bytes/mime/nombre_archivo en null: si antes era un archivo, se reemplaza
   const fila = { solicitante_id: solicitanteId, requisito_id: requisito.id, valor_numero, valor_texto, nombre_archivo: null, mime: null, bytes: null }
-  const { error } = await neon.from('solicitante_requisitos').upsert(fila, { onConflict: 'solicitante_id,requisito_id' })
+  const { error } = await supabase.from('solicitante_requisitos').upsert(fila, { onConflict: 'solicitante_id,requisito_id' })
   lanzar('Error guardando el dato', error)
   return { requisito_id: requisito.id, nombre_archivo: null, mime: null, valor_numero, valor_texto, creado_en: new Date().toISOString() }
 }
@@ -186,19 +186,19 @@ export async function subirAdjunto(solicitanteId: string, requisitoId: string, a
   }
   const { mime, hex } = dataUrlAHex(dataUrl)
   const fila = { solicitante_id: solicitanteId, requisito_id: requisitoId, nombre_archivo: archivo.name.slice(0, 120), mime, bytes: hex, valor_numero: null, valor_texto: null }
-  const { error } = await neon.from('solicitante_requisitos').upsert(fila, { onConflict: 'solicitante_id,requisito_id' })
+  const { error } = await supabase.from('solicitante_requisitos').upsert(fila, { onConflict: 'solicitante_id,requisito_id' })
   lanzar('Error subiendo adjunto', error)
   return { requisito_id: requisitoId, nombre_archivo: fila.nombre_archivo, mime, valor_numero: null, valor_texto: null, creado_en: new Date().toISOString() }
 }
 
 export async function eliminarAdjunto(solicitanteId: string, requisitoId: string): Promise<void> {
-  const { error } = await neon.from('solicitante_requisitos').delete().eq('solicitante_id', solicitanteId).eq('requisito_id', requisitoId)
+  const { error } = await supabase.from('solicitante_requisitos').delete().eq('solicitante_id', solicitanteId).eq('requisito_id', requisitoId)
   lanzar('Error eliminando adjunto', error)
 }
 
 /** Devuelve el adjunto como data URL (imagen o PDF). */
 export async function obtenerAdjunto(solicitanteId: string, requisitoId: string): Promise<{ dataUrl: string; mime: string; nombre: string } | null> {
-  const { data, error } = await neon.from('solicitante_requisitos').select('mime, bytes, nombre_archivo').eq('solicitante_id', solicitanteId).eq('requisito_id', requisitoId).limit(1)
+  const { data, error } = await supabase.from('solicitante_requisitos').select('mime, bytes, nombre_archivo').eq('solicitante_id', solicitanteId).eq('requisito_id', requisitoId).limit(1)
   lanzar('Error leyendo adjunto', error)
   const fila = data?.[0] as { mime: string | null; bytes: string | null; nombre_archivo: string | null } | undefined
   if (!fila || !fila.bytes || !fila.mime) return null
@@ -236,10 +236,10 @@ export interface CatalogoPortal {
 
 export async function cargarCatalogoPortal(): Promise<CatalogoPortal> {
   const [p, r, a, o] = await Promise.all([
-    neon.from('productos_credito').select('*').order('nombre'),
-    neon.from('requisitos').select('*').order('id'),
-    neon.from('actividades_economicas').select('*').order('nombre'),
-    neon.from('organizaciones').select('*').order('id'),
+    supabase.from('productos_credito').select('*').order('nombre'),
+    supabase.from('requisitos').select('*').order('id'),
+    supabase.from('actividades_economicas').select('*').order('nombre'),
+    supabase.from('organizaciones').select('*').order('id'),
   ])
   lanzar('Error cargando productos', p.error)
   lanzar('Error cargando requisitos', r.error)
@@ -255,7 +255,7 @@ export async function cargarCatalogoPortal(): Promise<CatalogoPortal> {
 
 /** Actividades económicas (accesible antes de tener perfil). */
 export async function cargarActividades(): Promise<ActividadEconomica[]> {
-  const { data, error } = await neon.from('actividades_economicas').select('*').order('nombre')
+  const { data, error } = await supabase.from('actividades_economicas').select('*').order('nombre')
   lanzar('Error cargando actividades', error)
   return (data ?? []) as ActividadEconomica[]
 }
@@ -266,7 +266,7 @@ export function productosParaPais(productos: ProductoCredito[], pais: Pais): Pro
 
 // ─── Solicitudes del solicitante ──────────────────────────────
 export async function misSolicitudes(solicitanteId: string): Promise<Solicitud[]> {
-  const { data, error } = await neon.from('solicitudes').select('*').eq('solicitante_id', solicitanteId).order('creado_en', { ascending: false })
+  const { data, error } = await supabase.from('solicitudes').select('*').eq('solicitante_id', solicitanteId).order('creado_en', { ascending: false })
   lanzar('Error cargando solicitudes', error)
   return (data ?? []) as Solicitud[]
 }
@@ -281,7 +281,7 @@ export interface NuevaSolicitudPortal {
 }
 
 export async function crearSolicitudPortal(s: NuevaSolicitudPortal): Promise<Solicitud> {
-  const { data, error } = await neon.from('solicitudes').insert({
+  const { data, error } = await supabase.from('solicitudes').insert({
     ...s, origen: 'externo', estado: 'enviada',
   }).select('*')
   if (error) {
