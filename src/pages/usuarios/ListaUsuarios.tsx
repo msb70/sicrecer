@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Edit, Shield } from 'lucide-react'
+import { Plus, Edit, Shield, Mail, Check } from 'lucide-react'
 import { Shell, PageContainer, PageHeader } from '../../components/layout/Shell'
 import { Button, Badge, Card, StatCard } from '../../components/ui'
 import { USUARIOS, ORGANIZACIONES, ROLES } from '../../mocks'
-import { usePermiso } from '../../context/AppContext'
+import { useApp, usePermiso } from '../../context/AppContext'
+import { supabase } from '../../lib/supabase'
 import { ROL_LABELS } from '../../types'
 import type { Rol } from '../../types'
 import { clsx } from 'clsx'
@@ -25,6 +26,34 @@ export default function ListaUsuarios() {
   const permiso = usePermiso('usuarios')
   const [filtroRol, setFiltroRol] = useState<Rol | 'todos'>('todos')
   const [busqueda, setBusqueda] = useState('')
+  const { modo } = useApp()
+  const [invitando, setInvitando] = useState<Record<string, 'enviando' | 'ok' | string>>({})
+
+  /** Reenvía el correo de invitación (solo usuarios sin activar). */
+  const reenviar = async (id: string) => {
+    if (modo !== 'google') { setInvitando(s => ({ ...s, [id]: 'En modo demo no se envían correos' })); return }
+    setInvitando(s => ({ ...s, [id]: 'enviando' }))
+    const { error } = await supabase.rpc('reenviar_invitacion', { p_usuario_id: id })
+    setInvitando(s => ({ ...s, [id]: error ? error.message : 'ok' }))
+  }
+
+  const BotonInvitar = ({ id, grande }: { id: string; grande?: boolean }) => {
+    const st = invitando[id]
+    if (st === 'ok') return <span className="inline-flex items-center gap-1 text-xs text-green-700"><Check size={14}/>Invitación enviada</span>
+    return (
+      <span className="inline-flex flex-col items-start">
+        <button
+          onClick={() => reenviar(id)}
+          disabled={st === 'enviando'}
+          title="Reenviar invitación por correo"
+          className={clsx('text-gray-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors disabled:opacity-50', grande ? 'p-2' : 'p-1.5')}
+        >
+          <Mail size={grande ? 16 : 15}/>
+        </button>
+        {st && st !== 'enviando' && <span className="text-[11px] text-red-600 max-w-[180px]">{st}</span>}
+      </span>
+    )
+  }
 
   const filtrados = USUARIOS
     .filter(u => filtroRol === 'todos' || u.rol === filtroRol)
@@ -107,12 +136,15 @@ export default function ListaUsuarios() {
                     <td className="px-4 py-3"><Badge color={ROL_COLOR[user.rol]}>{nombreRol(user)}</Badge></td>
                     <td className="px-4 py-3 text-gray-500">{user.zona ?? '—'}</td>
                     <td className="px-4 py-3">
+                      <div className="flex items-start gap-1">
                       {permiso.editar && <button
                         onClick={() => navigate(`/usuarios/${user.id}/editar`)}
                         className="p-1.5 text-gray-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
                       >
                         <Edit size={15}/>
                       </button>}
+                      {permiso.editar && user.primer_acceso && <BotonInvitar id={user.id}/>}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -134,9 +166,12 @@ export default function ListaUsuarios() {
                       <p className="text-xs text-gray-400">{user.email}</p>
                     </div>
                   </div>
-                  {permiso.editar && <button onClick={() => navigate(`/usuarios/${user.id}/editar`)} className="p-2 text-gray-400 hover:text-brand-600">
-                    <Edit size={16}/>
-                  </button>}
+                  <div className="flex items-start gap-1">
+                    {permiso.editar && user.primer_acceso && <BotonInvitar id={user.id} grande/>}
+                    {permiso.editar && <button onClick={() => navigate(`/usuarios/${user.id}/editar`)} className="p-2 text-gray-400 hover:text-brand-600">
+                      <Edit size={16}/>
+                    </button>}
+                  </div>
                 </div>
                 <div className="flex gap-2 mt-3">
                   <Badge color={ROL_COLOR[user.rol]}>{nombreRol(user)}</Badge>

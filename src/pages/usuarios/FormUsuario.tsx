@@ -165,9 +165,10 @@ export default function FormUsuario() {
               <div className="flex gap-2 p-3 rounded-lg bg-blue-50 text-xs text-blue-800">
                 <Info size={14} className="shrink-0 mt-0.5" />
                 <span>
-                  No hay contraseñas que asignar: el acceso se da por correo. Avísale a la persona que entre en
-                  sicrecer.com con “Continuar con Google” usando <strong>{email || 'este correo'}</strong>.
-                  Si no usa Google, puede crear su contraseña registrándose con el mismo correo.
+                  No hay contraseñas que asignar: el acceso se da por correo.{' '}
+                  {esEdicion
+                    ? <>La persona entra en sicrecer.com con “Continuar con Google” usando <strong>{email || 'este correo'}</strong>. Si aún no se ha activado, puedes reenviarle la invitación desde la lista de usuarios.</>
+                    : <>Al guardar, le enviaremos a <strong>{email || 'este correo'}</strong> una invitación con el enlace y las instrucciones para entrar con “Continuar con Google” (o crear su contraseña si no usa Google).</>}
                 </span>
               </div>
 

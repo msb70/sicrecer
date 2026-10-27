@@ -9,7 +9,7 @@ import { createClient } from 'jsr:@supabase/supabase-js@2'
 const LOTE = 25
 const MAX_INTENTOS = 5
 
-interface Notificacion { id: number; destinatario: string; asunto: string; cuerpo: string; intentos: number }
+interface Notificacion { id: number; destinatario: string; asunto: string; cuerpo: string; html: string | null; intentos: number }
 
 const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
   auth: { persistSession: false, autoRefreshToken: false },
@@ -19,7 +19,8 @@ async function enviarResend(n: Notificacion): Promise<void> {
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${Deno.env.get('RESEND_API_KEY')}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: Deno.env.get('EMAIL_FROM'), to: [n.destinatario], subject: n.asunto, text: n.cuerpo }),
+    // html opcional (p. ej. invitaciones); el texto siempre va como alternativa para clientes sin HTML
+    body: JSON.stringify({ from: Deno.env.get('EMAIL_FROM'), to: [n.destinatario], subject: n.asunto, text: n.cuerpo, ...(n.html ? { html: n.html } : {}) }),
     signal: AbortSignal.timeout(15_000),
   })
   if (!res.ok) throw new Error(`Resend ${res.status}: ${(await res.text()).slice(0, 300)}`)
@@ -35,7 +36,7 @@ async function procesar() {
   const configurado = Boolean(Deno.env.get('RESEND_API_KEY') && Deno.env.get('EMAIL_FROM'))
   if (!configurado) return { enviadas: 0, errores: 0, pendientes: await pendientesCount(), configurado }
   const { data: lote, error } = await db.from('notificaciones')
-    .select('id, destinatario, asunto, cuerpo, intentos')
+    .select('id, destinatario, asunto, cuerpo, html, intentos')
     .eq('estado', 'pendiente').lt('intentos', MAX_INTENTOS).order('id').limit(LOTE)
   if (error) throw new Error(error.message)
   let enviadas = 0, errores = 0
