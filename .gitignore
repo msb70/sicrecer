@@ -44,3 +44,4 @@ deploys/
 db/backup/
 .supabase_db_password.txt
 .notificador_secret.txt*
+.sicrecer/

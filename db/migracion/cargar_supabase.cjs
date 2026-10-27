@@ -7,12 +7,9 @@
 const fs = require('fs'), path = require('path');
 const proyecto = process.argv[2], exportDir = process.argv[3];
 const modo = process.argv[4] || '';
-const { Client } = require(proyecto + '/node_modules/pg');
-const pass = fs.readFileSync(process.env.HOME + '/.sicrecer/supabase.pass', 'utf8').trim();
-const conn = {
-  host: 'aws-0-us-east-1.pooler.supabase.com', port: 5432, database: 'postgres',
-  user: 'postgres.lvarzwnrreiqwflhooul', password: pass, ssl: { rejectUnauthorized: false },
-};
+const S = require('./_secretos.cjs')(proyecto);
+const { Client } = S;
+const conn = S.supabase();
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
 
 async function migraciones(c) {
