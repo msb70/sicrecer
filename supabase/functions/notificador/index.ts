@@ -9,7 +9,33 @@ import { createClient } from 'jsr:@supabase/supabase-js@2'
 const LOTE = 25
 const MAX_INTENTOS = 5
 
-interface Notificacion { id: number; destinatario: string; asunto: string; cuerpo: string; html: string | null; intentos: number }
+interface Notificacion { id: number; destinatario: string; asunto: string; cuerpo: string; html: string | null; tipo: string | null; intentos: number }
+
+const MARCADOR_ENLACE = '{{ENLACE_CONTRASENA}}'
+const APP_URL = 'https://sicrecer.com'
+
+/**
+ * Enlace personal para crear contraseña (invitaciones a usuarios internos).
+ * Usa un enlace de invitación de Supabase Auth; si la persona ya existe en Auth
+ * (p. ej. entró antes con Google) usa uno de recuperación. La app lo canjea con
+ * verifyOtp({ token_hash, type }) en /nueva-contrasena. No se guarda en la BD.
+ */
+async function enlaceContrasena(email: string): Promise<string> {
+  let tipo: 'invite' | 'recovery' = 'invite'
+  let { data, error } = await db.auth.admin.generateLink({ type: 'invite', email })
+  if (error && /already|registered|exists/i.test(error.message)) {
+    tipo = 'recovery'
+    ;({ data, error } = await db.auth.admin.generateLink({ type: 'recovery', email }))
+  }
+  if (error || !data?.properties?.hashed_token) throw new Error(`generateLink: ${error?.message ?? 'sin token'}`)
+  return `${APP_URL}/nueva-contrasena?token_hash=${encodeURIComponent(data.properties.hashed_token)}&type=${tipo}`
+}
+
+async function prepararContenido(n: Notificacion): Promise<Notificacion> {
+  if (!n.cuerpo.includes(MARCADOR_ENLACE) && !(n.html ?? '').includes(MARCADOR_ENLACE)) return n
+  const enlace = await enlaceContrasena(n.destinatario)
+  return { ...n, cuerpo: n.cuerpo.split(MARCADOR_ENLACE).join(enlace), html: n.html ? n.html.split(MARCADOR_ENLACE).join(enlace) : n.html }
+}
 
 const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
   auth: { persistSession: false, autoRefreshToken: false },
@@ -36,13 +62,13 @@ async function procesar() {
   const configurado = Boolean(Deno.env.get('RESEND_API_KEY') && Deno.env.get('EMAIL_FROM'))
   if (!configurado) return { enviadas: 0, errores: 0, pendientes: await pendientesCount(), configurado }
   const { data: lote, error } = await db.from('notificaciones')
-    .select('id, destinatario, asunto, cuerpo, html, intentos')
+    .select('id, destinatario, asunto, cuerpo, html, tipo, intentos')
     .eq('estado', 'pendiente').lt('intentos', MAX_INTENTOS).order('id').limit(LOTE)
   if (error) throw new Error(error.message)
   let enviadas = 0, errores = 0
   for (const n of (lote ?? []) as Notificacion[]) {
     try {
-      await enviarResend(n)
+      await enviarResend(await prepararContenido(n))
       await db.from('notificaciones').update({ estado: 'enviada', enviado_en: new Date().toISOString(), intentos: n.intentos + 1, error: null }).eq('id', n.id)
       enviadas++
     } catch (e) {

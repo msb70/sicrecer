@@ -33,9 +33,10 @@ function PasswordInput({ label, value, onChange }: { label: string; value: strin
 }
 
 /**
- * Página a la que llega el enlace de recuperación de Supabase Auth
- * (evento PASSWORD_RECOVERY): la sesión ya viene en la URL; solo hay que
- * fijar la contraseña nueva.
+ * Página para fijar contraseña. Llega por:
+ *  - enlace de recuperación de Supabase Auth (PKCE, evento PASSWORD_RECOVERY);
+ *  - enlace de invitación de usuarios internos (?token_hash=…&type=invite|recovery),
+ *    que genera el notificador y se canjea aquí con verifyOtp.
  */
 export default function NuevaContrasena() {
   const navigate = useNavigate()
@@ -45,8 +46,21 @@ export default function NuevaContrasena() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [exito, setExito] = useState(false)
+  const [enlaceInvalido, setEnlaceInvalido] = useState(false)
+  const params = new URLSearchParams(window.location.search)
+  const esInvitacion = params.get('type') === 'invite' || (params.has('token_hash') && params.get('type') === 'recovery')
 
   useEffect(() => {
+    const tokenHash = params.get('token_hash')
+    const tipo = params.get('type')
+    if (tokenHash && (tipo === 'invite' || tipo === 'recovery')) {
+      void supabase.auth.verifyOtp({ token_hash: tokenHash, type: tipo }).then(({ data, error }) => {
+        if (error || !data.session) { setEnlaceInvalido(true); return }
+        window.history.replaceState(null, '', window.location.pathname) // el token es de un solo uso: fuera de la URL
+        setListo(true)
+      })
+      return
+    }
     // El intercambio del código PKCE lo hace el cliente al detectar la URL;
     // se espera a tener sesión antes de permitir el cambio.
     const { data: sub } = supabase.auth.onAuthStateChange((evento, sesion) => {
@@ -80,7 +94,8 @@ export default function NuevaContrasena() {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <BrandLogo framed className="mb-4" imageClassName="w-[230px] max-w-full" />
-          <h1 className="text-2xl font-bold text-gray-900">Nueva contraseña</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{esInvitacion ? 'Crea tu contraseña' : 'Nueva contraseña'}</h1>
+          {esInvitacion && <p className="mt-1 text-sm text-gray-500">Bienvenido a SiCrecer. Con ella entrarás usando tu correo.</p>}
         </div>
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
           {exito ? (
@@ -88,6 +103,16 @@ export default function NuevaContrasena() {
               <CheckCircle2 size={48} className="text-green-500 mx-auto mb-3" />
               <p className="font-semibold text-gray-900">¡Contraseña guardada!</p>
               <p className="text-sm text-gray-500 mt-1">Entrando…</p>
+            </div>
+          ) : enlaceInvalido ? (
+            <div className="space-y-3">
+              <Alert type="error">El enlace venció o ya fue usado.</Alert>
+              <p className="text-sm text-gray-600">
+                {esInvitacion
+                  ? 'Pide a tu administrador que te reenvíe la invitación, o'
+                  : 'Puedes'}{' '}
+                <button type="button" className="text-brand-700 font-medium" onClick={() => navigate('/recuperar')}>solicitar un enlace nuevo</button>.
+              </p>
             </div>
           ) : !listo ? (
             <p className="text-sm text-gray-500">
@@ -114,7 +139,7 @@ export default function NuevaContrasena() {
               <PasswordInput label="Confirmar contraseña" value={confirmar} onChange={setConfirmar} />
               {confirmar.length > 0 && !coinciden && <Alert type="error">Las contraseñas no coinciden</Alert>}
               <Button type="submit" loading={loading} disabled={!requisitosOk || !coinciden} className="w-full" size="lg">
-                Guardar contraseña
+                {esInvitacion ? 'Crear contraseña y entrar' : 'Guardar contraseña'}
               </Button>
             </form>
           )}
