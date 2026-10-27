@@ -1,13 +1,14 @@
 // Exporta public de Neon a JSONL (mismo formato que neon_20261026): valores en texto de Postgres,
-// int2/int4/bool/json nativos, bytea como '\x..'. Genera _resumen.json, _esquema.json (políticas y conteos) y _auth_users.json.
+// int2/int4/bool nativos, json como texto crudo, bytea como '\x..'. Genera _resumen.json, _esquema.json (políticas y conteos) y _auth_users.json.
 // Uso: node exportar_neon.cjs <dirProyecto> <dirSalida>
 const fs = require('fs'), path = require('path');
 const [proyecto, salida] = process.argv.slice(2);
 const S = require('./_secretos.cjs')(proyecto);
 const { types } = require(path.join(proyecto, 'node_modules', 'pg'));
 const crudo = (v) => v;
-// date, timestamp, timestamptz, time, timetz, interval, bytea y sus arrays → texto crudo
-for (const oid of [1082, 1114, 1184, 1083, 1266, 1186, 17, 1182, 1115, 1185, 1183, 1270, 1187, 1001]) types.setTypeParser(oid, crudo);
+// date, timestamp, timestamptz, time, timetz, interval, bytea, json/jsonb y sus arrays → texto crudo
+// (json crudo: JSON.parse en JS normaliza 17.0→17 y 3000.00→3000 y rompe la copia exacta de audit_log)
+for (const oid of [1082, 1114, 1184, 1083, 1266, 1186, 17, 1182, 1115, 1185, 1183, 1270, 1187, 1001, 114, 3802, 199, 3807]) types.setTypeParser(oid, crudo);
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
 (async () => {
   fs.mkdirSync(salida, { recursive: true, mode: 0o700 });

@@ -78,7 +78,7 @@ async function datos(c) {
         for (const f of trozo) {
           const vals = cols.map(col => {
             let v = f[col.column_name]; if (v === undefined) v = null;
-            if (v !== null && (col.data_type === 'jsonb' || col.data_type === 'json')) v = JSON.stringify(v);
+            if (v !== null && typeof v !== 'string' && (col.data_type === 'jsonb' || col.data_type === 'json')) v = JSON.stringify(v); // export nuevo: ya es texto crudo
             if (v !== null && col.data_type === 'ARRAY' && Array.isArray(v)) v = v; // pg serializa arrays JS
             params.push(v); return `$${params.length}::${col.data_type === 'ARRAY' ? col.udt_name.replace(/^_/, '') + '[]' : col.data_type === 'USER-DEFINED' ? col.udt_name : col.data_type === 'character varying' ? 'text' : col.data_type === 'timestamp with time zone' ? 'timestamptz' : col.data_type === 'timestamp without time zone' ? 'timestamp' : col.data_type}`;
           });
